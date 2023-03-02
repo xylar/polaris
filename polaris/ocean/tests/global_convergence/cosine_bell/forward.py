@@ -1,9 +1,9 @@
 import time
 
-from polaris import ModelStep
+from polaris.mpas import MpasStep
 
 
-class Forward(ModelStep):
+class Forward(MpasStep):
     """
     A step for performing forward ocean component runs as part of the cosine
     bell test case
