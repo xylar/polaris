@@ -149,26 +149,26 @@ ocean/api
 ```
 
 
-#### ModelStep
+#### MpasStep
 
 ```{eval-rst}
-.. currentmodule:: polaris
+.. currentmodule:: polaris.mpas
 
 .. autosummary::
    :toctree: generated/
    
-   ModelStep
-   ModelStep.setup
-   ModelStep.set_model_resources
-   ModelStep.add_namelist_file
-   ModelStep.add_namelist_options
-   ModelStep.update_namelist_at_runtime
-   ModelStep.update_namelist_pio
-   ModelStep.add_streams_file
-   ModelStep.update_streams_at_runtime
-   ModelStep.runtime_setup
-   ModelStep.process_inputs_and_outputs
-   ModelStep.partition
+   MpasStep
+   MpasStep.setup
+   MpasStep.set_model_resources
+   MpasStep.add_namelist_file
+   MpasStep.add_namelist_options
+   MpasStep.update_namelist_at_runtime
+   MpasStep.update_namelist_pio
+   MpasStep.add_streams_file
+   MpasStep.update_streams_at_runtime
+   MpasStep.runtime_setup
+   MpasStep.process_inputs_and_outputs
+   MpasStep.partition
 ```
 
 ### config

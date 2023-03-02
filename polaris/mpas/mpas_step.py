@@ -6,13 +6,15 @@ import xarray as xr
 from lxml import etree
 from mpas_tools.logging import check_call
 
-import polaris.namelist
-import polaris.streams
+import polaris.mpas.namelist as mpas_namelist
+import polaris.mpas.streams as mpas_streams
 from polaris.step import Step
 
 
-class ModelStep(Step):
+class MpasStep(Step):
     """
+    A step for running an MPAS component
+
     Attributes
     ----------
     namelist : str
@@ -187,8 +189,7 @@ class ModelStep(Step):
                            min_tasks=min_tasks, openmp_threads=openmp_threads,
                            max_memory=max_memory)
 
-    def add_namelist_file(self, package, namelist, out_name=None,
-                          mode='forward'):
+    def add_namelist_file(self, package, namelist, out_name=None):
         """
         Add a file with updates to namelist options to the step to be parsed
         when generating a complete namelist file if and when the step gets set
@@ -205,9 +206,6 @@ class ModelStep(Step):
         out_name : str, optional
             The name of the namelist file to write out, ``namelist.<core>`` by
             default
-
-        mode : {'init', 'forward'}, optional
-            The mode that the model will run in
         """
         if out_name is None:
             out_name = f'namelist.{self.component.name}'
@@ -217,10 +215,9 @@ class ModelStep(Step):
 
         namelist_list = self.namelist_data[out_name]
 
-        namelist_list.append(dict(package=package, namelist=namelist,
-                                  mode=mode))
+        namelist_list.append(dict(package=package, namelist=namelist))
 
-    def add_namelist_options(self, options, out_name=None, mode='forward'):
+    def add_namelist_options(self, options, out_name=None):
         """
         Add the namelist replacements to be parsed when generating a namelist
         file if and when the step gets set up.
@@ -234,9 +231,6 @@ class ModelStep(Step):
         out_name : str, optional
             The name of the namelist file to write out, ``namelist.<core>`` by
             default
-
-        mode : {'init', 'forward'}, optional
-            The mode that the model will run in
         """
         if out_name is None:
             out_name = f'namelist.{self.component.name}'
@@ -246,7 +240,7 @@ class ModelStep(Step):
 
         namelist_list = self.namelist_data[out_name]
 
-        namelist_list.append(dict(options=options, mode=mode))
+        namelist_list.append(dict(options=options))
 
     def update_namelist_at_runtime(self, options, out_name=None):
         """
@@ -275,14 +269,14 @@ class ModelStep(Step):
 
         filename = os.path.join(self.work_dir, out_name)
 
-        namelist = polaris.namelist.ingest(filename)
+        namelist = mpas_namelist.ingest(filename)
 
-        namelist = polaris.namelist.replace(namelist, options)
+        namelist = mpas_namelist.replace(namelist, options)
 
-        polaris.namelist.write(namelist, filename)
+        mpas_namelist.write(namelist, filename)
 
     def add_streams_file(self, package, streams, template_replacements=None,
-                         out_name=None, mode='forward'):
+                         out_name=None):
         """
         Add a streams file to the step to be parsed when generating a complete
         streams file if and when the step gets set up.
@@ -302,9 +296,6 @@ class ModelStep(Step):
         out_name : str, optional
             The name of the streams file to write out, ``streams.<core>`` by
             default
-
-        mode : {'init', 'forward'}, optional
-            The mode that the model will run in
         """
         if out_name is None:
             out_name = f'streams.{self.component.name}'
@@ -314,7 +305,7 @@ class ModelStep(Step):
 
         self.streams_data[out_name].append(
             dict(package=package, streams=streams,
-                 replacements=template_replacements, mode=mode))
+                 replacements=template_replacements))
 
     def update_streams_at_runtime(self, package, streams,
                                   template_replacements, out_name=None):
@@ -353,9 +344,9 @@ class ModelStep(Step):
         filename = os.path.join(self.work_dir, out_name)
 
         tree = etree.parse(filename)
-        tree = polaris.streams.read(package, streams, tree=tree,
-                                    replacements=template_replacements)
-        polaris.streams.write(tree, filename)
+        tree = mpas_streams.read(package, streams, tree=tree,
+                                 replacements=template_replacements)
+        mpas_streams.write(tree, filename)
 
     def runtime_setup(self):
         """
@@ -385,7 +376,7 @@ class ModelStep(Step):
             filename = entry['filename']
 
             if filename == '<<<model>>>':
-                filename, target = ModelStep._process_model(
+                filename, target = MpasStep._process_model(
                     self.config, self.base_work_dir)
 
                 entry['filename'] = filename
@@ -489,29 +480,23 @@ class ModelStep(Step):
 
             replacements = dict()
 
-            mode = None
-
             for entry in self.namelist_data[out_name]:
-                if mode is None:
-                    mode = entry['mode']
-                else:
-                    assert mode == entry['mode']
                 if 'options' in entry:
                     # this is a dictionary of replacement namelist options
                     options = entry['options']
                 else:
-                    options = polaris.namelist.parse_replacements(
+                    options = mpas_namelist.parse_replacements(
                         entry['package'], entry['namelist'])
                 replacements.update(options)
 
-            defaults_filename = config.get('namelists', mode)
+            defaults_filename = config.get('namelists', 'forward')
             out_filename = f'{step_work_dir}/{out_name}'
 
-            namelist = polaris.namelist.ingest(defaults_filename)
+            namelist = mpas_namelist.ingest(defaults_filename)
 
-            namelist = polaris.namelist.replace(namelist, replacements)
+            namelist = mpas_namelist.replace(namelist, replacements)
 
-            polaris.namelist.write(namelist, out_filename)
+            mpas_namelist.write(namelist, out_filename)
 
     def _generate_streams(self):
         """
@@ -530,15 +515,8 @@ class ModelStep(Step):
             # generate the streams file
             tree = None
 
-            mode = None
-
             for entry in self.streams_data[out_name]:
-                if mode is None:
-                    mode = entry['mode']
-                else:
-                    assert mode == entry['mode']
-
-                tree = polaris.streams.read(
+                tree = mpas_streams.read(
                     package=entry['package'],
                     streams_filename=entry['streams'],
                     replacements=entry['replacements'], tree=tree)
@@ -546,7 +524,7 @@ class ModelStep(Step):
             if tree is None:
                 raise ValueError('No streams were added to the streams file.')
 
-            defaults_filename = config.get('streams', mode)
+            defaults_filename = config.get('streams', 'forward')
             out_filename = f'{step_work_dir}/{out_name}'
 
             defaults_tree = etree.parse(defaults_filename)
@@ -555,7 +533,7 @@ class ModelStep(Step):
             streams = next(tree.iter('streams'))
 
             for stream in streams:
-                polaris.streams.update_defaults(stream, defaults)
+                mpas_streams.update_defaults(stream, defaults)
 
             # remove any streams that aren't requested
             for default in defaults:
@@ -567,7 +545,7 @@ class ModelStep(Step):
                 if not found:
                     defaults.remove(default)
 
-            polaris.streams.write(defaults_tree, out_filename)
+            mpas_streams.write(defaults_tree, out_filename)
 
 
 def make_graph_file(mesh_filename, graph_filename='graph.info',
