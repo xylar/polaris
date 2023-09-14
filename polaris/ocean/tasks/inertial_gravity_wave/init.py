@@ -37,10 +37,11 @@ class Init(Step):
         taskdir : str
             The subdirectory that the task belongs to
         """
+        mesh_name = f'{resolution:g}km'
         super().__init__(component=component,
-                         name=f'init_{resolution}km',
-                         subdir=f'{taskdir}/{resolution}km/init')
-        self.resolution = float(resolution)
+                         name=f'init_{mesh_name}',
+                         subdir=f'{taskdir}/init/{mesh_name}')
+        self.resolution = resolution
         for filename in ['culled_mesh.nc', 'initial_state.nc',
                          'culled_graph.info']:
             self.add_output_file(filename=filename)
