@@ -286,8 +286,8 @@ def build_conda_env(config, env_type, recreate, mpi, conda_mpi, version,
                             include_mache=not local_mache)
 
         for package in ['esmf', 'geometric_features', 'jigsaw', 'jigsawpy',
-                        'mache', 'mpas_tools', 'netcdf_c', 'netcdf_fortran',
-                        'otps', 'parallelio', 'pnetcdf']:
+                        'mache', 'mpas_tools', 'moab', 'netcdf_c',
+                        'netcdf_fortran', 'otps', 'parallelio', 'pnetcdf']:
             replacements[package] = config.get('deploy', package)
 
         spec_file = template.render(**replacements)
@@ -403,6 +403,7 @@ def build_spack_env(config, update_spack, machine, compiler, mpi,  # noqa: C901
     cmake = config.get('deploy', 'cmake')
     esmf = config.get('deploy', 'esmf')
     lapack = config.get('deploy', 'lapack')
+    moab = config.get('deploy', 'moab')
     petsc = config.get('deploy', 'petsc')
     scorpio = config.get('deploy', 'scorpio')
 
@@ -432,6 +433,9 @@ def build_spack_env(config, update_spack, machine, compiler, mpi,  # noqa: C901
         include_e3sm_lapack = False
     else:
         include_e3sm_lapack = True
+    if moab != 'None':
+        specs.append(f'"moab@{moab}+mpi+hdf5+netcdf+pnetcdf+metis+parmetis'
+                     f'+tempest"')
     if petsc != 'None':
         specs.append(f'"petsc@{petsc}+mpi+batch"')
 
