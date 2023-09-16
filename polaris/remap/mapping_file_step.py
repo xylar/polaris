@@ -5,8 +5,9 @@ import xarray as xr
 from pyremap import (
     LatLon2DGridDescriptor,
     LatLonGridDescriptor,
+    MpasCellMeshDescriptor,
     MpasEdgeMeshDescriptor,
-    MpasMeshDescriptor,
+    MpasVertexMeshDescriptor,
     PointCollectionDescriptor,
     ProjectionGridDescriptor,
     Remapper,
@@ -364,49 +365,66 @@ class MappingFileStep(Step):
         """
         method = self.method
         remapper = self.get_remapper()
-        self.args = _build_mapping_file_args(remapper, method)
+        remap_tool = self.config.get('remap', 'remap_tool')
+        self.args = _build_mapping_file_args(remapper, method, remap_tool)
 
 
-def _build_mapping_file_args(remapper, method, src_mesh_filename='src_mesh.nc',
+def _build_mapping_file_args(remapper, method, remap_tool,
+                             src_mesh_filename='src_mesh.nc',
                              dst_mesh_filename='dst_mesh.nc'):
     """
     Get command-line arguments for making a mapping file
     """
 
-    _check_remapper(remapper, method)
+    _check_remapper(remapper, method, remap_tool)
 
     src_descriptor = remapper.sourceDescriptor
-    src_loc = _write_mesh_and_get_location(src_descriptor, src_mesh_filename)
+    src_descriptor.to_scrip(src_mesh_filename)
 
     dst_descriptor = remapper.destinationDescriptor
-    dst_loc = _write_mesh_and_get_location(dst_descriptor, dst_mesh_filename)
+    dst_descriptor.to_scrip(dst_mesh_filename)
 
-    args = ['ESMF_RegridWeightGen',
-            '--source', src_mesh_filename,
-            '--destination', dst_mesh_filename,
-            '--weight', remapper.mappingFileName,
-            '--method', method,
-            '--netcdf4',
-            '--no_log']
+    if remap_tool == 'ESMF_RegridWeightGen':
 
-    if src_loc is not None:
-        args.extend(['--src_loc', src_loc])
-    if dst_loc is not None:
-        args.extend(['--dst_loc', dst_loc])
+        args = ['ESMF_RegridWeightGen',
+                '--source', src_mesh_filename,
+                '--destination', dst_mesh_filename,
+                '--weight', remapper.mappingFileName,
+                '--method', method,
+                '--netcdf4',
+                '--no_log']
 
-    if src_descriptor.regional:
-        args.append('--src_regional')
+        if src_descriptor.regional:
+            args.append('--src_regional')
 
-    if dst_descriptor.regional:
-        args.append('--dst_regional')
+        if dst_descriptor.regional:
+            args.append('--dst_regional')
 
-    if src_descriptor.regional or dst_descriptor.regional:
-        args.append('--ignore_unmapped')
+        if src_descriptor.regional or dst_descriptor.regional:
+            args.append('--ignore_unmapped')
+    elif remap_tool == 'mbtempest':
+        args = ['mbtempest',
+                '--type', '5',
+                '--weights',
+                '--load', src_mesh_filename,
+                '--load', dst_mesh_filename,
+                '--file', remapper.mappingFileName,
+                '--method', 'fv',
+                '--order', '1',
+                '--method', 'fv',
+                '--order', '1']
+
+        if method == 'bilinear':
+            args += ['--fvmethod', 'bilin']
+        elif method != 'conserve':
+            raise ValueError(f'Method {method} is not supported in mbtempest')
+    else:
+        raise ValueError(f'Unexpected remap_tool: {remap_tool}')
 
     return args
 
 
-def _check_remapper(remapper, method):
+def _check_remapper(remapper, method, remap_tool):
     """
     Check for inconsistencies in the remapper
     """
@@ -416,37 +434,8 @@ def _check_remapper(remapper, method):
         raise ValueError(f'method {method} not supported for destination '
                          'grid of type PointCollectionDescriptor.')
 
-    if isinstance(remapper.sourceDescriptor, MpasMeshDescriptor) and \
-            remapper.sourceDescriptor.vertices:
-        if 'conserve' in method:
-            raise ValueError('Can\'t remap from MPAS vertices with '
-                             'conservative methods')
-
-    if isinstance(remapper.destinationDescriptor, MpasMeshDescriptor) and \
-            remapper.destinationDescriptor.vertices:
-        if 'conserve' in method:
-            raise ValueError('Can\'t remap to MPAS vertices with '
-                             'conservative methods')
-
-
-def _write_mesh_and_get_location(descriptor, mesh_filename):
-    if isinstance(descriptor,
-                  (MpasMeshDescriptor, MpasEdgeMeshDescriptor)):
-        file_format = 'esmf'
-        descriptor.to_esmf(mesh_filename)
-    else:
-        file_format = 'scrip'
-        descriptor.to_scrip(mesh_filename)
-
-    if file_format == 'esmf':
-        if isinstance(descriptor, MpasMeshDescriptor) and descriptor.vertices:
-            location = 'corner'
-        else:
-            location = 'center'
-    else:
-        location = None
-
-    return location
+    if remap_tool == 'mbtempest' and method == 'neareststod':
+        raise ValueError('method neareststod not supported by mbtempest.')
 
 
 def _get_descriptor(info):
@@ -462,21 +451,24 @@ def _get_descriptor(info):
         descriptor = _get_points_descriptor(info)
     else:
         raise ValueError(f'Unexpected grid type {grid_type}')
+
+    # for compatibility with mbtempest
+    descriptor.format = 'NETCDF3_64BIT_DATA'
     return descriptor
 
 
 def _get_mpas_descriptor(info):
-    """ Get an MpasMeshDescriptor from the given info """
+    """ Get an MPAS mesh descriptor from the given info """
     mesh_type = info['mpas_mesh_type']
     filename = info['filename']
     mesh_name = info['name']
 
     if mesh_type == 'cell':
-        descriptor = MpasMeshDescriptor(fileName=filename, meshName=mesh_name,
-                                        vertices=False)
+        descriptor = MpasCellMeshDescriptor(fileName=filename,
+                                            meshName=mesh_name)
     elif mesh_type == 'vertex':
-        descriptor = MpasMeshDescriptor(fileName=filename, meshName=mesh_name,
-                                        vertices=True)
+        descriptor = MpasVertexMeshDescriptor(fileName=filename,
+                                              meshName=mesh_name)
     elif mesh_type == 'edge':
         descriptor = MpasEdgeMeshDescriptor(fileName=filename,
                                             meshName=mesh_name)
