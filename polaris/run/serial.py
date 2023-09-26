@@ -385,7 +385,7 @@ def _run_task(task, available_resources):
                 _run_step_as_subprocess(
                     logger, step, task.new_step_log_file)
             else:
-                _run_step(task, step, task.new_step_log_file,
+                _run_step(logger, step, task.new_step_log_file,
                           available_resources, step_log_filename)
         except Exception:
             _print_to_stdout(task,
@@ -413,12 +413,11 @@ def _run_task(task, available_resources):
                          f'{start_time_color}{step_time_str}{end_color}')
 
 
-def _run_step(task, step, new_log_file, available_resources,
+def _run_step(logger, step, new_log_file, available_resources,
               step_log_filename):
     """
     Run the requested step
     """
-    logger = task.logger
     cwd = os.getcwd()
 
     missing_files = list()
