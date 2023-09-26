@@ -23,9 +23,9 @@ class Forward(OceanModelStep):
     run_time_steps : int or None
         Number of time steps to run for
     """
-    def __init__(self, component, resolution, name='forward', subdir=None,
-                 indir=None, ntasks=None, min_tasks=None, openmp_threads=1,
-                 nu=None, run_time_steps=None):
+    def __init__(self, component, resolution, init, name='forward',
+                 subdir=None, indir=None, ntasks=None, min_tasks=None,
+                 openmp_threads=1, nu=None, run_time_steps=None):
         """
         Create a new task
 
@@ -37,7 +37,10 @@ class Forward(OceanModelStep):
         resolution : km
             The resolution of the task in km
 
-        name : str
+        init : polaris.ocean.tasks.baroclinic_channel.init.Init
+            A shared step for creating the initial state
+
+        name : str, optional
             the name of the task
 
         subdir : str, optional
@@ -95,6 +98,8 @@ class Forward(OceanModelStep):
 
         self.dt = None
         self.btr_dt = None
+        # add init as a dependency so we get updated config options at runtime
+        self.add_dependency(init, name='init')
 
     def compute_cell_count(self):
         """
@@ -106,7 +111,8 @@ class Forward(OceanModelStep):
         cell_count : int or None
             The approximate number of cells in the mesh
         """
-        section = self.config['baroclinic_channel']
+        init = self.dependencies['init']
+        section = init.config['baroclinic_channel_init']
         lx = section.getfloat('lx')
         ly = section.getfloat('ly')
         nx, ny = compute_planar_hex_nx_ny(lx, ly, self.resolution)
@@ -132,7 +138,7 @@ class Forward(OceanModelStep):
         options = dict()
 
         # dt is proportional to resolution: default 30 seconds per km
-        dt_per_km = config.getfloat('baroclinic_channel', 'dt_per_km')
+        dt_per_km = config.getfloat('baroclinic_channel_forward', 'dt_per_km')
         dt = dt_per_km * self.resolution
         # https://stackoverflow.com/a/1384565/7728169
         options['config_dt'] = \
@@ -145,7 +151,8 @@ class Forward(OceanModelStep):
                 time.strftime('%H:%M:%S', time.gmtime(run_seconds))
 
         # btr_dt is also proportional to resolution: default 1.5 seconds per km
-        btr_dt_per_km = config.getfloat('baroclinic_channel', 'btr_dt_per_km')
+        btr_dt_per_km = config.getfloat('baroclinic_channel_forward',
+                                        'btr_dt_per_km')
         btr_dt = btr_dt_per_km * self.resolution
         options['config_btr_dt'] = \
             time.strftime('%H:%M:%S', time.gmtime(btr_dt))

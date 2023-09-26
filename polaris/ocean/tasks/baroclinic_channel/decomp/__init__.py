@@ -37,7 +37,7 @@ class Decomp(Task):
             name = f'{procs}proc'
 
             self.add_step(Forward(
-                component=component, name=name, indir=self.subdir,
+                component=component, init=init, name=name, indir=self.subdir,
                 ntasks=procs, min_tasks=procs, openmp_threads=1,
                 resolution=resolution, run_time_steps=3))
             subdirs.append(name)

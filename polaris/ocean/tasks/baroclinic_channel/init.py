@@ -45,6 +45,14 @@ class Init(Step):
                              validate_vars=['temperature', 'salinity',
                                             'layerThickness'])
 
+    def setup(self):
+        """
+        Add the config file for baroclinic channel init
+        """
+        self.config.add_from_package('polaris.ocean.tasks.baroclinic_channel',
+                                     'init.cfg')
+        super().setup()
+
     def run(self):
         """
         Run this step of the task
@@ -52,7 +60,7 @@ class Init(Step):
         config = self.config
         logger = self.logger
 
-        section = config['baroclinic_channel']
+        section = config['baroclinic_channel_init']
         resolution = self.resolution
 
         lx = section.getfloat('lx')
@@ -74,7 +82,6 @@ class Init(Step):
                           logger=logger)
         write_netcdf(ds_mesh, 'culled_mesh.nc')
 
-        section = config['baroclinic_channel']
         use_distances = section.getboolean('use_distances')
         gradient_width_dist = section.getfloat('gradient_width_dist')
         gradient_width_frac = section.getfloat('gradient_width_frac')

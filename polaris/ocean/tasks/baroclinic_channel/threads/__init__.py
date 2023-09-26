@@ -36,8 +36,8 @@ class Threads(Task):
         for openmp_threads in [1, 2]:
             name = f'{openmp_threads}thread'
             self.add_step(Forward(
-                component=component, name=name, indir=self.subdir, ntasks=4,
-                min_tasks=4, openmp_threads=openmp_threads,
+                component=component, init=init, name=name, indir=self.subdir,
+                ntasks=4, min_tasks=4, openmp_threads=openmp_threads,
                 resolution=resolution, run_time_steps=3))
             subdirs.append(name)
         self.add_step(Validate(component=component, step_subdirs=subdirs,

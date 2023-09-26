@@ -14,6 +14,9 @@ class Rpe(Task):
     ----------
     resolution : float
         The resolution of the test case in km
+
+    init : polaris.ocean.tasks.baroclinic_channel.init.Init
+        A shared step for creating the initial state
     """
 
     def __init__(self, component, resolution, indir, init):
@@ -36,9 +39,10 @@ class Rpe(Task):
         """
         super().__init__(component=component, name='rpe', indir=indir)
         self.resolution = resolution
+        self.init = init
 
         self.add_step(init, symlink='init')
-        self._add_rpe_and_analysis_steps()
+        self._add_rpe_and_analysis_steps(init)
 
     def configure(self):
         """
@@ -47,9 +51,9 @@ class Rpe(Task):
         super().configure()
         self.config.add_from_package('polaris.ocean.tasks.baroclinic_channel',
                                      'baroclinic_channel.cfg')
-        self._add_rpe_and_analysis_steps(config=self.config)
+        self._add_rpe_and_analysis_steps(init=self.init, config=self.config)
 
-    def _add_rpe_and_analysis_steps(self, config=None):
+    def _add_rpe_and_analysis_steps(self, init, config=None):
         """ Add the steps in the test case either at init or set-up """
 
         if config is None:
@@ -73,7 +77,7 @@ class Rpe(Task):
         for nu in nus:
             name = f'nu_{nu:g}'
             step = Forward(
-                component=component, name=name, indir=self.subdir,
+                component=component, init=init, name=name, indir=self.subdir,
                 ntasks=None, min_tasks=None, openmp_threads=1,
                 resolution=resolution, nu=nu)
 
