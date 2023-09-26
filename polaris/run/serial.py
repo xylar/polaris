@@ -367,7 +367,14 @@ def _run_task(task, available_resources):
 
         step_start = time.time()
 
-        step.config = task.config
+        is_shared = len(step.tasks) > 1
+
+        if is_shared:
+            os.chdir(step.work_dir)
+            step.config = setup_config(step.config_filename)
+        else:
+            step.config = task.config
+
         if task.log_filename is not None:
             step_log_filename = task.log_filename
         else:

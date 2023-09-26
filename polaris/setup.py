@@ -203,26 +203,26 @@ def setup_task(path, task, config_file, machine, work_dir, baseline_dir,
     task.work_dir = task_dir
     task.base_work_dir = work_dir
 
+    # set the component_path path from the command line if provided
+    if component_path is not None:
+        component_path = os.path.abspath(component_path)
+        config.set('paths', 'component_path', component_path, user=True)
+
     # add config options specific to the task
-    task.config = config
+    task.config = config.copy()
     task.configure()
 
     # add the baseline directory for this task
     if baseline_dir is not None:
         task.baseline_dir = os.path.join(baseline_dir, path)
 
-    # set the component_path path from the command line if provided
-    if component_path is not None:
-        component_path = os.path.abspath(component_path)
-        config.set('paths', 'component_path', component_path, user=True)
-
-    config.set('task', 'steps_to_run', ' '.join(task.steps_to_run))
+    task.config.set('task', 'steps_to_run', ' '.join(task.steps_to_run))
 
     # write out the config file
-    task_config = f'{task.name}.cfg'
-    task.config_filename = task_config
-    with open(os.path.join(task_dir, task_config), 'w') as f:
-        config.write(f)
+    task_config_filename = f'{task.name}.cfg'
+    task.config_filename = task_config_filename
+    with open(os.path.join(task_dir, task_config_filename), 'w') as f:
+        task.config.write(f)
 
     if len(cached_steps) > 0:
         print_steps = ' '.join(cached_steps)
@@ -230,38 +230,8 @@ def setup_task(path, task, config_file, machine, work_dir, baseline_dir,
 
     # iterate over steps
     for step in task.steps.values():
-        # make the step directory if it doesn't exist
-        step_dir = os.path.join(work_dir, step.path)
-
-        if step.name in task.step_symlinks:
-            symlink(step_dir,
-                    os.path.join(task_dir, task.step_symlinks[step.name]))
-
-        if step.setup_complete:
-            # this is a shared step that has already been set up
-            continue
-        try:
-            os.makedirs(step_dir)
-        except OSError:
-            pass
-
-        symlink(os.path.join(task_dir, task_config),
-                os.path.join(step_dir, task_config))
-
-        step.work_dir = step_dir
-        step.base_work_dir = work_dir
-        step.config_filename = task_config
-        step.config = config
-
-        # set up the step
-        step.setup()
-
-        # add the baseline directory for this step
-        if baseline_dir is not None:
-            step.baseline_dir = os.path.join(baseline_dir, step.path)
-
-        # process input, output, namelist and streams files
-        step.process_inputs_and_outputs()
+        _setup_step(task, step, config, work_dir, baseline_dir, task_dir,
+                    task_config_filename)
 
     # wait until we've set up all the steps before pickling because steps may
     # need other steps to be set up
@@ -528,6 +498,58 @@ def _add_tasks_by_name(task_list, all_tasks, cached, tasks, cached_steps):
             else:
                 cached_steps[path] = list()
             tasks[path] = all_tasks[path]
+
+
+def _setup_step(task, step, config, work_dir, baseline_dir, task_dir,
+                task_config_filename):
+    """ Set up a step in a task """
+    # make the step directory if it doesn't exist
+    step_dir = os.path.join(work_dir, step.path)
+
+    if step.name in task.step_symlinks:
+        symlink(step_dir,
+                os.path.join(task_dir, task.step_symlinks[step.name]))
+
+    if step.setup_complete:
+        # this is a shared step that has already been set up
+        return
+
+    try:
+        os.makedirs(step_dir)
+    except OSError:
+        pass
+
+    is_shared = len(step.tasks) > 1
+
+    if is_shared:
+        # shared steps get their own config file
+        step.config = config.copy()
+        step.config_filename = f'{step.name}.cfg'
+    else:
+        symlink(os.path.join(task_dir, task_config_filename),
+                os.path.join(step_dir, task_config_filename))
+
+        step.config_filename = task_config_filename
+        step.config = task.config
+
+    step.work_dir = step_dir
+    step.base_work_dir = work_dir
+
+    # set up the step
+    step.setup()
+
+    if is_shared:
+        # write the config file after setup() since config options may
+        # have been changed
+        with open(os.path.join(step_dir, step.config_filename), 'w') as f:
+            step.config.write(f)
+
+    # add the baseline directory for this step
+    if baseline_dir is not None:
+        step.baseline_dir = os.path.join(baseline_dir, step.path)
+
+    # process input, output, namelist and streams files
+    step.process_inputs_and_outputs()
 
 
 def _symlink_load_script(work_dir):
