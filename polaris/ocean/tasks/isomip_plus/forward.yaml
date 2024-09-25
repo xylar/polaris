@@ -1,0 +1,50 @@
+mpas-ocean:
+  run_modes:
+    config_ocean_run_mode: forward
+  time_integration:
+    config_dt: 00:04:00
+    config_time_integrator: split_explicit_ab2
+  split_explicit_ts:
+    config_btr_dt: 00:00:10
+  time_management:
+    config_run_duration: 0000-01-00_00:00:00
+  io:
+    config_write_output_on_startup: false
+  decomposition:
+    config_block_decomp_file_prefix: graph.info.part.
+  hmix_del2:
+    config_use_mom_del2: true
+    config_use_tracer_del2: true
+    config_mom_del2: 6.0
+    config_tracer_del2: 1.0
+  cvmix:
+    config_cvmix_background_diffusion: 5e-05
+    config_cvmix_background_viscosity: 0.001
+    config_use_cvmix_convection: true
+    config_cvmix_convective_diffusion: 0.1
+    config_cvmix_convective_viscosity: 0.1
+    config_use_cvmix_shear: false
+    config_cvmix_use_BLD_smoothing: false
+  land_ice_fluxes:
+    config_land_ice_flux_attenuation_coefficient: 10.0
+    config_land_ice_flux_boundaryLayerThickness: 10.0
+    config_land_ice_flux_explicit_topDragCoeff: 0.0025
+    config_land_ice_flux_tidal_Jourdain_U0: 0.01
+    config_land_ice_flux_jenkins_heat_transfer_coefficient: 0.0194
+    config_land_ice_flux_jenkins_salt_transfer_coefficient: 0.00055428571
+  bottom_drag:
+    config_implicit_constant_bottom_drag_coeff: 0.0025
+  eos:
+    config_eos_type: linear
+  eos_linear:
+    config_eos_linear_alpha: 0.03836
+    config_eos_linear_beta: 0.8059
+    config_eos_linear_Tref: -1.0
+    config_eos_linear_Sref: 34.2
+    config_eos_linear_densityref: 1027.51
+  pressure_gradient:
+    config_pressure_gradient_type: pressure_and_zmid
+  debug:
+    config_check_ssh_consistency: false
+  AM_timeSeriesStatsMonthly:
+    config_AM_timeSeriesStatsMonthly_restart_stream: none
