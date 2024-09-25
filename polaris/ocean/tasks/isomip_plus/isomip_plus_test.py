@@ -1,8 +1,12 @@
-from polaris import Task
+import os
+
+from polaris.config import PolarisConfigParser
+from polaris.ocean.ice_shelf import IceShelfTask
 from polaris.ocean.tasks.isomip_plus.init import Forcing, Init
+from polaris.ocean.tasks.isomip_plus.ssh_forward import SshForward
 
 
-class IsomipPlusTest(Task):
+class IsomipPlusTest(IceShelfTask):
     """
     An ISOMIP+ test case
 
@@ -76,41 +80,71 @@ class IsomipPlusTest(Task):
         self.thin_film = thin_film
         self.tidal_forcing = tidal_forcing
         self.planar = planar
-        subdir = f'{resdir}/{vertical_coordinate}/{name}'
-        super().__init__(component=component, name=name, subdir=subdir)
+        subdir = os.path.join(resdir, vertical_coordinate, name)
+        sshdir = os.path.join(subdir, 'adjust_ssh')
+        super().__init__(component=component, min_resolution=resolution,
+                         name=name, subdir=subdir, sshdir=sshdir)
+
+        config_filename = 'isomip_plus.cfg'
+        config = PolarisConfigParser(
+            filepath=os.path.join(subdir, config_filename))
+        self.set_shared_config(config, link=config_filename)
+
+        config.add_from_package('polaris.ocean.ice_shelf', 'freeze.cfg')
+        config.add_from_package('polaris.ocean.ice_shelf',
+                                'ssh_adjustment.cfg')
+        config.add_from_package('polaris.ocean.tasks.isomip_plus',
+                                'isomip_plus.cfg')
+        config.add_from_package('polaris.ocean.tasks.isomip_plus',
+                                'isomip_plus_init.cfg')
 
         for symlink, step in shared_steps.items():
             if symlink == 'topo_final':
                 continue
             self.add_step(step, symlink=symlink)
 
-        self.add_step(Init(component=component,
-                           indir=subdir,
-                           culled_mesh=shared_steps['topo/cull_mesh'],
-                           topo=shared_steps['topo_final'],
-                           experiment=experiment,
-                           vertical_coordinate=vertical_coordinate,
-                           thin_film=thin_film))
+        culled_mesh = shared_steps['topo/cull_mesh']
+        topo = shared_steps['topo_final']
 
-        self.add_step(Forcing(component=component,
-                              indir=subdir,
-                              culled_mesh=shared_steps['topo/cull_mesh'],
-                              topo=shared_steps['topo_final'],
-                              resolution=resolution,
-                              experiment=experiment,
-                              vertical_coordinate=vertical_coordinate,
-                              thin_film=thin_film))
+        init = Init(component=component,
+                    indir=subdir,
+                    culled_mesh=culled_mesh,
+                    topo=topo,
+                    experiment=experiment,
+                    vertical_coordinate=vertical_coordinate,
+                    thin_film=thin_film)
+        init.set_shared_config(config, link=config_filename)
+        self.add_step(init)
+
+        forcing = Forcing(component=component,
+                          indir=subdir,
+                          culled_mesh=culled_mesh,
+                          topo=topo,
+                          resolution=resolution,
+                          experiment=experiment,
+                          vertical_coordinate=vertical_coordinate,
+                          thin_film=thin_film)
+        forcing.set_shared_config(config, link=config_filename)
+        self.add_step(forcing)
+
+        mesh_filename = os.path.join(culled_mesh.path, 'culled_mesh.nc')
+        graph_filename = os.path.join(culled_mesh.path, 'culled_graph.info')
+        init_filename = os.path.join(init.path, 'culled_graph.info')
+
+        self.setup_ssh_adjustment_steps(
+            mesh_filename=mesh_filename,
+            graph_filename=graph_filename,
+            init_filename=init_filename,
+            config=config, config_filename=config_filename,
+            ForwardStep=SshForward,
+            yaml_filename='forward.yaml',
+            package='polaris.ocean.tasks.isomip_plus')
 
     def configure(self):
         """
         Modify the configuration options for this test case.
         """
         config = self.config
-        config.add_from_package('polaris.ocean.ice_shelf', 'freeze.cfg')
-        config.add_from_package('polaris.ocean.tasks.isomip_plus',
-                                'isomip_plus.cfg')
-        config.add_from_package('polaris.ocean.tasks.isomip_plus',
-                                'isomip_plus_init.cfg')
         vertical_coordinate = self.vertical_coordinate
         experiment = self.experiment
 
