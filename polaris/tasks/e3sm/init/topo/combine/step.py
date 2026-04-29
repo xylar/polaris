@@ -76,7 +76,7 @@ class CombineStep(Step):
         subdir = f'combine_{CombineStep.ANTARCTIC}_{CombineStep.GLOBAL}'
         return os.path.join('topo', subdir)
 
-    def __init__(self, component, subdir):
+    def __init__(self, component, subdir, target_grid, resolution_name):
         """
         Create a new step
 
@@ -88,10 +88,19 @@ class CombineStep(Step):
         subdir : str
             The subdirectory within the component's work directory
 
+        target_grid : {'cubed_sphere', 'lat_lon'}
+            The type of target grid for the combined topography
+
+        resolution_name : str
+            The target resolution name for the combined topography
+
         """
         antarctic_dataset = self.ANTARCTIC
         global_dataset = self.GLOBAL
-        name = f'combine_topo_{antarctic_dataset}_{global_dataset}'
+        name = (
+            f'combine_topo_{antarctic_dataset}_{global_dataset}_'
+            f'{target_grid}_{resolution_name}'
+        )
         super().__init__(
             component=component,
             name=name,
