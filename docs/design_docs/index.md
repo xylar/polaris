@@ -9,6 +9,8 @@ shared_steps
 task_parallelism
 task_parallelism_phase1
 task_parallelism_phase2
+task_parallelism_phase3
+task_parallelism_phase4
 unified_base_mesh
 unified_mesh_prepare_coastline
 unified_mesh_prepare_river_network
