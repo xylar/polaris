@@ -11,6 +11,7 @@ from mpas_tools.logging import LoggingContext, check_call
 from polaris.build.omega import detect_omega_build_type
 from polaris.config import PolarisConfigParser
 from polaris.logging import log_function_call, log_method_call
+from polaris.run.resources import get_step_resource_lease
 
 # ANSI fail text: https://stackoverflow.com/a/287944/7728169
 start_fail = '\033[91m'
@@ -764,6 +765,12 @@ def run_step(
                     step.logger,
                     gpus_per_task=step.gpus_per_task,
                 )
+        elif dask_client is not None:
+            step_logger.info('')
+            log_method_call(method=step.run_with_dask, logger=step_logger)
+            step_logger.info('')
+            resources = get_step_resource_lease(step, available_resources)
+            step.run_with_dask(dask_client, resources)
         else:
             step_logger.info('')
             log_method_call(method=step.run, logger=step_logger)

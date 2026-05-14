@@ -10,6 +10,10 @@ from polaris.config import PolarisConfigParser
 from polaris.io import download, symlink
 from polaris.validate import compare_variables
 
+_EXECUTION_KIND_MPI = 'mpi'
+_EXECUTION_KIND_NON_MPI = 'non_mpi'
+_VALID_EXECUTION_KINDS = {_EXECUTION_KIND_MPI, _EXECUTION_KIND_NON_MPI}
+
 
 class Step:
     """
@@ -71,6 +75,14 @@ class Step:
         the amount of memory that the step is allowed to use in MB.
         This is currently just a placeholder for later use with task
         parallelism
+
+    dask_workers : int
+        the number of Dask workers the step would ideally use when running
+        through ``run_with_dask()``
+
+    min_dask_workers : int
+        the minimum number of Dask workers the step requires when running
+        through ``run_with_dask()``
 
     input_data : list of dict
         a list of dict used to define input files typically to be
@@ -162,6 +174,17 @@ class Step:
         file (e.g. if the step calls external code that, in turn, calls
         additional subprocesses).
 
+    execution_kind : {'mpi', 'non_mpi'}
+        The derived or explicitly overridden execution kind for the step.
+
+    task_parallelism_allowed : bool
+        Whether a non-MPI step may be considered for future concurrent
+        task-parallel execution.
+
+    can_run_concurrently : bool
+        Whether the step is a non-MPI step and has not opted out of future
+        concurrent task-parallel execution.
+
     args : {list of list of str, None}
         A list of lists of command-line arguments to call in parallel.  Each
         inner list represents a single command.  All commands must use the
@@ -184,6 +207,10 @@ class Step:
         run_as_subprocess=False,
         gpus_per_task=0,
         min_gpus_per_task=0,
+        dask_workers=1,
+        min_dask_workers=1,
+        execution_kind=None,
+        task_parallelism_allowed=True,
     ):
         """
         Create a new task
@@ -238,6 +265,14 @@ class Step:
         min_gpus_per_task : int, optional
             the number of GPUs per task the step requires
 
+        dask_workers : int, optional
+            the number of Dask workers the step would ideally use when running
+            through ``run_with_dask()``
+
+        min_dask_workers : int, optional
+            the minimum number of Dask workers the step requires when running
+            through ``run_with_dask()``
+
         cached : bool, optional
             Whether to get all of the outputs for the step from the database of
             cached outputs for this component
@@ -248,6 +283,15 @@ class Step:
             subprocess if there is not a good way to redirect output to a log
             file (e.g. if the step calls external code that, in turn, calls
             additional subprocesses).
+
+        execution_kind : {'mpi', 'non_mpi'}, optional
+            Explicit execution-kind override. By default, the kind is derived
+            from resource requirements and whether the step uses command-line
+            parallel arguments.
+
+        task_parallelism_allowed : bool, optional
+            Whether a non-MPI step may be considered for future concurrent
+            task-parallel execution.
         """
         self.name = name
         self.component = component
@@ -266,10 +310,15 @@ class Step:
         self.gpus_per_task = gpus_per_task
         self.min_gpus_per_task = min_gpus_per_task
         self.max_memory = max_memory
+        self.dask_workers = dask_workers
+        self.min_dask_workers = min_dask_workers
 
         self.path = os.path.join(self.component.name, self.subdir)
 
         self.run_as_subprocess = run_as_subprocess
+        self._execution_kind = None
+        self.set_execution_kind(execution_kind)
+        self.task_parallelism_allowed = task_parallelism_allowed
 
         self.has_shared_config = False
 
@@ -302,6 +351,43 @@ class Step:
         # output caching
         self.cached = cached
         self.default_cached = False
+
+    @property
+    def execution_kind(self):
+        """
+        The step execution kind, either ``'mpi'`` or ``'non_mpi'``.
+        """
+        if self._execution_kind is not None:
+            return self._execution_kind
+        return self._get_default_execution_kind()
+
+    @property
+    def can_run_concurrently(self):
+        """
+        Whether this step may run concurrently in future task-parallel phases.
+        """
+        return (
+            self.execution_kind == _EXECUTION_KIND_NON_MPI
+            and self.task_parallelism_allowed
+        )
+
+    def set_execution_kind(self, execution_kind):
+        """
+        Set or clear the explicit execution-kind override.
+
+        Parameters
+        ----------
+        execution_kind : {'mpi', 'non_mpi', None}
+            The explicit execution kind, or ``None`` to use the derived
+            default.
+        """
+        if execution_kind is not None:
+            if execution_kind not in _VALID_EXECUTION_KINDS:
+                raise ValueError(
+                    f'Invalid execution_kind "{execution_kind}". Expected '
+                    f'one of: {sorted(_VALID_EXECUTION_KINDS)}'
+                )
+        self._execution_kind = execution_kind
 
     def set_resources(
         self,
@@ -373,6 +459,29 @@ class Step:
             self.min_gpus_per_task = min_gpus_per_task
         if max_memory is not None:
             self.max_memory = max_memory
+
+    def set_dask_resources(self, dask_workers=None, min_dask_workers=None):
+        """
+        Update the Dask resources for this step.
+
+        This can be done within init, ``setup()`` or ``runtime_setup()`` of
+        this step, or init, ``configure()`` or ``run()`` for the task that this
+        step belongs to.
+
+        Parameters
+        ----------
+        dask_workers : int, optional
+            the number of Dask workers the step would ideally use when running
+            through ``run_with_dask()``
+
+        min_dask_workers : int, optional
+            the minimum number of Dask workers the step requires when running
+            through ``run_with_dask()``
+        """
+        if dask_workers is not None:
+            self.dask_workers = dask_workers
+        if min_dask_workers is not None:
+            self.min_dask_workers = min_dask_workers
 
     def constrain_resources(self, available_resources):
         """
@@ -464,6 +573,37 @@ class Step:
         the main work.
         """
         pass
+
+    def run_with_dask(self, client, resources):
+        """
+        Run the step with access to a Dask client.
+
+        Parameters
+        ----------
+        client : distributed.Client
+            The Dask client for the active ``polaris run`` lifecycle.
+
+        resources : polaris.run.resources.StepResourceLease
+            The resources assigned to the step.
+        """
+        self.run()
+
+    def _get_default_execution_kind(self):
+        """
+        Derive the execution kind from existing step metadata.
+
+        Returns
+        -------
+        execution_kind : {'mpi', 'non_mpi'}
+            The derived execution kind.
+        """
+        if self.ntasks is not None and self.ntasks > 1:
+            return _EXECUTION_KIND_MPI
+        if self.min_tasks is not None and self.min_tasks > 1:
+            return _EXECUTION_KIND_MPI
+        if self.args is not None:
+            return _EXECUTION_KIND_MPI
+        return _EXECUTION_KIND_NON_MPI
 
     def add_input_file(
         self,

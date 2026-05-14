@@ -445,11 +445,15 @@ oversubscription but should not require hard CPU affinity or pinning. Affinity
 can become a machine-specific hardening feature if validation shows that
 resource interference cannot otherwise be controlled.
 
-For non-MPI atomic steps, `cpus_per_task` and `min_cpus_per_task` should be
-interpreted as the target and minimum core reservation for the step.
-`ntasks` and `min_tasks` should remain MPI-oriented fields. Non-MPI steps that
-need multiple workers should use the Dask-aware step hook rather than treating
-MPI task counts as non-MPI worker counts.
+For non-MPI atomic steps that do not opt in to Dask-aware execution,
+`cpus_per_task` and `min_cpus_per_task` should be interpreted as the target
+and minimum core reservation for the step. `ntasks` and `min_tasks` should
+remain MPI-oriented fields. Non-MPI steps that need multiple workers should
+use the Dask-aware step hook and Dask-specific worker metadata rather than
+treating MPI task counts as non-MPI worker counts. The active execution
+backend determines which resource request is reserved: ordinary execution
+reserves the ordinary step resources, while Dask-aware execution reserves the
+CPU cores needed by the assigned Dask workers.
 
 ### Algorithm Design: Single-Step Execution in Phase 1
 
@@ -624,6 +628,26 @@ chunk shall keep the existing task-serial step loop and shall not run more
 than one Polaris step at a time. The Dask client and cluster shall be closed
 on normal completion and on failure.
 
+The fifth implementation chunk shall add conservative step execution metadata
+and the first Dask-aware step hook. Each step shall have an execution kind
+that is derived as MPI when the step requests more than one task, requires
+more than one task, or uses command-line parallel arguments. Step authors may
+override the derived execution kind when the conservative default is wrong.
+Non-MPI steps shall be considered eligible for future concurrent scheduling by
+default, with an opt-out flag for steps that are not safe to run concurrently.
+
+This chunk shall also add Dask-specific worker metadata to each step and a
+lightweight step resource lease with assigned cores and Dask workers, plus
+optional fields for later node, GPU and memory accounting. Ordinary resource
+fields such as `cpus_per_task` shall describe the non-Dask execution resource
+request. `dask_workers` and `min_dask_workers` shall describe the Dask-aware
+execution resource request, and those workers still represent CPU cores that
+must be reserved while the Dask-aware step is active. When `polaris run`
+executes a Python step with a Dask client, it shall call
+`run_with_dask(client, resources)`. The default implementation of that hook
+shall fall back to `run()`, so ordinary step behavior remains unchanged unless
+a step opts in to Dask-aware behavior.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -657,6 +681,15 @@ that `polaris run` creates one Dask lifecycle around task execution and passes
 the client to the shared task helper. Shared run-helper tests shall verify
 that the existing step loop remains single-active-step even when a Dask client
 is available.
+
+The step-metadata chunk shall be validated with unit tests for default
+execution-kind classification, MPI classification from task counts and
+command-line parallel arguments, explicit overrides, invalid overrides,
+non-MPI task-parallel opt-out behavior and the default `run_with_dask()`
+fallback. Resource-lease tests shall cover assigned cores, workers and
+placeholder fields for future scheduler accounting. Shared run-helper tests
+shall verify that `polaris run` uses `run_with_dask()` when a Dask client is
+available.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 

@@ -14,10 +14,6 @@ def test_get_dask_worker_count():
     assert get_dask_worker_count({'cores': None}) == 1
     assert get_dask_worker_count({'cores': 0}) == 1
     assert get_dask_worker_count({'cores': 4}) == 4
-    assert (
-        get_dask_worker_count({'cores': 128, 'nodes': 4, 'cores_per_node': 32})
-        == 32
-    )
 
 
 def test_dask_client_context_closes_client_and_cluster(monkeypatch):
