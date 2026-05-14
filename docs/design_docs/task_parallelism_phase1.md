@@ -21,8 +21,9 @@ for later task parallelism. In Phase 1, it should build the full scheduling
 framework needed for future task-parallel execution, including dependency-graph
 construction, ready-step selection, resource-aware scheduling, deterministic
 step ordering, schedule summaries and metadata for future step eligibility.
-However, the scheduler will still execute only one ready step at a time in
-this phase.
+It should also establish the long-lived Dask Distributed orchestration layer
+that Phase 2 will use for concurrent non-MPI execution. However, the scheduler
+will still execute only one ready step at a time in this phase.
 
 Phase 1 therefore aims to prove that the new execution path is correct and
 complete before it is asked to deliver speedup. The phase is expected to add
@@ -58,7 +59,7 @@ Success in Phase 1 means that `polaris run`:
 
 ### Requirement: New Task-Parallel Command Path
 
-Date last modified: 2026/04/28
+Date last modified: 2026/05/14
 
 Contributors:
 
@@ -188,7 +189,7 @@ them concurrently without oversubscribing the available allocation.
 
 ### Requirement: Single-Step Execution in Phase 1
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/14
 
 Contributors:
 
@@ -204,9 +205,14 @@ The purpose of Phase 1 is to validate the new command path, scheduler,
 dependency graph and observability without yet enabling task parallelism
 itself.
 
+The single ready step shall run through the `polaris run` orchestration path,
+including the selected execution backend where applicable, so Phase 1
+validates worker lifecycle, serialization, logging and cleanup before
+concurrency is enabled.
+
 ### Requirement: Future Parallel-Eligibility Metadata
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/14
 
 Contributors:
 
@@ -221,6 +227,11 @@ are safe for the first task-parallel phases from steps that should remain
 serialized or require different handling. Defining the exact software
 mechanism for this metadata is part of algorithm design and implementation,
 not a requirement.
+
+The metadata shall allow Polaris to derive whether a step should be treated as
+MPI or non-MPI from existing step information, while also allowing an explicit
+override for ambiguous steps. Non-MPI steps shall have a way to be marked
+unsafe or ineligible for task-parallel execution.
 
 ### Requirement: Observable Execution and Schedule Summaries
 
@@ -291,3 +302,308 @@ Contributors:
 Comparable schedule and resource summaries for `polaris serial` would be
 useful for side-by-side debugging, even though they are not required in
 Phase 1.
+
+## Algorithm Design
+
+### Algorithm Design: New Task-Parallel Command Path
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+`polaris run` should be designed as the permanent task-parallel command path,
+not as a thin alias for `polaris serial`. It should share the same setup
+artifacts, pickle files, work-directory discovery and user-facing scope as
+`polaris serial`, but it should route execution through a scheduler that owns
+the dependency graph, resource pool and step lifecycle.
+
+Phase 1 should stand up an allocation-scoped Dask Distributed environment
+before executing work. This environment should contain one Dask scheduler for
+the run and multiple single-threaded Dask worker processes per allocated node.
+All allocated nodes, including the node that hosts the scheduler and
+orchestrator, should be eligible to host workers. Dask Distributed is therefore
+a runtime dependency of `polaris run`.
+
+Polaris should control the Dask scheduler and worker lifecycle directly rather
+than using `dask-mpi` as the primary orchestration mechanism. This keeps
+resource handoff policy in Polaris, avoids making the batch scheduler
+responsible for many small Python tasks, and leaves room for scheduler-specific
+MPI launch behavior to remain isolated in later phases.
+
+### Algorithm Design: Backward-Compatible Per-Step Execution Semantics
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Each scheduled step should still use the existing Polaris step lifecycle:
+runtime input checks, dependency loading, resource constraining,
+`runtime_setup()`, `run()` or command-line argument execution, output checks,
+baseline/property validation and completion markers. The scheduler should
+decide when a step is eligible to begin, but it should not change what it
+means for the step to run successfully.
+
+For atomic steps, the whole Polaris step is the scheduling unit. Phase 1
+should submit only one such step to Dask at a time. The step may run in a
+worker process, but it should preserve the same working directory, logging,
+environment and completion semantics as existing task-serial execution.
+
+Dask-aware non-MPI steps should be introduced with a separate execution hook
+rather than by changing the meaning of `run()`. A Dask-aware step should run
+coordinating code under the Polaris orchestrator with an assigned Dask client
+and resource lease, and that coordinating code may submit internal Dask work.
+This hook gives large Python steps a path to use multiple workers without
+changing ordinary step semantics.
+
+### Algorithm Design: Task-Parallel Output Equivalence
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+The algorithmic goal in Phase 1 is semantic equivalence, not speedup. Since
+only one step runs at a time, output differences relative to `polaris serial`
+should indicate a bug in dependency construction, Dask-backed execution,
+resource setup, logging side effects, or step lifecycle preservation.
+
+Baseline comparison should remain a post-step validation action. Completed
+steps should record the same pass/fail markers used by `polaris serial`, so
+reruns and suite summaries can aggregate existing results without rerunning
+completed work.
+
+### Algorithm Design: Explicit Dependency-Graph Scheduling
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Before running any step, `polaris run` should build a directed acyclic graph
+from existing setup metadata. Graph edges should come from:
+
+- explicit `step.dependencies`, and
+- resolved input/output file relationships where one selected step consumes a
+  file produced by another selected step.
+
+The listed `steps_to_run` order should be used only as a deterministic
+tie-breaker, not as an implicit dependency source. If a selected input file is
+produced by no selected step and does not already exist as an external input,
+the graph should be rejected before execution. Cycles should also be rejected
+before execution.
+
+Cached and already completed steps should participate in graph validation.
+They should be treated as satisfied nodes when their expected completion or
+cached-output evidence is present, but their outputs should still be available
+for dependency reasoning.
+
+### Algorithm Design: Deterministic Ready-Step Selection
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+The scheduler should maintain a stable ordering derived from setup order:
+suite order, task order and step order within each task. When multiple steps
+are ready, this order should be the primary tie-breaker after dependency and
+resource constraints. This rule is simple to explain, repeatable across runs,
+and close enough to existing user expectations to make debugging tractable.
+
+Phase 1 should record the selected order even though only one step runs at a
+time. Phase 2 can reuse the same ordering when packing multiple ready non-MPI
+steps into the available resource pool.
+
+### Algorithm Design: Resource-Aware Scheduling and Enforcement
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Phase 1 should introduce the same dynamic resource-pool model that later
+phases will use, even though only one step can hold resources at a time. The
+pool should track at least nodes, physical CPU cores and GPUs when available.
+Hyperthreads should not increase schedulable CPU capacity by default.
+
+For Phases 1 and 2, Polaris should reserve resources and avoid logical
+oversubscription but should not require hard CPU affinity or pinning. Affinity
+can become a machine-specific hardening feature if validation shows that
+resource interference cannot otherwise be controlled.
+
+For non-MPI atomic steps, `cpus_per_task` and `min_cpus_per_task` should be
+interpreted as the target and minimum core reservation for the step.
+`ntasks` and `min_tasks` should remain MPI-oriented fields. Non-MPI steps that
+need multiple workers should use the Dask-aware step hook rather than treating
+MPI task counts as non-MPI worker counts.
+
+### Algorithm Design: Single-Step Execution in Phase 1
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+The Phase 1 scheduling policy should be a single-active-step policy layered on
+top of the future task-parallel scheduler. The scheduler should repeatedly:
+
+- identify ready graph nodes,
+- filter them by completion, cached status and resource feasibility,
+- choose the first ready step in deterministic order,
+- reserve resources for that step,
+- execute it through the `polaris run` Dask orchestration path, and
+- release resources after the step succeeds or fails.
+
+No second step should be started while another step is active, even if it is
+independent and enough resources remain idle. This intentionally leaves
+parallel speedup for Phase 2 while proving that the scheduler, resource pool
+and Dask execution path are already real.
+
+### Algorithm Design: Future Parallel-Eligibility Metadata
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Step metadata should distinguish execution kind from resource size. Polaris
+should derive a default execution kind from existing information, such as
+whether a step uses MPI-style resources or launches through the component
+parallel command path. Ambiguous or special steps should be able to override
+the derived kind explicitly.
+
+Non-MPI steps should be eligible for Phase 2 concurrent execution by default.
+Step authors should be able to mark a non-MPI step as unsafe or ineligible
+when it has shared mutable state, external side effects, uncontrolled process
+launching, or other behavior that makes concurrent execution inappropriate.
+
+MPI steps and ineligible non-MPI steps should remain serialized in Phase 2.
+Later phases may invert or refine defaults for MPI steps, but they should use
+the same execution-kind metadata rather than adding a separate classification
+system.
+
+### Algorithm Design: Observable Execution and Schedule Summaries
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Phase 1 observability should have both structured and human-readable forms.
+The human-readable output should summarize selected order, wait reasons,
+resource reservations, step timing, completion state and final results. The
+structured output should record schedule/resource events so Phase 2 and later
+debugging can reconstruct what happened without scraping free-form logs.
+
+Structured events should include at least graph construction, ready-step
+selection, resource reservation, Dask worker-pool state, step start, step
+finish, failure and resource release. These events should be sufficient to
+verify that Phase 1 did not accidentally run steps concurrently and that Phase
+2 does run eligible steps concurrently.
+
+### Algorithm Design: Cross-Machine Phase-1 Functionality
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+The Phase 1 algorithm should assume the batch scheduler provides a fixed
+allocation, while Polaris manages Dask worker resources inside that allocation.
+Machine-specific differences should be confined to allocation discovery, job
+script generation, worker launch details and later MPI launch behavior.
+
+On Slurm systems such as Chrysalis and Perlmutter, the design should avoid
+using a scheduler-launched job step for every small Python step. On PBS-based
+systems such as Aurora, the same allocation-scoped Dask model should remain
+the conceptual target even if worker launch details differ.
+
+### Algorithm Design: Frontier Support
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+N/A for Phase 1. Frontier validation is desired, but it does not change the
+core Phase 1 algorithm beyond the cross-machine portability choices described
+above.
+
+### Algorithm Design: Task-serial Summary
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Comparable `polaris serial` summaries should use the same schedule-summary
+concepts where practical: selected steps, timing, completion state and final
+validation status. They do not need Dask worker or resource-pool events.
+
+## Testing
+
+### Testing and Validation: Phase-1 Scheduler and Graph
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Unit tests should cover graph construction from explicit dependencies and
+input/output file relationships, including cycles, missing producers,
+completed steps, cached steps, skipped steps and already satisfied external
+inputs. Tests should verify that `steps_to_run` affects deterministic order
+but does not create implicit dependencies.
+
+Scheduler tests should cover deterministic ready-step selection, invalid
+resource requests and single-active-step enforcement. Synthetic workflows
+should include independent branches, shared dependencies and intentionally
+failed steps.
+
+### Testing and Validation: Phase-1 Execution Equivalence
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Integration tests should compare `polaris run` with `polaris serial` for
+suites, tasks and individual steps. These tests should verify equivalent
+outputs, runtime input failures, per-step logs, completion markers,
+`step_after_run.pickle` behavior, baseline/property markers and rerun
+behavior.
+
+Representative suite validation should include `omega_pr`, `omega_nightly`
+and `mpaso_pr` on Chrysalis, Perlmutter and Aurora where available. The
+structured schedule summary should confirm that Phase 1 ran through the Dask
+orchestration path while keeping only one step active at a time.
