@@ -26,9 +26,8 @@ class CombineStep(Step):
         super().__init__(
             component=component,
             name='combine',
-            subdir=subdir,
-            ntasks=1,
-            min_tasks=1,
+            dask_workers=102,  # number of depth levels
+            min_dask_workers=1,
         )
         self.add_output_file(filename='woa_combined.nc')
 
@@ -81,6 +80,46 @@ class CombineStep(Step):
         logger = self.logger
         logger.info('Combining January and annual WOA23 climatologies')
 
+        ds_out = self._combine_woa_climatologies()
+        ds_out = self._to_canonical_teos10(ds_out)
+        write_netcdf(ds_out, 'woa_combined.nc')
+        logger.info('Wrote woa_combined.nc')
+
+    def run_with_dask(self, client, resources):
+        """
+        Combine January and annual climatologies using Dask for TEOS-10
+        conversion by depth slice.
+
+        Parameters
+        ----------
+        client : distributed.Client
+            The Dask client for the active ``polaris run`` lifecycle.
+
+        resources : polaris.run.resources.StepResourceLease
+            The resources assigned to the step.
+        """
+        logger = self.logger
+        logger.info('Combining January and annual WOA23 climatologies')
+        logger.info(
+            f'Using Dask for TEOS-10 conversion with '
+            f'{resources.workers} workers'
+        )
+
+        ds_out = self._combine_woa_climatologies()
+        ds_out = self._to_canonical_teos10_with_dask(ds_out, client)
+        write_netcdf(ds_out, 'woa_combined.nc')
+        logger.info('Wrote woa_combined.nc')
+
+    @staticmethod
+    def _combine_woa_climatologies():
+        """
+        Combine January and annual WOA23 climatologies.
+
+        Returns
+        -------
+        ds_out : xarray.Dataset
+            Combined in-situ temperature and practical salinity.
+        """
         with xr.open_dataset('woa_temp_ann.nc', decode_times=False) as ds_temp:
             ds_out = xr.Dataset()
             for var in ['lon', 'lat', 'depth']:
@@ -108,9 +147,7 @@ class CombineStep(Step):
                     ds_out[var_name] = xr.concat(slices, dim='depth')
                     ds_out[var_name].attrs = ds_ann[var_name].attrs
 
-        ds_out = self._to_canonical_teos10(ds_out)
-        write_netcdf(ds_out, 'woa_combined.nc')
-        logger.info('Wrote woa_combined.nc')
+        return ds_out
 
     @staticmethod
     def _to_canonical_teos10(ds):
@@ -133,26 +170,14 @@ class CombineStep(Step):
         sa_slices = []
         for depth_index in range(ds.sizes['depth']):
             temp_slice = ds.t_an.isel(depth=depth_index)
-            in_situ_temp = temp_slice.values
-            practical_salinity = ds.s_an.isel(depth=depth_index).values
-            lat = ds.lat.broadcast_like(temp_slice).values
-            lon = ds.lon.broadcast_like(temp_slice).values
-            z = -ds.depth.isel(depth=depth_index).values
-            pressure = gsw.p_from_z(z, lat)
-
-            mask = np.isfinite(in_situ_temp) & np.isfinite(practical_salinity)
-            conservative_temp = np.full(in_situ_temp.shape, np.nan)
-            absolute_salinity = np.full(practical_salinity.shape, np.nan)
-            absolute_salinity[mask] = gsw.SA_from_SP(
-                practical_salinity[mask],
-                pressure[mask],
-                lon[mask],
-                lat[mask],
-            )
-            conservative_temp[mask] = gsw.CT_from_t(
-                absolute_salinity[mask],
-                in_situ_temp[mask],
-                pressure[mask],
+            conservative_temp, absolute_salinity = (
+                CombineStep._to_canonical_teos10_slice(
+                    depth=ds.depth.isel(depth=depth_index).values,
+                    temp_slice=temp_slice.values,
+                    salinity_slice=ds.s_an.isel(depth=depth_index).values,
+                    lat=ds.lat.broadcast_like(temp_slice).values,
+                    lon=ds.lon.broadcast_like(temp_slice).values,
+                )
             )
             ct_slices.append(
                 xr.DataArray(
@@ -169,6 +194,143 @@ class CombineStep(Step):
                 )
             )
 
+        return CombineStep._finish_canonical_teos10(
+            ds, ct_slices, sa_slices, dims
+        )
+
+    @staticmethod
+    def _to_canonical_teos10_with_dask(ds, client):
+        """
+        Convert WOA in-situ temperature and practical salinity using Dask.
+
+        Parameters
+        ----------
+        ds : xarray.Dataset
+            A combined WOA dataset with in-situ temperature and salinity.
+
+        client : distributed.Client
+            The Dask client for the active ``polaris run`` lifecycle.
+
+        Returns
+        -------
+        ds : xarray.Dataset
+            The dataset with conservative temperature and absolute salinity.
+        """
+        dims = ds.t_an.dims
+        futures = []
+        for depth_index in range(ds.sizes['depth']):
+            temp_slice = ds.t_an.isel(depth=depth_index)
+            futures.append(
+                client.submit(
+                    CombineStep._to_canonical_teos10_slice,
+                    depth=ds.depth.isel(depth=depth_index).values,
+                    temp_slice=temp_slice.values,
+                    salinity_slice=ds.s_an.isel(depth=depth_index).values,
+                    lat=ds.lat.broadcast_like(temp_slice).values,
+                    lon=ds.lon.broadcast_like(temp_slice).values,
+                )
+            )
+
+        ct_slices = []
+        sa_slices = []
+        for depth_index, (conservative_temp, absolute_salinity) in enumerate(
+            client.gather(futures)
+        ):
+            temp_slice = ds.t_an.isel(depth=depth_index)
+            ct_slices.append(
+                xr.DataArray(
+                    data=conservative_temp,
+                    dims=temp_slice.dims,
+                    attrs=temp_slice.attrs,
+                )
+            )
+            sa_slices.append(
+                xr.DataArray(
+                    data=absolute_salinity,
+                    dims=temp_slice.dims,
+                    attrs=ds.s_an.attrs,
+                )
+            )
+
+        return CombineStep._finish_canonical_teos10(
+            ds, ct_slices, sa_slices, dims
+        )
+
+    @staticmethod
+    def _to_canonical_teos10_slice(
+        depth, temp_slice, salinity_slice, lat, lon
+    ):
+        """
+        Convert one WOA depth slice to conservative temperature and absolute
+        salinity.
+
+        Parameters
+        ----------
+        depth : float
+            Depth of the slice.
+
+        temp_slice : numpy.ndarray
+            In-situ temperature for the depth slice.
+
+        salinity_slice : numpy.ndarray
+            Practical salinity for the depth slice.
+
+        lat : numpy.ndarray
+            Latitude broadcast to the slice shape.
+
+        lon : numpy.ndarray
+            Longitude broadcast to the slice shape.
+
+        Returns
+        -------
+        conservative_temp : numpy.ndarray
+            Conservative temperature for the depth slice.
+
+        absolute_salinity : numpy.ndarray
+            Absolute salinity for the depth slice.
+        """
+        pressure = gsw.p_from_z(-depth, lat)
+
+        mask = np.isfinite(temp_slice) & np.isfinite(salinity_slice)
+        conservative_temp = np.full(temp_slice.shape, np.nan)
+        absolute_salinity = np.full(salinity_slice.shape, np.nan)
+        absolute_salinity[mask] = gsw.SA_from_SP(
+            salinity_slice[mask],
+            pressure[mask],
+            lon[mask],
+            lat[mask],
+        )
+        conservative_temp[mask] = gsw.CT_from_t(
+            absolute_salinity[mask],
+            temp_slice[mask],
+            pressure[mask],
+        )
+        return conservative_temp, absolute_salinity
+
+    @staticmethod
+    def _finish_canonical_teos10(ds, ct_slices, sa_slices, dims):
+        """
+        Add converted TEOS-10 fields to a WOA dataset.
+
+        Parameters
+        ----------
+        ds : xarray.Dataset
+            Dataset with in-situ temperature and practical salinity.
+
+        ct_slices : list of xarray.DataArray
+            Conservative-temperature depth slices.
+
+        sa_slices : list of xarray.DataArray
+            Absolute-salinity depth slices.
+
+        dims : tuple
+            Original dimension order for the WOA fields.
+
+        Returns
+        -------
+        ds : xarray.Dataset
+            Dataset with TEOS-10 fields replacing the original WOA fields.
+        """
         ds['ct_an'] = xr.concat(ct_slices, dim='depth').transpose(*dims)
         ds.ct_an.attrs['standard_name'] = 'sea_water_conservative_temperature'
         ds.ct_an.attrs['long_name'] = (
