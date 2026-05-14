@@ -648,6 +648,14 @@ executes a Python step with a Dask client, it shall call
 shall fall back to `run()`, so ordinary step behavior remains unchanged unless
 a step opts in to Dask-aware behavior.
 
+The sixth implementation chunk shall convert the WOA23 hydrography combine
+step into the first Dask-aware pilot. The ordinary `run()` path shall continue
+to combine the January and annual WOA climatologies and convert TEOS-10 fields
+serially. The new `run_with_dask()` path shall keep the same input/output
+contract but submit conservative-temperature and absolute-salinity conversion
+work per depth slice to the active Dask client, then gather and reassemble
+results in deterministic depth order before writing `woa_combined.nc`.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -690,6 +698,12 @@ fallback. Resource-lease tests shall cover assigned cores, workers and
 placeholder fields for future scheduler accounting. Shared run-helper tests
 shall verify that `polaris run` uses `run_with_dask()` when a Dask client is
 available.
+
+The WOA23 Dask-aware pilot shall be validated with the existing helper tests
+and a synthetic local-client test that writes tiny WOA-like NetCDF files,
+runs `CombineStep.run_with_dask()` and verifies that the resulting
+`woa_combined.nc` matches the serial helper output. The unit test shall not
+require downloading the full WOA23 dataset.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
