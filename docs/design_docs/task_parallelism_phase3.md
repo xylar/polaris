@@ -285,8 +285,6 @@ baseline.
 Users shall be able to fall back to the existing serial execution path if task-parallel
 execution is not appropriate for a workflow or machine.
 
-## Desired
-
 ### Desired: Frontier Support
 
 Date last modified: 2026/05/11
@@ -316,6 +314,35 @@ task-serial MPI baseline would be valuable in Phase 3.
 
 Such reporting would make it easy to quantify the benefit of Phase 3 on representative
 workflows and would provide a reference point for evaluating further improvements in Phase 4.
+
+## Algorithm Design
+
+### Algorithm Design: Phase-1/2 Architecture Alignment
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Phase 3 should extend the dynamic resource-pool model, execution-kind metadata
+and structured schedule/resource events introduced in Phases 1 and 2. It
+should not introduce a separate scheduler architecture for MPI work. Instead,
+MPI scheduling should become another policy applied to the same dependency
+graph and resource pool.
+
+The Phase 2 barrier between MPI and non-MPI execution should remain in Phase
+3. Eligible non-MPI phases should continue to use the Dask worker-pool
+lifecycle from Phase 2. MPI phases should add concurrent MPI resource
+partitioning and launch behavior while keeping non-MPI workers stopped during
+MPI execution.
+
+Execution-kind metadata from Phase 1 should be the source of truth for
+distinguishing MPI, non-MPI and explicitly ineligible steps. The structured
+event stream should be extended to record MPI resource assignments,
+partitioning mode and launch details so Phase 3 diagnostics are comparable
+with Phase 2 diagnostics.
 
 ## Testing
 

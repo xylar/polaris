@@ -248,8 +248,6 @@ baseline.
 Users shall be able to fall back to the existing serial execution path if task-parallel
 execution is not appropriate for a workflow or machine.
 
-## Desired
-
 ### Desired: Frontier Support
 
 Date last modified: 2026/05/11
@@ -281,6 +279,34 @@ This would involve `polaris setup` and `polaris suite` using the task-parallel i
 by default, with `polaris serial` remaining available as an explicit opt-out for users who
 need the original serial execution path. Whether this transition happens at the end of Phase 4
 or in a later phase is a decision for the relevant design documents.
+
+## Algorithm Design
+
+### Algorithm Design: Phase-1/2 Architecture Alignment
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Phase 4 should remove the Phase 2-3 MPI/non-MPI barrier by changing the
+scheduling policy, not by replacing the core architecture. The dependency
+graph, execution-kind metadata, dynamic resource pool, Dask worker lifecycle
+and structured schedule/resource events from earlier phases should remain the
+foundation.
+
+The Phase 1 dynamic resource-pool model should become fully active in Phase 4:
+ready MPI and non-MPI steps should draw from the same pool, resources should
+be released as steps finish and the scheduler should launch newly feasible
+work without waiting for a full barrier. MPI priority under contention should
+be implemented as a scheduling policy on this shared pool.
+
+The Dask-aware non-MPI step hook introduced in Phase 1-2 should remain the
+path for Python steps that can consume multiple workers. Phase 4 should extend
+the resource lease attached to that hook with any memory, CPU, GPU or node
+isolation data needed to prevent overlap with concurrently running MPI work.
 
 ## Testing
 
