@@ -566,7 +566,45 @@ Comparable `polaris serial` summaries should use the same schedule-summary
 concepts where practical: selected steps, timing, completion state and final
 validation status. They do not need Dask worker or resource-pool events.
 
+## Implementation
+
+### Implementation: New Task-Parallel Command Path
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+The first implementation chunk shall declare Dask Distributed as a Polaris
+runtime dependency. The pixi deployment template is the source of truth for
+the development and supported deployment environments, so `dask` and
+`distributed` shall be added to `deploy/pixi.toml.j2`.
+
+Matching entries shall also be added to `pyproject.toml` so package metadata
+and `pip check` can verify that the Python dependency set is complete. Polaris
+is not expected to run from PyPI dependencies alone; the `pyproject.toml`
+entries are a consistency check rather than the deployment source of truth.
+
+This chunk shall not introduce `polaris run`, Dask lifecycle management, or
+changes to `polaris serial`. Those will be implemented in later, separately
+reviewed commits.
+
 ## Testing
+
+### Testing and Validation: New Task-Parallel Command Path
+
+Date last modified: 2026/05/14
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+The dependency declaration chunk shall be validated by importing `dask` and
+`distributed` from the deployed pixi environment, running `pip check` in that
+environment, and running pre-commit on the changed files.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
