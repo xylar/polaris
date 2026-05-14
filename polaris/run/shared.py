@@ -282,6 +282,7 @@ def log_and_run_task(
     steps_to_run,
     steps_to_skip,
     available_resources,
+    subprocess_command='serial',
 ):
     """
     Run one task with task-level logging and status accounting.
@@ -314,6 +315,9 @@ def log_and_run_task(
 
     available_resources : dict
         Available CPU, GPU and MPI resources for this run.
+
+    subprocess_command : str, optional
+        Polaris subcommand to use when a step must run in a subprocess.
 
     Returns
     -------
@@ -372,7 +376,11 @@ def log_and_run_task(
         # Default in case execution fails before setting this
         baselines_passed = None
         try:
-            baselines_passed = run_task(task, available_resources)
+            baselines_passed = run_task(
+                task,
+                available_resources,
+                subprocess_command=subprocess_command,
+            )
             run_status = success_str
             task_pass = True
         except Exception:
@@ -505,7 +513,7 @@ def accumulate_statuses(
     return accumulated_status and status
 
 
-def run_task(task, available_resources):
+def run_task(task, available_resources, subprocess_command='serial'):
     """
     Run each selected step in a task.
 
@@ -517,6 +525,9 @@ def run_task(task, available_resources):
 
     available_resources : dict
         Available CPU, GPU and MPI resources for this run.
+
+    subprocess_command : str, optional
+        Polaris subcommand to use when a step must run in a subprocess.
 
     Returns
     -------
@@ -574,7 +585,12 @@ def run_task(task, available_resources):
 
         try:
             if step.run_as_subprocess:
-                run_step_as_subprocess(logger, step, task.new_step_log_file)
+                run_step_as_subprocess(
+                    logger,
+                    step,
+                    task.new_step_log_file,
+                    subprocess_command=subprocess_command,
+                )
             else:
                 run_step(
                     task,
@@ -752,7 +768,9 @@ def run_step(task, step, new_log_file, available_resources, step_log_filename):
         )
 
 
-def run_step_as_subprocess(logger, step, new_log_file):
+def run_step_as_subprocess(
+    logger, step, new_log_file, subprocess_command='serial'
+):
     """
     Run one step by invoking ``polaris serial`` in a subprocess.
 
@@ -766,6 +784,9 @@ def run_step_as_subprocess(logger, step, new_log_file):
 
     new_log_file : bool
         Whether to create a separate log file for this step.
+
+    subprocess_command : str, optional
+        Polaris subcommand to use for the subprocess.
     """
     cwd = os.getcwd()
     logger_name = step.path.replace('/', '_')
@@ -782,7 +803,7 @@ def run_step_as_subprocess(logger, step, new_log_file):
         name=logger_name, logger=step_logger, log_filename=log_filename
     ) as step_logger:
         os.chdir(step.work_dir)
-        step_args = ['polaris', 'serial', '--step_is_subprocess']
+        step_args = ['polaris', subprocess_command, '--step_is_subprocess']
         check_call(step_args, step_logger)
 
 
