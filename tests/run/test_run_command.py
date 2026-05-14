@@ -1,4 +1,6 @@
 import sys
+from contextlib import contextmanager
+from types import SimpleNamespace
 
 import pytest
 
@@ -146,3 +148,102 @@ def test_run_auto_suite_requires_unique_pickle(tmp_path, monkeypatch):
 
     with pytest.raises(ValueError, match='polaris run <suite>'):
         run_command.main()
+
+
+def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
+    events = []
+
+    class DummyComponent:
+        name = 'ocean'
+
+        @staticmethod
+        def get_available_resources():
+            return {'cores': 2}
+
+    class DummyLogger:
+        def info(self, message):
+            events.append(('info', message))
+
+        def error(self, message):
+            events.append(('error', message))
+
+    class DummyLoggingContext:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return DummyLogger()
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+    @contextmanager
+    def _dask_client_context(available_resources, logger=None):
+        assert available_resources == {'cores': 2}
+        events.append(('dask', 'start'))
+        yield 'client'
+        events.append(('dask', 'stop'))
+
+    def _log_and_run_task(
+        task,
+        stdout_logger,
+        task_logger,
+        quiet,
+        log_filename,
+        is_task,
+        steps_to_run,
+        steps_to_skip,
+        available_resources,
+        subprocess_command='serial',
+        dask_client=None,
+    ):
+        assert dask_client == 'client'
+        assert subprocess_command == 'run'
+        events.append(('task', task.path))
+        return 'PASS', True, 0.0, False, False
+
+    component = DummyComponent()
+    tasks = {
+        'task_a': SimpleNamespace(
+            base_work_dir=str(tmp_path),
+            component=component,
+            path='component/task_a',
+        ),
+        'task_b': SimpleNamespace(
+            base_work_dir=str(tmp_path),
+            component=component,
+            path='component/task_b',
+        ),
+    }
+    suite = {'tasks': tasks, 'work_dir': str(tmp_path)}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(run_command, 'unpickle_suite', lambda name: suite)
+    monkeypatch.setattr(run_command, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_command, 'set_parallel_systems', lambda *args: None
+    )
+    monkeypatch.setattr(run_command, 'LoggingContext', DummyLoggingContext)
+    monkeypatch.setattr(
+        run_command, 'dask_client_context', _dask_client_context
+    )
+    monkeypatch.setattr(run_command, 'log_and_run_task', _log_and_run_task)
+    monkeypatch.setattr(
+        run_command,
+        'write_output_for_pull_request',
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        run_command, 'log_task_runtimes', lambda *args, **kwargs: None
+    )
+
+    run_command.run_tasks('suite')
+
+    assert events.count(('dask', 'start')) == 1
+    assert events.count(('dask', 'stop')) == 1
+    assert events.index(('dask', 'start')) < events.index(
+        ('task', 'component/task_a')
+    )
+    assert events.index(('task', 'component/task_b')) < events.index(
+        ('dask', 'stop')
+    )

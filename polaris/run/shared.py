@@ -283,6 +283,7 @@ def log_and_run_task(
     steps_to_skip,
     available_resources,
     subprocess_command='serial',
+    dask_client=None,
 ):
     """
     Run one task with task-level logging and status accounting.
@@ -318,6 +319,9 @@ def log_and_run_task(
 
     subprocess_command : str, optional
         Polaris subcommand to use when a step must run in a subprocess.
+
+    dask_client : distributed.Client, optional
+        Dask client for the active ``polaris run`` lifecycle.
 
     Returns
     -------
@@ -380,6 +384,7 @@ def log_and_run_task(
                 task,
                 available_resources,
                 subprocess_command=subprocess_command,
+                dask_client=dask_client,
             )
             run_status = success_str
             task_pass = True
@@ -513,7 +518,9 @@ def accumulate_statuses(
     return accumulated_status and status
 
 
-def run_task(task, available_resources, subprocess_command='serial'):
+def run_task(
+    task, available_resources, subprocess_command='serial', dask_client=None
+):
     """
     Run each selected step in a task.
 
@@ -528,6 +535,9 @@ def run_task(task, available_resources, subprocess_command='serial'):
 
     subprocess_command : str, optional
         Polaris subcommand to use when a step must run in a subprocess.
+
+    dask_client : distributed.Client, optional
+        Dask client for the active ``polaris run`` lifecycle.
 
     Returns
     -------
@@ -598,6 +608,7 @@ def run_task(task, available_resources, subprocess_command='serial'):
                     task.new_step_log_file,
                     available_resources,
                     step_log_filename,
+                    dask_client=dask_client,
                 )
         except Exception:
             print_to_stdout(task, f'          execution:        {error_str}')
@@ -641,7 +652,14 @@ def run_task(task, available_resources, subprocess_command='serial'):
     return baselines_passed
 
 
-def run_step(task, step, new_log_file, available_resources, step_log_filename):
+def run_step(
+    task,
+    step,
+    new_log_file,
+    available_resources,
+    step_log_filename,
+    dask_client=None,
+):
     """
     Run one step through the standard Polaris step lifecycle.
 
@@ -665,6 +683,9 @@ def run_step(task, step, new_log_file, available_resources, step_log_filename):
 
     step_log_filename : str or None
         Existing task log filename to associate with the step, or ``None``.
+
+    dask_client : distributed.Client, optional
+        Dask client for the active ``polaris run`` lifecycle.
 
     Raises
     ------
