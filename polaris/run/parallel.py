@@ -12,6 +12,7 @@ from mpas_tools.logging import LoggingContext
 from polaris import Task
 from polaris.logging import log_function_call
 from polaris.parallel import set_parallel_systems
+from polaris.run.dask import dask_client_context
 from polaris.run.shared import (
     log_and_run_task,
     log_task_runtimes,
@@ -70,72 +71,76 @@ def run_tasks(
             except OSError:
                 pass
 
-        failures = 0
-        cwd = os.getcwd()
-        suite_start = time.time()
-        task_times = dict()
-        result_strs = dict()
-        total_tasks = len(suite['tasks'])
-        exec_fail_tasks: List[str] = []
-        diff_fail_tasks: List[str] = []
-        for task_name in suite['tasks']:
-            stdout_logger.info(f'{task_name}')
+        with dask_client_context(
+            available_resources, logger=stdout_logger
+        ) as dask_client:
+            failures = 0
+            cwd = os.getcwd()
+            suite_start = time.time()
+            task_times = dict()
+            result_strs = dict()
+            total_tasks = len(suite['tasks'])
+            exec_fail_tasks: List[str] = []
+            diff_fail_tasks: List[str] = []
+            for task_name in suite['tasks']:
+                stdout_logger.info(f'{task_name}')
 
-            task = suite['tasks'][task_name]
+                task = suite['tasks'][task_name]
 
-            if is_task:
-                log_filename = None
-                task_logger = stdout_logger
-            else:
-                task_prefix = task.path.replace('/', '_')
-                log_filename = f'{cwd}/case_outputs/{task_prefix}.log'
-                task_logger = None
+                if is_task:
+                    log_filename = None
+                    task_logger = stdout_logger
+                else:
+                    task_prefix = task.path.replace('/', '_')
+                    log_filename = f'{cwd}/case_outputs/{task_prefix}.log'
+                    task_logger = None
 
-            (
-                result_str,
-                success,
-                task_time,
-                exec_failed,
-                diff_failed,
-            ) = log_and_run_task(
-                task,
-                stdout_logger,
-                task_logger,
-                quiet,
-                log_filename,
-                is_task,
-                steps_to_run,
-                steps_to_skip,
-                available_resources,
-                subprocess_command='run',
+                (
+                    result_str,
+                    success,
+                    task_time,
+                    exec_failed,
+                    diff_failed,
+                ) = log_and_run_task(
+                    task,
+                    stdout_logger,
+                    task_logger,
+                    quiet,
+                    log_filename,
+                    is_task,
+                    steps_to_run,
+                    steps_to_skip,
+                    available_resources,
+                    subprocess_command='run',
+                    dask_client=dask_client,
+                )
+                result_strs[task_name] = result_str
+                if not success:
+                    failures += 1
+                if exec_failed:
+                    exec_fail_tasks.append(task_name)
+                if diff_failed:
+                    diff_fail_tasks.append(task_name)
+                task_times[task_name] = task_time
+
+            suite_time = time.time() - suite_start
+
+            os.chdir(cwd)
+
+            # Write a concise, copy/paste-friendly summary for Omega PRs
+            write_output_for_pull_request(
+                suite_name,
+                suite,
+                results={
+                    'total': total_tasks,
+                    'failures': exec_fail_tasks,
+                    'diffs': diff_fail_tasks,
+                },
             )
-            result_strs[task_name] = result_str
-            if not success:
-                failures += 1
-            if exec_failed:
-                exec_fail_tasks.append(task_name)
-            if diff_failed:
-                diff_fail_tasks.append(task_name)
-            task_times[task_name] = task_time
 
-        suite_time = time.time() - suite_start
-
-        os.chdir(cwd)
-
-        # Write a concise, copy/paste-friendly summary for Omega PRs
-        write_output_for_pull_request(
-            suite_name,
-            suite,
-            results={
-                'total': total_tasks,
-                'failures': exec_fail_tasks,
-                'diffs': diff_fail_tasks,
-            },
-        )
-
-        log_task_runtimes(
-            stdout_logger, task_times, result_strs, suite_time, failures
-        )
+            log_task_runtimes(
+                stdout_logger, task_times, result_strs, suite_time, failures
+            )
 
 
 def run_single_step(step_is_subprocess=False, quiet=False):
@@ -179,7 +184,15 @@ def run_single_step(step_is_subprocess=False, quiet=False):
             log_function_call(function=run_task, logger=stdout_logger)
             stdout_logger.info('')
             stdout_logger.info(f'Running step: {step.name}')
-        run_task(task, available_resources, subprocess_command='run')
+        with dask_client_context(
+            available_resources, logger=stdout_logger
+        ) as dask_client:
+            run_task(
+                task,
+                available_resources,
+                subprocess_command='run',
+                dask_client=dask_client,
+            )
 
 
 def main():
