@@ -591,6 +591,20 @@ This chunk shall not introduce `polaris run`, Dask lifecycle management, or
 changes to `polaris serial`. Those will be implemented in later, separately
 reviewed commits.
 
+The second implementation chunk shall extract command-independent pieces of
+the existing `polaris serial` implementation into shared run infrastructure.
+The extracted helpers shall cover suite unpickling, runtime config setup,
+dependency loading, completion markers, step-list selection, task logging and
+status accumulation, completed-step validation marker reads, per-step
+lifecycle execution, subprocess step execution and pull-request summary
+generation.
+
+`polaris serial` shall import and use these shared helpers without changing
+its command line, work-directory discovery or runtime behavior. This chunk is
+intended to make the next `polaris run` commit small: the new command should
+be able to reuse the same task and step lifecycle helpers rather than
+depending on private functions inside `polaris.run.serial`.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -605,6 +619,12 @@ Contributors:
 The dependency declaration chunk shall be validated by importing `dask` and
 `distributed` from the deployed pixi environment, running `pip check` in that
 environment, and running pre-commit on the changed files.
+
+The shared-infrastructure refactor shall be validated with focused unit tests
+for step selection, validation marker reads and status accumulation. Existing
+targeted tests shall also be run to catch import or runtime regressions from
+moving helpers out of `polaris.run.serial`. Pre-commit shall be run on all
+changed files.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
