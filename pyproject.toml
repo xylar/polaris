@@ -30,6 +30,8 @@ classifiers = [
 dependencies = [
     "cartopy",
     "cmocean",
+    "dask",
+    "distributed",
     "gsw",
     "importlib_resources",
     "ipython",
