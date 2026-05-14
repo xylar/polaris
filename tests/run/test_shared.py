@@ -10,6 +10,7 @@ from polaris.run.shared import (
     read_property_status_from_logs,
     update_steps_to_run,
 )
+from polaris.step import Step
 
 
 def test_update_steps_to_run_from_config_with_skip():
@@ -164,3 +165,52 @@ def test_run_task_keeps_single_active_step(tmp_path, monkeypatch):
 
     assert run_order == ['step_a', 'step_b']
     assert max_active_steps == 1
+
+
+def test_run_step_uses_dask_hook(tmp_path, monkeypatch):
+    calls = []
+
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    class HookStep(Step):
+        def __init__(self):
+            super().__init__(
+                component=SimpleNamespace(name='ocean'),
+                name='hook',
+                cpus_per_task=3,
+                ntasks=1,
+                dask_workers=3,
+            )
+            self.work_dir = str(tmp_path)
+            self.base_work_dir = str(tmp_path)
+
+        def run_with_dask(self, client, resources):
+            calls.append((client, resources))
+
+    monkeypatch.chdir(tmp_path)
+
+    task = SimpleNamespace(logger=DummyLogger())
+    step = HookStep()
+    available_resources = {
+        'cores': 8,
+        'cores_per_node': 4,
+        'nodes': 2,
+        'mpi_allowed': True,
+    }
+
+    run_shared.run_step(
+        task,
+        step,
+        new_log_file=False,
+        available_resources=available_resources,
+        step_log_filename=None,
+        dask_client='client',
+    )
+
+    assert len(calls) == 1
+    client, resources = calls[0]
+    assert client == 'client'
+    assert resources.cores == 3
+    assert resources.workers == 3

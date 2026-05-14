@@ -2,6 +2,8 @@ from contextlib import contextmanager
 
 from distributed import Client, LocalCluster
 
+from polaris.run.resources import get_local_worker_count
+
 
 def get_dask_worker_count(available_resources):
     """
@@ -22,13 +24,7 @@ def get_dask_worker_count(available_resources):
     worker_count : int
         The number of Dask workers to start.
     """
-    cores = available_resources.get('cores', 1)
-    if cores is None:
-        cores = 1
-    cores_per_node = available_resources.get('cores_per_node', None)
-    if cores_per_node is not None:
-        cores = min(cores, cores_per_node)
-    return max(1, int(cores))
+    return get_local_worker_count(available_resources)
 
 
 @contextmanager
