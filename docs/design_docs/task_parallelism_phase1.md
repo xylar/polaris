@@ -612,6 +612,18 @@ steps. In this chunk, `polaris run` shall still execute task-serially through
 the shared task and step lifecycle helpers; it shall not yet start a Dask
 client, build a dependency graph or change setup-generated job scripts.
 
+The fourth implementation chunk shall add the first Dask Distributed
+lifecycle wrapper for `polaris run`. The command shall start one local Dask
+cluster and client for each suite, task or single-step run, using
+single-threaded workers capped to the local node's available core count. This
+chunk shall not yet launch workers across all nodes in a multi-node
+allocation; parallel-system-aware multi-node worker launch shall come with the
+later scheduler and resource-management work. The client shall be passed
+through the shared run helpers so later Dask-aware hooks can use it, but this
+chunk shall keep the existing task-serial step loop and shall not run more
+than one Polaris step at a time. The Dask client and cluster shall be closed
+on normal completion and on failure.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -637,6 +649,14 @@ The thin-command skeleton shall be validated with unit tests for top-level CLI
 dispatch, `polaris run --help` and suite/task/step work-directory scope
 detection. Existing targeted tests shall also be run to confirm the new command
 does not regress the shared serial execution helpers.
+
+The Dask lifecycle chunk shall be validated with unit tests that fake the
+Dask `Client` and `LocalCluster` classes to verify worker-count selection and
+cleanup without launching real workers. Focused run-command tests shall verify
+that `polaris run` creates one Dask lifecycle around task execution and passes
+the client to the shared task helper. Shared run-helper tests shall verify
+that the existing step loop remains single-active-step even when a Dask client
+is available.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
