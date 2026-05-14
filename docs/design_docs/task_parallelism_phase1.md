@@ -605,6 +605,13 @@ intended to make the next `polaris run` commit small: the new command should
 be able to reuse the same task and step lifecycle helpers rather than
 depending on private functions inside `polaris.run.serial`.
 
+The third implementation chunk shall add a thin `polaris run` command
+skeleton. The command shall be wired into the top-level Polaris CLI and shall
+mirror `polaris serial` work-directory discovery for suites, tasks and single
+steps. In this chunk, `polaris run` shall still execute task-serially through
+the shared task and step lifecycle helpers; it shall not yet start a Dask
+client, build a dependency graph or change setup-generated job scripts.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -625,6 +632,11 @@ for step selection, validation marker reads and status accumulation. Existing
 targeted tests shall also be run to catch import or runtime regressions from
 moving helpers out of `polaris.run.serial`. Pre-commit shall be run on all
 changed files.
+
+The thin-command skeleton shall be validated with unit tests for top-level CLI
+dispatch, `polaris run --help` and suite/task/step work-directory scope
+detection. Existing targeted tests shall also be run to confirm the new command
+does not regress the shared serial execution helpers.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
