@@ -164,6 +164,13 @@ def main():
         action='store_true',
         help='If the model should be built in debug mode.',
     )
+    parser.add_argument(
+        '--run_command',
+        dest='run_command',
+        choices=['serial', 'run'],
+        default='serial',
+        help='Polaris subcommand to use in generated job scripts.',
+    )
 
     args = parser.parse_args(sys.argv[2:])
 
@@ -184,6 +191,7 @@ def main():
         quiet_build=args.quiet_build,
         cmake_flags=args.cmake_flags,
         debug=args.debug,
+        run_command=args.run_command,
     )
 
 
