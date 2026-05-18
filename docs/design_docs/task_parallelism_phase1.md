@@ -656,6 +656,16 @@ contract but submit conservative-temperature and absolute-salinity conversion
 work per depth slice to the active Dask client, then gather and reassemble
 results in deterministic depth order before writing `woa_combined.nc`.
 
+The seventh implementation chunk shall add the first scheduler graph module
+without routing `polaris run` through it yet. The module shall inventory
+selected task steps in stable suite/task/step order, preserve cached and
+already completed selected steps as graph nodes, add directed edges from
+explicit `Step.dependencies`, and reject graphs with cycles. If a selected
+step has an explicit dependency that is not itself selected, graph
+construction shall require that dependency to already be satisfied by cache or
+an existing completion marker and shall keep that satisfied dependency as an
+unselected graph participant.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -704,6 +714,13 @@ and a synthetic local-client test that writes tiny WOA-like NetCDF files,
 runs `CombineStep.run_with_dask()` and verifies that the resulting
 `woa_combined.nc` matches the serial helper output. The unit test shall not
 require downloading the full WOA23 dataset.
+
+The first scheduler graph chunk shall be validated with focused unit tests for
+stable selected-step inventory, cached and already completed graph-node
+status, explicit dependency edges, unsatisfied dependencies and cycle
+rejection. Because this chunk is not wired into `polaris run`, the runtime
+command-path behavior shall remain covered by the existing run-command and
+shared lifecycle tests.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
