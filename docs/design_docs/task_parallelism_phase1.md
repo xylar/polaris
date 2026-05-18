@@ -574,7 +574,7 @@ validation status. They do not need Dask worker or resource-pool events.
 
 ### Implementation: New Task-Parallel Command Path
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/18
 
 Contributors:
 
@@ -666,11 +666,21 @@ construction shall require that dependency to already be satisfied by cache or
 an existing completion marker and shall keep that satisfied dependency as an
 unselected graph participant.
 
+The eighth implementation chunk shall extend scheduler graph construction to
+derive dependency edges from declared step input and output files. File paths
+shall be resolved to absolute paths before matching. If a selected step
+consumes a file produced by another selected step, the producing step shall be
+a graph predecessor regardless of the selected-step order. Existing input
+files with no selected producer shall be treated as external satisfied inputs.
+Missing declared inputs shall be rejected unless they are produced by a
+selected step or by an unselected cached or already completed step that can be
+kept in the graph as a satisfied participant.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/18
 
 Contributors:
 
@@ -721,6 +731,11 @@ status, explicit dependency edges, unsatisfied dependencies and cycle
 rejection. Because this chunk is not wired into `polaris run`, the runtime
 command-path behavior shall remain covered by the existing run-command and
 shared lifecycle tests.
+
+The file-dependency graph chunk shall add tests for selected output to
+selected input edges, already existing external inputs, missing declared
+inputs, cached/completed unselected file providers and the absence of implicit
+dependencies from `steps_to_run` order alone.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 

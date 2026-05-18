@@ -12,12 +12,20 @@ class DummyStep:
         self.work_dir = str(tmp_path / name)
         self.cached = cached
         self.dependencies = {}
+        self.inputs = []
+        self.outputs = []
         (tmp_path / name).mkdir()
 
     def add_dependency(self, step, name=None):
         if name is None:
             name = step.name
         self.dependencies[name] = step
+
+    def add_input(self, filename):
+        self.inputs.append(filename)
+
+    def add_output(self, filename):
+        self.outputs.append(filename)
 
 
 def test_scheduler_inventory_preserves_selected_order_and_status(tmp_path):
@@ -112,3 +120,96 @@ def test_scheduler_rejects_explicit_dependency_cycle(tmp_path):
 
     with pytest.raises(ValueError, match='contains a cycle'):
         build_scheduler_graph({'ocean/task': task})
+
+
+def test_scheduler_adds_declared_file_dependency_edge(tmp_path):
+    init = DummyStep(tmp_path, 'init')
+    forward = DummyStep(tmp_path, 'forward')
+    init.add_output('initial_state.nc')
+    forward.add_input(tmp_path / 'init' / 'initial_state.nc')
+    task = SimpleNamespace(
+        steps_to_run=['forward', 'init'],
+        steps={'init': init, 'forward': forward},
+    )
+
+    graph = build_scheduler_graph({'ocean/task': task})
+
+    assert graph.predecessors['ocean/task:forward'] == {'ocean/task:init'}
+    assert graph.successors['ocean/task:init'] == {'ocean/task:forward'}
+    assert [node.step_name for node in graph.topological_order()] == [
+        'init',
+        'forward',
+    ]
+
+
+def test_scheduler_treats_existing_input_as_external(tmp_path):
+    init = DummyStep(tmp_path, 'init')
+    forward = DummyStep(tmp_path, 'forward')
+    external_input = tmp_path / 'external.nc'
+    external_input.write_text('external\n')
+    forward.add_input(external_input)
+    task = SimpleNamespace(
+        steps_to_run=['forward', 'init'],
+        steps={'init': init, 'forward': forward},
+    )
+
+    graph = build_scheduler_graph({'ocean/task': task})
+
+    assert graph.predecessors['ocean/task:forward'] == set()
+    assert [node.step_name for node in graph.topological_order()] == [
+        'forward',
+        'init',
+    ]
+
+
+def test_scheduler_rejects_missing_declared_input(tmp_path):
+    forward = DummyStep(tmp_path, 'forward')
+    forward.add_input(tmp_path / 'missing.nc')
+    task = SimpleNamespace(
+        steps_to_run=['forward'],
+        steps={'forward': forward},
+    )
+
+    with pytest.raises(ValueError, match='does not exist'):
+        build_scheduler_graph({'ocean/task': task})
+
+
+@pytest.mark.parametrize('cached', [False, True])
+def test_scheduler_preserves_satisfied_file_provider(tmp_path, cached):
+    init = DummyStep(tmp_path, 'init', cached=cached)
+    forward = DummyStep(tmp_path, 'forward')
+    init.add_output('initial_state.nc')
+    forward.add_input(tmp_path / 'init' / 'initial_state.nc')
+    if not cached:
+        (tmp_path / 'init' / 'polaris_step_complete.log').write_text(
+            'complete\n'
+        )
+    task = SimpleNamespace(
+        steps_to_run=['forward'],
+        steps={'init': init, 'forward': forward},
+    )
+
+    graph = build_scheduler_graph({'ocean/task': task})
+    provider_key = 'satisfied:ocean/init'
+
+    assert provider_key in graph.nodes
+    assert not graph.nodes[provider_key].selected
+    assert graph.predecessors['ocean/task:forward'] == {provider_key}
+
+
+def test_scheduler_does_not_infer_dependencies_from_selected_order(tmp_path):
+    init = DummyStep(tmp_path, 'init')
+    forward = DummyStep(tmp_path, 'forward')
+    task = SimpleNamespace(
+        steps_to_run=['forward', 'init'],
+        steps={'init': init, 'forward': forward},
+    )
+
+    graph = build_scheduler_graph({'ocean/task': task})
+
+    assert graph.predecessors['ocean/task:forward'] == set()
+    assert graph.predecessors['ocean/task:init'] == set()
+    assert [node.step_name for node in graph.topological_order()] == [
+        'forward',
+        'init',
+    ]
