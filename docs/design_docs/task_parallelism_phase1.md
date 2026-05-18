@@ -676,6 +676,17 @@ Missing declared inputs shall be rejected unless they are produced by a
 selected step or by an unselected cached or already completed step that can be
 kept in the graph as a satisfied participant.
 
+The ninth implementation chunk shall introduce a scheduler resource-pool
+model for the existing `available_resources` metadata. The pool shall track
+logical nodes, CPU cores and GPUs and shall support reserving and releasing
+step resource requests. Step resource requests shall be derived without
+mutating the step, using the same feasibility constraints as
+`Step.constrain_resources()` for MPI availability, CPU core limits and GPU
+limits. This chunk shall not change the existing per-step
+`constrain_resources()` lifecycle call; it shall make the scheduler able to
+reject impossible minimum CPU/GPU requirements before starting a step and to
+account for reservations in later scheduler integration commits.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -736,6 +747,10 @@ The file-dependency graph chunk shall add tests for selected output to
 selected input edges, already existing external inputs, missing declared
 inputs, cached/completed unselected file providers and the absence of implicit
 dependencies from `steps_to_run` order alone.
+
+The resource-pool chunk shall add tests for deriving scheduler resource
+requests from step CPU/GPU metadata, minimum CPU and GPU feasibility failures,
+and reservation/release accounting for CPU cores, nodes and GPUs.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
