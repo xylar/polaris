@@ -13,6 +13,7 @@ from polaris import Task
 from polaris.logging import log_function_call
 from polaris.parallel import set_parallel_systems
 from polaris.run.dask import dask_client_context
+from polaris.run.scheduler import run_task as run_task_with_scheduler
 from polaris.run.shared import (
     log_and_run_task,
     log_task_runtimes,
@@ -94,6 +95,10 @@ def run_tasks(
                     task_prefix = task.path.replace('/', '_')
                     log_filename = f'{cwd}/case_outputs/{task_prefix}.log'
                     task_logger = None
+                if is_task:
+                    task_runner = run_task_with_scheduler
+                else:
+                    task_runner = None
 
                 (
                     result_str,
@@ -113,6 +118,7 @@ def run_tasks(
                     available_resources,
                     subprocess_command='run',
                     dask_client=dask_client,
+                    task_runner=task_runner,
                 )
                 result_strs[task_name] = result_str
                 if not success:
