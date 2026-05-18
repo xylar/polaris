@@ -200,7 +200,7 @@ def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
     ):
         assert dask_client == 'client'
         assert subprocess_command == 'run'
-        assert task_runner is None
+        assert task_runner == run_command.run_task_with_scheduler
         events.append(('task', task.path))
         return 'PASS', True, 0.0, False, False
 
