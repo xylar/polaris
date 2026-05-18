@@ -89,14 +89,16 @@ def build_scheduler_graph(tasks: Mapping[str, Any]) -> SchedulerGraph:
     Raises
     ------
     ValueError
-        If an explicit dependency is not selected and is not already
-        satisfied by cache or completion, or if the dependency graph has a
-        cycle.
+        If an explicit dependency or declared input file is not selected,
+        external, cached or already completed, or if the dependency graph has
+        a cycle.
     """
     nodes: dict[str, SchedulerNode] = {}
     predecessors: dict[str, set[str]] = {}
     successors: dict[str, set[str]] = {}
     selected_step_keys: dict[int, list[str]] = {}
+    output_providers: dict[str, list[str]] = {}
+    satisfied_output_providers: dict[str, Any] = {}
 
     order = 0
     for task_name, task in tasks.items():
@@ -113,7 +115,21 @@ def build_scheduler_graph(tasks: Mapping[str, Any]) -> SchedulerGraph:
             )
             _add_node(node, nodes, predecessors, successors)
             selected_step_keys.setdefault(id(step), []).append(key)
+            for output in step.outputs:
+                output_path = _resolve_step_path(step, output)
+                output_providers.setdefault(output_path, []).append(key)
             order += 1
+
+    for task in tasks.values():
+        selected_steps = {
+            task.steps[step_name] for step_name in task.steps_to_run
+        }
+        for step in task.steps.values():
+            if step in selected_steps or not _is_step_satisfied(step):
+                continue
+            for output in step.outputs:
+                output_path = _resolve_step_path(step, output)
+                satisfied_output_providers[output_path] = step
 
     for node in list(nodes.values()):
         for dependency in node.step.dependencies.values():
@@ -140,6 +156,39 @@ def build_scheduler_graph(tasks: Mapping[str, Any]) -> SchedulerGraph:
                     _add_node(dependency_node, nodes, predecessors, successors)
                     order += 1
             _add_edge(dependency_key, node.key, predecessors, successors)
+
+        for input_file in node.step.inputs:
+            input_path = _resolve_step_path(node.step, input_file)
+            provider_key = _get_selected_output_provider(
+                input_path, node, output_providers, nodes
+            )
+            if provider_key is not None:
+                _add_edge(provider_key, node.key, predecessors, successors)
+                continue
+
+            if input_path in satisfied_output_providers:
+                provider = satisfied_output_providers[input_path]
+                provider_key = _satisfied_dependency_key(provider)
+                if provider_key not in nodes:
+                    provider_node = _make_node(
+                        key=provider_key,
+                        task_name=None,
+                        step_name=provider.name,
+                        step=provider,
+                        order=order,
+                        selected=False,
+                    )
+                    _add_node(provider_node, nodes, predecessors, successors)
+                    order += 1
+                _add_edge(provider_key, node.key, predecessors, successors)
+                continue
+
+            if not os.path.exists(input_path):
+                raise ValueError(
+                    f'The input file {input_path} of step {node.step.path} '
+                    'does not exist and is not produced by a selected, '
+                    'cached or already completed step.'
+                )
 
     _topological_order(
         SchedulerGraph(
@@ -219,6 +268,32 @@ def _find_dependency_key(
     )
 
 
+def _get_selected_output_provider(
+    input_path: str,
+    node: SchedulerNode,
+    output_providers: dict[str, list[str]],
+    nodes: dict[str, SchedulerNode],
+) -> Optional[str]:
+    candidates = [
+        key for key in output_providers.get(input_path, []) if key != node.key
+    ]
+    if len(candidates) == 0:
+        return None
+
+    same_task_candidates = [
+        key for key in candidates if nodes[key].task_name == node.task_name
+    ]
+    if len(same_task_candidates) == 1:
+        return same_task_candidates[0]
+    if len(candidates) == 1:
+        return candidates[0]
+
+    raise ValueError(
+        f'The input file {input_path} of step {node.step.path} is produced '
+        'by multiple selected steps and cannot be resolved unambiguously.'
+    )
+
+
 def _topological_order(graph: SchedulerGraph) -> list[SchedulerNode]:
     remaining_predecessors = {
         key: set(predecessors)
@@ -275,3 +350,9 @@ def _is_step_complete(step: Any) -> bool:
         step.work_dir, 'polaris_step_complete.log'
     )
     return os.path.exists(complete_filename)
+
+
+def _resolve_step_path(step: Any, filename: str) -> str:
+    if os.path.isabs(filename):
+        return os.path.abspath(filename)
+    return os.path.abspath(os.path.join(step.work_dir, filename))
