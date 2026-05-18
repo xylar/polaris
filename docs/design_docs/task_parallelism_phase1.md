@@ -697,6 +697,19 @@ the reservation in a `finally` block. This preserves the Phase 1 single-active
 step policy while proving that task-scope `polaris run` now depends on graph
 validity and resource feasibility rather than on a serial selected-step loop.
 
+The eleventh implementation chunk shall route suite-scope `polaris run`
+through the same per-task scheduler runner while preserving the existing suite
+task loop, per-task logs and aggregate pass/fail accounting. Each scheduled
+task shall write a human-readable selected-order summary to its normal task
+output and a `schedule_events.jsonl` file in the task work directory. The
+structured events shall record graph construction, ready selection, skipped
+cached/completed steps, resource reservation, step start, step finish/failure
+and resource release. These events shall include an active-step count so tests
+and developers can verify that Phase 1 keeps only one Polaris step active at
+a time. This chunk shall continue to use the existing Dask lifecycle
+abstraction; replacing the current local Dask deployment with an
+allocation-scoped scheduler and workers remains later Phase 1 work.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -767,6 +780,12 @@ The task-scheduler integration chunk shall add tests showing that task-scope
 continue to use the shared serial task helper. Scheduler runner tests shall
 verify dependency-graph order and Phase 1 single-active-step behavior while
 still invoking the existing step lifecycle helper with the active Dask client.
+
+The suite-scheduler and observability chunk shall update run-command tests to
+verify that suite-scope tasks also receive the scheduler-backed runner.
+Scheduler tests shall verify that structured schedule events are written,
+that ready selections follow dependency order and that active-step counts in
+the events never exceed one.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 

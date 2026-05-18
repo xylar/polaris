@@ -1,3 +1,4 @@
+import json
 from types import SimpleNamespace
 
 import pytest
@@ -251,6 +252,7 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
     forward.add_input(tmp_path / 'init' / 'initial_state.nc')
     task = SimpleNamespace(
         path='ocean/task',
+        work_dir=str(tmp_path),
         logger=DummyLogger(),
         stdout_logger=DummyLogger(),
         log_filename=None,
@@ -291,3 +293,22 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
 
     assert run_order == ['init', 'forward']
     assert max_active_steps == 1
+
+    event_filename = tmp_path / 'schedule_events.jsonl'
+    events = [
+        json.loads(line) for line in event_filename.read_text().splitlines()
+    ]
+    assert events[0]['event'] == 'graph_constructed'
+    assert [
+        event['step']
+        for event in events
+        if event['event'] == 'ready_selection'
+    ] == ['init', 'forward']
+    assert (
+        max(
+            event.get('active_steps', 0)
+            for event in events
+            if event['event'] in {'step_start', 'step_finish'}
+        )
+        == 1
+    )

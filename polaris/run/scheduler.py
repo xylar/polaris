@@ -1,3 +1,4 @@
+import json
 import os
 import time
 from dataclasses import dataclass
@@ -88,6 +89,45 @@ class SchedulerGraph:
         Return a deterministic topological order for the graph.
         """
         return _topological_order(self)
+
+
+class ScheduleRecorder:
+    """
+    Record human-readable and structured scheduler events for one task.
+    """
+
+    def __init__(self, task):
+        """
+        Create a recorder for the given task.
+
+        Parameters
+        ----------
+        task : polaris.Task
+            The task being scheduled.
+        """
+        self.task = task
+        self.event_filename = os.path.join(
+            task.work_dir, 'schedule_events.jsonl'
+        )
+        self.active_steps = 0
+        with open(self.event_filename, 'w'):
+            pass
+
+    def emit(self, event, **kwargs):
+        """
+        Write one structured schedule event.
+
+        Parameters
+        ----------
+        event : str
+            Event type.
+
+        kwargs : dict
+            Additional event metadata.
+        """
+        payload = dict(event=event, time=time.time(), **kwargs)
+        with open(self.event_filename, 'a') as event_file:
+            event_file.write(f'{json.dumps(payload, sort_keys=True)}\n')
 
 
 def build_scheduler_graph(tasks: Mapping[str, Any]) -> SchedulerGraph:
@@ -251,18 +291,39 @@ def run_task(
     cwd = os.getcwd()
     graph = build_scheduler_graph({task.path: task})
     resource_pool = ResourcePool(available_resources)
+    recorder = ScheduleRecorder(task)
+    ordered_nodes = graph.topological_order()
+    edge_count = sum(
+        len(successors) for successors in graph.successors.values()
+    )
+    recorder.emit(
+        'graph_constructed', nodes=len(graph.nodes), edges=edge_count
+    )
+    _log_schedule_summary(task, ordered_nodes)
 
     baselines_passed = None
     property_passed = None
-    for node in graph.topological_order():
+    for node in ordered_nodes:
         if not node.selected:
             continue
 
         step = node.step
+        recorder.emit(
+            'ready_selection',
+            task=node.task_name,
+            step=node.step_name,
+            status=_node_status(node),
+        )
         print_to_stdout(task, f'  * step: {node.step_name}')
 
         if node.completed:
             print_to_stdout(task, '          already completed')
+            recorder.emit(
+                'step_skipped',
+                task=node.task_name,
+                step=node.step_name,
+                reason='already completed',
+            )
             baseline_status = read_baseline_status_from_logs(step.work_dir)
             if baseline_status is not None:
                 baseline_str = pass_str if baseline_status else fail_str
@@ -284,6 +345,12 @@ def run_task(
             continue
         if node.cached:
             print_to_stdout(task, '          cached')
+            recorder.emit(
+                'step_skipped',
+                task=node.task_name,
+                step=node.step_name,
+                reason='cached',
+            )
             continue
 
         step_start = time.time()
@@ -297,6 +364,26 @@ def run_task(
         try:
             request = get_step_resource_request(step, available_resources)
             reservation = resource_pool.reserve_step(step, request)
+            print_to_stdout(
+                task,
+                f'          resources:        cores={reservation.cores}, '
+                f'nodes={reservation.nodes}, gpus={reservation.gpus}',
+            )
+            recorder.emit(
+                'resource_reserved',
+                task=node.task_name,
+                step=node.step_name,
+                cores=reservation.cores,
+                nodes=reservation.nodes,
+                gpus=reservation.gpus,
+            )
+            recorder.active_steps += 1
+            recorder.emit(
+                'step_start',
+                task=node.task_name,
+                step=node.step_name,
+                active_steps=recorder.active_steps,
+            )
             if step.run_as_subprocess:
                 run_step_as_subprocess(
                     logger,
@@ -314,15 +401,38 @@ def run_task(
                     dask_client=dask_client,
                 )
         except Exception:
+            step_time = time.time() - step_start
+            recorder.emit(
+                'step_failure',
+                task=node.task_name,
+                step=node.step_name,
+                active_steps=recorder.active_steps,
+                duration=step_time,
+            )
             print_to_stdout(task, f'          execution:        {error_str}')
             raise
         finally:
+            if recorder.active_steps > 0:
+                recorder.active_steps -= 1
             if reservation is not None:
                 resource_pool.release(reservation)
+                recorder.emit(
+                    'resource_released',
+                    task=node.task_name,
+                    step=node.step_name,
+                    active_steps=recorder.active_steps,
+                )
             os.chdir(cwd)
 
         print_to_stdout(task, f'          execution:        {success_str}')
         step_time = time.time() - step_start
+        recorder.emit(
+            'step_finish',
+            task=node.task_name,
+            step=node.step_name,
+            active_steps=recorder.active_steps,
+            duration=step_time,
+        )
         step_time_str = str(timedelta(seconds=round(step_time)))
 
         compared, status = step.check_properties()
@@ -348,6 +458,25 @@ def run_task(
         )
 
     return baselines_passed
+
+
+def _log_schedule_summary(task, ordered_nodes: list[SchedulerNode]) -> None:
+    selected_nodes = [node for node in ordered_nodes if node.selected]
+    print_to_stdout(task, '  scheduler: selected order')
+    for index, node in enumerate(selected_nodes, start=1):
+        print_to_stdout(
+            task,
+            f'    {index}. {node.task_name}/{node.step_name} '
+            f'[{_node_status(node)}]',
+        )
+
+
+def _node_status(node: SchedulerNode) -> str:
+    if node.completed:
+        return 'already completed'
+    if node.cached:
+        return 'cached'
+    return 'ready'
 
 
 def _make_node(

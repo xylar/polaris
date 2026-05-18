@@ -95,11 +95,6 @@ def run_tasks(
                     task_prefix = task.path.replace('/', '_')
                     log_filename = f'{cwd}/case_outputs/{task_prefix}.log'
                     task_logger = None
-                if is_task:
-                    task_runner = run_task_with_scheduler
-                else:
-                    task_runner = None
-
                 (
                     result_str,
                     success,
@@ -118,7 +113,7 @@ def run_tasks(
                     available_resources,
                     subprocess_command='run',
                     dask_client=dask_client,
-                    task_runner=task_runner,
+                    task_runner=run_task_with_scheduler,
                 )
                 result_strs[task_name] = result_str
                 if not success:
