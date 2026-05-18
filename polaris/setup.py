@@ -38,6 +38,7 @@ def setup_tasks(
     quiet_build=None,
     cmake_flags=None,
     debug=None,
+    run_command='serial',
 ):
     """
     Set up one or more tasks
@@ -116,6 +117,9 @@ def setup_tasks(
 
     debug : bool, optional
         Whether to build the model in debug mode
+
+    run_command : {'serial', 'run'}, optional
+        Polaris subcommand to use in generated job scripts.
 
     Returns
     -------
@@ -247,6 +251,7 @@ def setup_tasks(
             work_dir,
             baseline_dir,
             cached_steps=cached_steps[path],
+            run_command=run_command,
         )
 
     _check_dependencies(tasks)
@@ -280,12 +285,21 @@ def setup_tasks(
             min_gpus=max_of_min_gpus,
             work_dir=work_dir,
             suite=suite_name,
+            run_command=_get_job_script_run_command(run_command, suite_name),
         )
 
     return tasks
 
 
-def setup_task(path, task, machine, work_dir, baseline_dir, cached_steps):
+def setup_task(
+    path,
+    task,
+    machine,
+    work_dir,
+    baseline_dir,
+    cached_steps,
+    run_command='serial',
+):
     """
     Set up one or more tasks
 
@@ -310,6 +324,9 @@ def setup_task(path, task, machine, work_dir, baseline_dir, cached_steps):
     cached_steps : list of str
         Which steps (if any) should read their outputs from the cache,
         identified by a list of subdirectories in the component
+
+    run_command : {'serial', 'run'}, optional
+        Polaris subcommand to use in generated job scripts.
     """
 
     print(f'  {path}')
@@ -361,6 +378,7 @@ def setup_task(path, task, machine, work_dir, baseline_dir, cached_steps):
                 target_gpus=gpus,
                 min_gpus=min_gpus,
                 work_dir=step.work_dir,
+                run_command=_get_job_script_run_command(run_command),
             )
         step.setup_complete = True
 
@@ -388,6 +406,7 @@ def setup_task(path, task, machine, work_dir, baseline_dir, cached_steps):
             target_gpus=max_gpus,
             min_gpus=max_of_min_gpus,
             work_dir=task_dir,
+            run_command=_get_job_script_run_command(run_command),
         )
 
 
@@ -538,6 +557,13 @@ def main():
         action='store_true',
         help='If the model should be built in debug mode.',
     )
+    parser.add_argument(
+        '--run_command',
+        dest='run_command',
+        choices=['serial', 'run'],
+        default='serial',
+        help='Polaris subcommand to use in generated job scripts.',
+    )
 
     args = parser.parse_args(sys.argv[2:])
     cached = None
@@ -586,7 +612,35 @@ def main():
         quiet_build=args.quiet_build,
         cmake_flags=args.cmake_flags,
         debug=args.debug,
+        run_command=args.run_command,
     )
+
+
+def _get_job_script_run_command(run_command, suite=''):
+    """
+    Get the command block to run in a generated job script.
+
+    Parameters
+    ----------
+    run_command : {'serial', 'run'}
+        Polaris subcommand to use.
+
+    suite : str, optional
+        Suite name to append to the command.
+
+    Returns
+    -------
+    command : str
+        Job-script command block.
+    """
+    if run_command not in ['serial', 'run']:
+        raise ValueError(
+            f'Invalid run_command "{run_command}". Expected serial or run.'
+        )
+    command = f'polaris {run_command}'
+    if suite:
+        command = f'{command} {suite}'
+    return f'source load_polaris_env.sh\n{command}'
 
 
 def _expand_and_mark_cached_steps(tasks, cached_steps):
