@@ -25,6 +25,12 @@ It should also establish the long-lived Dask Distributed orchestration layer
 that Phase 2 will use for concurrent non-MPI execution. However, the scheduler
 will still execute only one ready step at a time in this phase.
 
+The phrase "task parallelism" is the historical project label, but the Polaris
+scheduling unit is a `Step`. Later phases are intended to run independent
+selected steps concurrently, potentially drawn from one task or from multiple
+tasks in a suite. They are not intended to treat whole Polaris `Task` objects
+as the indivisible unit of parallel execution.
+
 Phase 1 therefore aims to prove that the new execution path is correct and
 complete before it is asked to deliver speedup. The phase is expected to add
 overhead, and some slowdown relative to `polaris serial` is acceptable. The

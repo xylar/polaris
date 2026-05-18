@@ -17,6 +17,11 @@ Polaris to make better use of multi-node HPC allocations by overlapping
 independent work, while preserving the correctness, restart behavior and user
 experience of existing serial execution.
 
+The phrase "task parallelism" is the historical project label. In Polaris
+terminology, however, the scheduler unit is a `Step`, not a whole `Task`.
+Parallel work may include independent selected steps from one task or from
+multiple tasks in a suite.
+
 The first priority is to support parallel execution of explicitly safe
 non-MPI steps, including steps implemented primarily in Python. These steps
 should be able to run concurrently across more than one node in an HPC
