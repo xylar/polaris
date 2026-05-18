@@ -196,9 +196,11 @@ def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
         available_resources,
         subprocess_command='serial',
         dask_client=None,
+        task_runner=None,
     ):
         assert dask_client == 'client'
         assert subprocess_command == 'run'
+        assert task_runner is None
         events.append(('task', task.path))
         return 'PASS', True, 0.0, False, False
 
@@ -247,3 +249,90 @@ def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
     assert events.index(('task', 'component/task_b')) < events.index(
         ('dask', 'stop')
     )
+
+
+def test_run_task_scope_uses_scheduler_runner(tmp_path, monkeypatch):
+    called = {}
+
+    class DummyComponent:
+        name = 'ocean'
+
+        @staticmethod
+        def get_available_resources():
+            return {'cores': 2}
+
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+        def error(self, message):
+            pass
+
+    class DummyLoggingContext:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return DummyLogger()
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+    @contextmanager
+    def _dask_client_context(available_resources, logger=None):
+        yield 'client'
+
+    def _log_and_run_task(
+        task,
+        stdout_logger,
+        task_logger,
+        quiet,
+        log_filename,
+        is_task,
+        steps_to_run,
+        steps_to_skip,
+        available_resources,
+        subprocess_command='serial',
+        dask_client=None,
+        task_runner=None,
+    ):
+        called['is_task'] = is_task
+        called['task_runner'] = task_runner
+        called['log_filename'] = log_filename
+        return 'PASS', True, 0.0, False, False
+
+    component = DummyComponent()
+    task = SimpleNamespace(
+        base_work_dir=str(tmp_path),
+        component=component,
+        path='component/task',
+    )
+    suite = {'tasks': {'task': task}, 'work_dir': str(tmp_path)}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(run_command, 'unpickle_suite', lambda name: suite)
+    monkeypatch.setattr(run_command, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_command, 'set_parallel_systems', lambda *args: None
+    )
+    monkeypatch.setattr(run_command, 'LoggingContext', DummyLoggingContext)
+    monkeypatch.setattr(
+        run_command, 'dask_client_context', _dask_client_context
+    )
+    monkeypatch.setattr(run_command, 'log_and_run_task', _log_and_run_task)
+    monkeypatch.setattr(
+        run_command,
+        'write_output_for_pull_request',
+        lambda *args, **kwargs: None,
+    )
+    monkeypatch.setattr(
+        run_command, 'log_task_runtimes', lambda *args, **kwargs: None
+    )
+
+    run_command.run_tasks('task', is_task=True)
+
+    assert called == {
+        'is_task': True,
+        'task_runner': run_command.run_task_with_scheduler,
+        'log_filename': None,
+    }

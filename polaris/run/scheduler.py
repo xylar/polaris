@@ -1,6 +1,25 @@
 import os
+import time
 from dataclasses import dataclass
+from datetime import timedelta
 from typing import Any, Mapping, Optional
+
+from polaris.run.resources import ResourcePool, get_step_resource_request
+from polaris.run.shared import (
+    accumulate_statuses,
+    end_color,
+    error_str,
+    fail_str,
+    pass_str,
+    print_to_stdout,
+    read_baseline_status_from_logs,
+    read_property_status_from_logs,
+    run_step,
+    run_step_as_subprocess,
+    setup_config,
+    start_time_color,
+    success_str,
+)
 
 
 @dataclass(frozen=True)
@@ -199,6 +218,136 @@ def build_scheduler_graph(tasks: Mapping[str, Any]) -> SchedulerGraph:
     return SchedulerGraph(
         nodes=nodes, predecessors=predecessors, successors=successors
     )
+
+
+def run_task(
+    task, available_resources, subprocess_command='serial', dask_client=None
+):
+    """
+    Run each selected step in a task through the Phase 1 scheduler.
+
+    Parameters
+    ----------
+    task : polaris.Task
+        The task to run. Its ``steps_to_run`` list controls selected graph
+        nodes.
+
+    available_resources : dict
+        Available CPU, GPU and MPI resources for this run.
+
+    subprocess_command : str, optional
+        Polaris subcommand to use when a step must run in a subprocess.
+
+    dask_client : distributed.Client, optional
+        Dask client for the active ``polaris run`` lifecycle.
+
+    Returns
+    -------
+    baselines_passed : bool or None
+        Aggregate baseline comparison status across selected steps. ``None``
+        means no baseline comparisons were performed.
+    """
+    logger = task.logger
+    cwd = os.getcwd()
+    graph = build_scheduler_graph({task.path: task})
+    resource_pool = ResourcePool(available_resources)
+
+    baselines_passed = None
+    property_passed = None
+    for node in graph.topological_order():
+        if not node.selected:
+            continue
+
+        step = node.step
+        print_to_stdout(task, f'  * step: {node.step_name}')
+
+        if node.completed:
+            print_to_stdout(task, '          already completed')
+            baseline_status = read_baseline_status_from_logs(step.work_dir)
+            if baseline_status is not None:
+                baseline_str = pass_str if baseline_status else fail_str
+                print_to_stdout(
+                    task, f'          baseline comp.:   {baseline_str}'
+                )
+                baselines_passed = accumulate_statuses(
+                    baselines_passed, baseline_status
+                )
+            property_status = read_property_status_from_logs(step.work_dir)
+            if property_status is not None:
+                property_str = pass_str if property_status else fail_str
+                print_to_stdout(
+                    task, f'          property comp.:   {property_str}'
+                )
+                property_passed = accumulate_statuses(
+                    property_passed, property_status
+                )
+            continue
+        if node.cached:
+            print_to_stdout(task, '          cached')
+            continue
+
+        step_start = time.time()
+        step.config = setup_config(step.base_work_dir, step.config.filepath)
+        if task.log_filename is not None:
+            step_log_filename = task.log_filename
+        else:
+            step_log_filename = None
+
+        reservation = None
+        try:
+            request = get_step_resource_request(step, available_resources)
+            reservation = resource_pool.reserve_step(step, request)
+            if step.run_as_subprocess:
+                run_step_as_subprocess(
+                    logger,
+                    step,
+                    task.new_step_log_file,
+                    subprocess_command=subprocess_command,
+                )
+            else:
+                run_step(
+                    task,
+                    step,
+                    task.new_step_log_file,
+                    available_resources,
+                    step_log_filename,
+                    dask_client=dask_client,
+                )
+        except Exception:
+            print_to_stdout(task, f'          execution:        {error_str}')
+            raise
+        finally:
+            if reservation is not None:
+                resource_pool.release(reservation)
+            os.chdir(cwd)
+
+        print_to_stdout(task, f'          execution:        {success_str}')
+        step_time = time.time() - step_start
+        step_time_str = str(timedelta(seconds=round(step_time)))
+
+        compared, status = step.check_properties()
+        if compared:
+            property_str = pass_str if status else fail_str
+            print_to_stdout(
+                task, f'          property checks:   {property_str}'
+            )
+            property_passed = accumulate_statuses(property_passed, status)
+
+        compared, status = step.validate_baselines()
+        if compared:
+            baseline_str = pass_str if status else fail_str
+            print_to_stdout(
+                task, f'          baseline comp.:   {baseline_str}'
+            )
+            baselines_passed = accumulate_statuses(baselines_passed, status)
+
+        print_to_stdout(
+            task,
+            f'          runtime:          '
+            f'{start_time_color}{step_time_str}{end_color}',
+        )
+
+    return baselines_passed
 
 
 def _make_node(

@@ -285,6 +285,7 @@ def log_and_run_task(
     available_resources,
     subprocess_command='serial',
     dask_client=None,
+    task_runner=None,
 ):
     """
     Run one task with task-level logging and status accounting.
@@ -323,6 +324,10 @@ def log_and_run_task(
 
     dask_client : distributed.Client, optional
         Dask client for the active ``polaris run`` lifecycle.
+
+    task_runner : callable, optional
+        Function used to run the selected steps. Defaults to
+        :py:func:`run_task`.
 
     Returns
     -------
@@ -374,14 +379,16 @@ def log_and_run_task(
 
         task_start = time.time()
 
-        log_function_call(function=run_task, logger=task_logger)
+        if task_runner is None:
+            task_runner = run_task
+        log_function_call(function=task_runner, logger=task_logger)
         task_logger.info('')
         task_list = ', '.join(task.steps_to_run)
         task_logger.info(f'Running steps: {task_list}')
         # Default in case execution fails before setting this
         baselines_passed = None
         try:
-            baselines_passed = run_task(
+            baselines_passed = task_runner(
                 task,
                 available_resources,
                 subprocess_command=subprocess_command,
