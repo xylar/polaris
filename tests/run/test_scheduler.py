@@ -2,6 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 
+import polaris.run.scheduler as run_scheduler
 from polaris.run.scheduler import build_scheduler_graph
 
 
@@ -14,6 +15,16 @@ class DummyStep:
         self.dependencies = {}
         self.inputs = []
         self.outputs = []
+        self.base_work_dir = str(tmp_path)
+        self.config = SimpleNamespace(filepath='config.cfg')
+        self.run_as_subprocess = False
+        self.ntasks = 1
+        self.min_tasks = 1
+        self.cpus_per_task = 1
+        self.min_cpus_per_task = 1
+        self.gpus_per_task = 0
+        self.min_gpus_per_task = 0
+        self.max_memory = None
         (tmp_path / name).mkdir()
 
     def add_dependency(self, step, name=None):
@@ -26,6 +37,14 @@ class DummyStep:
 
     def add_output(self, filename):
         self.outputs.append(filename)
+
+    @staticmethod
+    def check_properties():
+        return False, None
+
+    @staticmethod
+    def validate_baselines():
+        return False, None
 
 
 def test_scheduler_inventory_preserves_selected_order_and_status(tmp_path):
@@ -213,3 +232,62 @@ def test_scheduler_does_not_infer_dependencies_from_selected_order(tmp_path):
         'forward',
         'init',
     ]
+
+
+def test_scheduler_run_task_uses_graph_order_and_single_active_step(
+    tmp_path, monkeypatch
+):
+    active_steps = 0
+    max_active_steps = 0
+    run_order = []
+
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    init = DummyStep(tmp_path, 'init')
+    forward = DummyStep(tmp_path, 'forward')
+    init.add_output('initial_state.nc')
+    forward.add_input(tmp_path / 'init' / 'initial_state.nc')
+    task = SimpleNamespace(
+        path='ocean/task',
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['forward', 'init'],
+        steps={'init': init, 'forward': forward},
+    )
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+    ):
+        nonlocal active_steps, max_active_steps
+        assert dask_client == 'client'
+        active_steps += 1
+        max_active_steps = max(max_active_steps, active_steps)
+        run_order.append(step.name)
+        active_steps -= 1
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 2,
+            'nodes': 1,
+            'cores_per_node': 2,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+        dask_client='client',
+    )
+
+    assert run_order == ['init', 'forward']
+    assert max_active_steps == 1

@@ -687,6 +687,16 @@ limits. This chunk shall not change the existing per-step
 reject impossible minimum CPU/GPU requirements before starting a step and to
 account for reservations in later scheduler integration commits.
 
+The tenth implementation chunk shall route task-scope `polaris run` through
+the scheduler while keeping suite-scope `polaris run`, `polaris serial` and
+single-step runs unchanged. The task scheduler shall build the dependency
+graph, choose selected steps in deterministic topological order, skip cached
+and already completed selected steps, reserve one step's resources at a time,
+execute that step through the existing shared lifecycle helpers and release
+the reservation in a `finally` block. This preserves the Phase 1 single-active
+step policy while proving that task-scope `polaris run` now depends on graph
+validity and resource feasibility rather than on a serial selected-step loop.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -751,6 +761,12 @@ dependencies from `steps_to_run` order alone.
 The resource-pool chunk shall add tests for deriving scheduler resource
 requests from step CPU/GPU metadata, minimum CPU and GPU feasibility failures,
 and reservation/release accounting for CPU cores, nodes and GPUs.
+
+The task-scheduler integration chunk shall add tests showing that task-scope
+`polaris run` selects the scheduler-backed task runner while suite-scope runs
+continue to use the shared serial task helper. Scheduler runner tests shall
+verify dependency-graph order and Phase 1 single-active-step behavior while
+still invoking the existing step lifecycle helper with the active Dask client.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
