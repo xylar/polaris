@@ -716,6 +716,16 @@ a time. This chunk shall continue to use the existing Dask lifecycle
 abstraction; replacing the current local Dask deployment with an
 allocation-scoped scheduler and workers remains later Phase 1 work.
 
+The twelfth implementation chunk shall add an explicit setup-time opt-in for
+generated job scripts to use `polaris run`. The `polaris setup` and
+`polaris suite` commands shall accept `--run_command` with choices `serial`
+and `run`, defaulting to `serial`. Generated job scripts shall continue to run
+`polaris serial` unless the user opts in to `--run_command run`, in which case
+task and step scripts shall run `polaris run` and suite scripts shall run
+`polaris run <suite>`. This chunk shall reuse the existing
+`write_job_script()` custom-command hook rather than changing the default
+behavior of direct `write_job_script()` calls.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -792,6 +802,11 @@ verify that suite-scope tasks also receive the scheduler-backed runner.
 Scheduler tests shall verify that structured schedule events are written,
 that ready selections follow dependency order and that active-step counts in
 the events never exceed one.
+
+The setup opt-in chunk shall add tests for the generated run-command helper
+and for `polaris setup` and `polaris suite` CLI parsing. These tests shall
+verify that job scripts default to `polaris serial` and switch to `polaris run`
+only when `--run_command run` is provided.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
