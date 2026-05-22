@@ -47,11 +47,20 @@ class ScheduleEventSummary:
     blocked_steps : tuple of str
         Steps blocked because a dependency failed.
 
+    event_count : int
+        Number of structured scheduler events in this file.
+
     resource_decisions : int
         Number of resource-feasibility events.
 
     infeasible_steps : tuple of str
         Steps with infeasible resource decisions.
+
+    finished_step_runtime : float
+        Sum of durations from successful step-finish events.
+
+    failed_step_runtime : float
+        Sum of durations from failed step events.
 
     max_active_steps : int
         Maximum per-task active-step count recorded in the file.
@@ -72,8 +81,11 @@ class ScheduleEventSummary:
     failed_steps: tuple[str, ...]
     skipped_steps: tuple[str, ...]
     blocked_steps: tuple[str, ...]
+    event_count: int
     resource_decisions: int
     infeasible_steps: tuple[str, ...]
+    finished_step_runtime: float
+    failed_step_runtime: float
     max_active_steps: int
     max_suite_active_steps: int
 
@@ -97,6 +109,13 @@ class ScheduleEventSummary:
         Whether all recorded active-step counts satisfy the Phase 1 policy.
         """
         return self.max_active_steps <= 1 and self.max_suite_active_steps <= 1
+
+    @property
+    def total_step_runtime(self) -> float:
+        """
+        Total measured runtime for steps that started execution.
+        """
+        return self.finished_step_runtime + self.failed_step_runtime
 
 
 @dataclass(frozen=True)
@@ -146,6 +165,38 @@ class SuiteScheduleSummary:
             ),
             default=0,
         )
+
+    @property
+    def event_count(self) -> int:
+        """
+        Total number of structured scheduler events across all event files.
+        """
+        return sum(summary.event_count for summary in self.task_summaries)
+
+    @property
+    def finished_step_runtime(self) -> float:
+        """
+        Sum of successful step runtime across all event files.
+        """
+        return sum(
+            summary.finished_step_runtime for summary in self.task_summaries
+        )
+
+    @property
+    def failed_step_runtime(self) -> float:
+        """
+        Sum of failed step runtime across all event files.
+        """
+        return sum(
+            summary.failed_step_runtime for summary in self.task_summaries
+        )
+
+    @property
+    def total_step_runtime(self) -> float:
+        """
+        Sum of successful and failed step runtime across all event files.
+        """
+        return self.finished_step_runtime + self.failed_step_runtime
 
 
 def read_schedule_events(event_filename) -> list[dict[str, Any]]:
@@ -226,12 +277,15 @@ def summarize_schedule_events(event_filename) -> ScheduleEventSummary:
         failed_steps=_event_steps(events, 'step_failure'),
         skipped_steps=tuple(_event_step(event) for event in skipped_events),
         blocked_steps=tuple(_event_step(event) for event in blocked_events),
+        event_count=len(events),
         resource_decisions=len(resource_events),
         infeasible_steps=tuple(
             _event_step(event)
             for event in resource_events
             if not event.get('feasible', False)
         ),
+        finished_step_runtime=_event_duration_sum(events, 'step_finish'),
+        failed_step_runtime=_event_duration_sum(events, 'step_failure'),
         max_active_steps=_max_event_count(events, 'active_steps'),
         max_suite_active_steps=_max_event_count(events, 'suite_active_steps'),
     )
@@ -351,4 +405,15 @@ def _max_event_count(events: list[dict[str, Any]], field: str) -> int:
             if event.get(field) is not None
         ),
         default=0,
+    )
+
+
+def _event_duration_sum(
+    events: list[dict[str, Any]], event_name: str
+) -> float:
+    return sum(
+        float(event['duration'])
+        for event in events
+        if event.get('event') == event_name
+        and event.get('duration') is not None
     )
