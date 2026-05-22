@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Mapping, Optional
 
+from polaris.run.dask import get_dask_runtime_info
 from polaris.run.resources import ResourcePool, get_step_resource_request
 from polaris.run.shared import (
     accumulate_statuses,
@@ -299,6 +300,13 @@ def run_task(
     recorder.emit(
         'graph_constructed', nodes=len(graph.nodes), edges=edge_count
     )
+    runtime_info = get_dask_runtime_info(dask_client)
+    if runtime_info is not None:
+        recorder.emit(
+            'dask_runtime',
+            backend=runtime_info.backend,
+            workers=runtime_info.workers,
+        )
     _log_schedule_summary(task, ordered_nodes)
 
     baselines_passed = None

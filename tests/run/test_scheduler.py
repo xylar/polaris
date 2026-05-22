@@ -4,6 +4,7 @@ from types import SimpleNamespace
 import pytest
 
 import polaris.run.scheduler as run_scheduler
+from polaris.run.dask import DaskRuntimeInfo
 from polaris.run.scheduler import build_scheduler_graph
 
 
@@ -312,3 +313,56 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
         )
         == 1
     )
+
+
+def test_scheduler_records_dask_runtime_info(tmp_path, monkeypatch):
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    init = DummyStep(tmp_path, 'init')
+    (tmp_path / 'init' / 'polaris_step_complete.log').write_text('complete\n')
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['init'],
+        steps={'init': init},
+    )
+    dask_client = SimpleNamespace(
+        polaris_dask_runtime_info=DaskRuntimeInfo(backend='local', workers=4)
+    )
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 4,
+            'nodes': 1,
+            'cores_per_node': 4,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+        dask_client=dask_client,
+    )
+
+    event_filename = tmp_path / 'schedule_events.jsonl'
+    events = [
+        json.loads(line) for line in event_filename.read_text().splitlines()
+    ]
+    dask_events = [
+        event for event in events if event['event'] == 'dask_runtime'
+    ]
+
+    assert dask_events == [
+        {
+            'backend': 'local',
+            'event': 'dask_runtime',
+            'time': dask_events[0]['time'],
+            'workers': 4,
+        }
+    ]
