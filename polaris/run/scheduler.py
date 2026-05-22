@@ -28,6 +28,14 @@ from polaris.run.shared import (
     update_steps_to_run,
 )
 
+__all__ = [
+    'SchedulerGraph',
+    'SchedulerNode',
+    'build_scheduler_graph',
+    'run_suite',
+    'run_task',
+]
+
 
 @dataclass(frozen=True)
 class SchedulerNode:
@@ -97,7 +105,7 @@ class SchedulerGraph:
         return _topological_order(self)
 
 
-class ScheduleRecorder:
+class _ScheduleRecorder:
     """
     Record human-readable and structured scheduler events for one task.
     """
@@ -137,7 +145,7 @@ class ScheduleRecorder:
 
 
 @dataclass
-class SuiteTaskRunState:
+class _SuiteTaskRunState:
     """
     Runtime status for one task in a suite-wide scheduler run.
     """
@@ -312,7 +320,7 @@ def run_suite(
     graph = build_scheduler_graph(tasks)
     resource_pool = ResourcePool(available_resources)
     recorders = {
-        task_name: ScheduleRecorder(state.task)
+        task_name: _ScheduleRecorder(state.task)
         for task_name, state in states.items()
     }
     ordered_nodes = graph.topological_order()
@@ -446,7 +454,7 @@ def run_task(
     cwd = os.getcwd()
     graph = build_scheduler_graph({task.path: task})
     resource_pool = ResourcePool(available_resources)
-    recorder = ScheduleRecorder(task)
+    recorder = _ScheduleRecorder(task)
     ordered_nodes = graph.topological_order()
     edge_count = sum(
         len(successors) for successors in graph.successors.values()
@@ -540,7 +548,7 @@ def _prepare_suite_tasks(suite, stdout_logger, quiet, log_dir):
             task_list = ', '.join(task.steps_to_run)
             task_logger.info(f'Running steps: {task_list}')
             os.chdir(cwd)
-        states[task.path] = SuiteTaskRunState(
+        states[task.path] = _SuiteTaskRunState(
             task=task,
             log_filename=log_filename,
             start_time=time.time(),
