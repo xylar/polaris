@@ -13,7 +13,12 @@ from polaris import Task
 from polaris.logging import log_function_call
 from polaris.parallel import set_parallel_systems
 from polaris.run.dask import dask_client_context
-from polaris.run.scheduler import run_task as run_task_with_scheduler
+from polaris.run.scheduler import (
+    run_suite as run_suite_with_scheduler,
+)
+from polaris.run.scheduler import (
+    run_task as run_task_with_scheduler,
+)
 from polaris.run.shared import (
     log_and_run_task,
     log_task_runtimes,
@@ -75,54 +80,63 @@ def run_tasks(
         with dask_client_context(
             available_resources, logger=stdout_logger
         ) as dask_client:
-            failures = 0
             cwd = os.getcwd()
             suite_start = time.time()
-            task_times = dict()
-            result_strs = dict()
             total_tasks = len(suite['tasks'])
-            exec_fail_tasks: List[str] = []
-            diff_fail_tasks: List[str] = []
-            for task_name in suite['tasks']:
-                stdout_logger.info(f'{task_name}')
+            if is_task:
+                failures = 0
+                task_times = dict()
+                result_strs = dict()
+                exec_fail_tasks: List[str] = []
+                diff_fail_tasks: List[str] = []
+                for task_name in suite['tasks']:
+                    stdout_logger.info(f'{task_name}')
 
-                task = suite['tasks'][task_name]
+                    task = suite['tasks'][task_name]
 
-                if is_task:
-                    log_filename = None
-                    task_logger = stdout_logger
-                else:
-                    task_prefix = task.path.replace('/', '_')
-                    log_filename = f'{cwd}/case_outputs/{task_prefix}.log'
-                    task_logger = None
-                (
-                    result_str,
-                    success,
-                    task_time,
-                    exec_failed,
-                    diff_failed,
-                ) = log_and_run_task(
-                    task,
-                    stdout_logger,
-                    task_logger,
-                    quiet,
-                    log_filename,
-                    is_task,
-                    steps_to_run,
-                    steps_to_skip,
-                    available_resources,
+                    (
+                        result_str,
+                        success,
+                        task_time,
+                        exec_failed,
+                        diff_failed,
+                    ) = log_and_run_task(
+                        task,
+                        stdout_logger,
+                        stdout_logger,
+                        quiet,
+                        None,
+                        is_task,
+                        steps_to_run,
+                        steps_to_skip,
+                        available_resources,
+                        subprocess_command='run',
+                        dask_client=dask_client,
+                        task_runner=run_task_with_scheduler,
+                    )
+                    result_strs[task_name] = result_str
+                    if not success:
+                        failures += 1
+                    if exec_failed:
+                        exec_fail_tasks.append(task_name)
+                    if diff_failed:
+                        diff_fail_tasks.append(task_name)
+                    task_times[task_name] = task_time
+            else:
+                results = run_suite_with_scheduler(
+                    suite=suite,
+                    stdout_logger=stdout_logger,
+                    quiet=quiet,
+                    log_dir=f'{cwd}/case_outputs',
+                    available_resources=available_resources,
                     subprocess_command='run',
                     dask_client=dask_client,
-                    task_runner=run_task_with_scheduler,
                 )
-                result_strs[task_name] = result_str
-                if not success:
-                    failures += 1
-                if exec_failed:
-                    exec_fail_tasks.append(task_name)
-                if diff_failed:
-                    diff_fail_tasks.append(task_name)
-                task_times[task_name] = task_time
+                failures = results['failures']
+                task_times = results['task_times']
+                result_strs = results['result_strs']
+                exec_fail_tasks = results['exec_fail_tasks']
+                diff_fail_tasks = results['diff_fail_tasks']
 
             suite_time = time.time() - suite_start
 

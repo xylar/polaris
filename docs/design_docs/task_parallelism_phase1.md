@@ -757,6 +757,15 @@ the scheduler metadata and clean up the client, workers and scheduler on
 normal completion or failure. Unit tests shall use fake launchers and clients;
 real multi-node validation remains a manual/system activity.
 
+The sixteenth implementation chunk shall add suite-wide scheduler execution.
+Suite-scope `polaris run` shall prepare all selected task step lists, build
+one scheduler graph across all selected tasks, preserve explicit and
+file-derived dependencies across task boundaries, and execute selected nodes
+from that suite graph in deterministic topological order. Phase 1 shall still
+run only one Polaris step at a time. Per-task logs, completion markers,
+structured schedule-event files and aggregate suite pass/fail summaries shall
+remain available.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -857,6 +866,13 @@ allocation-backend selection when a launcher is available, local fallback when
 it is not, worker launch through a fake `mache` parallel system, and cleanup
 of scheduler, worker and client resources on success and failure. These tests
 shall not require Slurm, PBS or multiple allocated nodes.
+
+The suite-wide scheduler chunk shall add tests for cross-task explicit
+dependencies, cross-task file-derived dependencies and a synthetic suite run
+where dependency order differs from suite task order. The synthetic suite test
+shall verify that the suite graph, not the outer task loop, chooses execution
+order while preserving per-task schedule-event files and aggregate task
+results.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 

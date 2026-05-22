@@ -184,25 +184,30 @@ def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
         yield 'client'
         events.append(('dask', 'stop'))
 
-    def _log_and_run_task(
-        task,
+    def _run_suite_with_scheduler(
+        suite,
         stdout_logger,
-        task_logger,
         quiet,
-        log_filename,
-        is_task,
-        steps_to_run,
-        steps_to_skip,
+        log_dir,
         available_resources,
         subprocess_command='serial',
         dask_client=None,
-        task_runner=None,
     ):
         assert dask_client == 'client'
         assert subprocess_command == 'run'
-        assert task_runner == run_command.run_task_with_scheduler
-        events.append(('task', task.path))
-        return 'PASS', True, 0.0, False, False
+        assert available_resources == {'cores': 2}
+        assert log_dir == f'{tmp_path}/case_outputs'
+        for task in suite['tasks'].values():
+            events.append(('task', task.path))
+        return {
+            'failures': 0,
+            'task_times': {task.path: 0.0 for task in suite['tasks'].values()},
+            'result_strs': {
+                task.path: 'PASS' for task in suite['tasks'].values()
+            },
+            'exec_fail_tasks': [],
+            'diff_fail_tasks': [],
+        }
 
     component = DummyComponent()
     tasks = {
@@ -229,7 +234,9 @@ def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
     monkeypatch.setattr(
         run_command, 'dask_client_context', _dask_client_context
     )
-    monkeypatch.setattr(run_command, 'log_and_run_task', _log_and_run_task)
+    monkeypatch.setattr(
+        run_command, 'run_suite_with_scheduler', _run_suite_with_scheduler
+    )
     monkeypatch.setattr(
         run_command,
         'write_output_for_pull_request',
