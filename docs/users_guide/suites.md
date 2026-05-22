@@ -53,3 +53,38 @@ run with cached meshes and initial conditions.
 
 Including the `-v` verbose argument to `polaris list --suites` will
 print the tasks belonging to each given suite.
+
+## Running Suites with `polaris serial` or `polaris run`
+
+Generated job scripts use `polaris serial` by default, and this remains the
+recommended compatibility path for routine production and regression testing.
+Use `polaris run` when you want to validate the task-parallel scheduler path,
+debug dependency ordering or collect structured scheduler diagnostics. In the
+first phase of the task-parallel rollout, `polaris run` still runs only one
+Polaris step at a time, so it is not expected to speed up a suite.
+
+To make generated job scripts use `polaris run`, opt in during setup:
+
+```bash
+polaris suite -c ocean -t omega_pr -w /path/to/work \
+    --run_command run
+```
+
+For custom task lists, use the same option with `polaris setup`:
+
+```bash
+polaris setup -t ocean/spherical/icos/cosine_bell/decomp \
+    -w /path/to/work --run_command run
+```
+
+You can also run the scheduler path directly from an existing work directory:
+
+```bash
+cd /path/to/work
+polaris run <suite_name>
+```
+
+When `polaris run` is used for a suite, each task work directory contains a
+`schedule_events.jsonl` file. These files are primarily for developers and
+record the dependency graph, selected step order, resource checks, skipped or
+blocked steps and the Dask backend used by the run.
