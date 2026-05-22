@@ -793,6 +793,15 @@ dependencies and declared input/output-file dependencies shall point to the
 canonical selected producer so the shared step runs once while all consumers
 still wait for it.
 
+The twentieth implementation chunk shall harden cached and completed-step
+rerun semantics. Cached and already completed selected steps shall remain
+first-class graph nodes with explicit skip events that say they satisfy
+dependencies. Already completed steps shall report existing baseline and
+property marker status in the structured schedule events. Selected downstream
+steps shall continue to run after cached or completed producers, and steps
+that do run shall continue to create completion markers, validation markers
+and `step_after_run.pickle` files through the existing shared lifecycle.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -916,6 +925,12 @@ step objects, symlinked shared step work directories and suite execution where
 multiple selected tasks consume the same shared producer. These tests shall
 verify that the graph contains a single producer node, that consumers have an
 edge from that producer and that suite execution runs the shared step once.
+
+The cached/completed rerun chunk shall add tests for mixed rerun scenarios in
+which cached and already completed producers are skipped but selected
+downstream steps still run. It shall also test that executed scheduler steps
+write completion markers, validation markers and dependency pickle files in
+the same way as the shared serial step lifecycle.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
