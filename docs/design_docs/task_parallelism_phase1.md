@@ -802,6 +802,15 @@ steps shall continue to run after cached or completed producers, and steps
 that do run shall continue to create completion markers, validation markers
 and `step_after_run.pickle` files through the existing shared lifecycle.
 
+The twenty-first implementation chunk shall harden failure and blocked
+dependency semantics. Task-scope and suite-scope scheduler runs shall both
+record failed steps, release their resource reservations, block selected
+dependent steps and keep independent ready steps eligible to run. Task-scope
+runs shall still raise the original execution failure after the scheduler has
+recorded blocked dependents, preserving the existing caller-facing failure
+contract. The Dask runtime context shall continue to clean up when the
+scheduler path raises.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -931,6 +940,12 @@ which cached and already completed producers are skipped but selected
 downstream steps still run. It shall also test that executed scheduler steps
 write completion markers, validation markers and dependency pickle files in
 the same way as the shared serial step lifecycle.
+
+The failure and blocked-dependency chunk shall add tests for task-scope and
+suite-scope failures. These tests shall verify that failed steps release
+resources, selected dependents are blocked, independent selected steps can
+still run where graph dependencies allow and the `polaris run` Dask lifecycle
+is closed when scheduler execution raises.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 

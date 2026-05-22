@@ -599,6 +599,91 @@ def test_scheduler_run_task_updates_rerun_markers(tmp_path, monkeypatch):
     assert (tmp_path / 'forward' / 'property_check_failed.log').exists()
 
 
+def test_scheduler_run_task_blocks_failed_dependents_and_releases_resources(
+    tmp_path, monkeypatch
+):
+    run_order = []
+
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    fail = DummyStep(tmp_path, 'fail')
+    dependent = DummyStep(tmp_path, 'dependent')
+    independent = DummyStep(tmp_path, 'independent')
+    dependent.add_dependency(fail)
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['dependent', 'fail', 'independent'],
+        steps={
+            'fail': fail,
+            'dependent': dependent,
+            'independent': independent,
+        },
+    )
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+    ):
+        run_order.append(step.name)
+        if step.name == 'fail':
+            raise RuntimeError('expected failure')
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+
+    with pytest.raises(RuntimeError, match='expected failure'):
+        run_scheduler.run_task(
+            task,
+            {
+                'cores': 1,
+                'nodes': 1,
+                'cores_per_node': 1,
+                'gpus': 0,
+                'mpi_allowed': True,
+            },
+        )
+
+    assert run_order == ['fail', 'independent']
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+    assert [
+        event['step']
+        for event in events
+        if event['event'] == 'ready_selection'
+    ] == ['fail', 'dependent', 'independent']
+
+    failure_events = [
+        event for event in events if event['event'] == 'step_failure'
+    ]
+    blocked_events = [
+        event
+        for event in events
+        if event['event'] == 'step_skipped'
+        and event['reason'] == 'blocked_dependency'
+    ]
+    release_events = [
+        event for event in events if event['event'] == 'resource_released'
+    ]
+
+    assert failure_events[0]['step'] == 'fail'
+    assert failure_events[0]['result'] == 'failure'
+    assert blocked_events[0]['step'] == 'dependent'
+    assert blocked_events[0]['result'] == 'blocked'
+    assert release_events[0]['step'] == 'fail'
+    assert release_events[0]['active_steps'] == 0
+    assert release_events[1]['step'] == 'independent'
+
+
 def test_scheduler_records_dask_runtime_info(tmp_path, monkeypatch):
     class DummyLogger:
         def info(self, message):
@@ -867,6 +952,17 @@ def test_scheduler_run_suite_blocks_failed_dependents(tmp_path, monkeypatch):
     assert len(blocked_events) == 1
     assert blocked_events[0]['blocked_dependencies'] == ['ocean/task_a:fail']
     assert blocked_events[0]['result'] == 'blocked'
+    task_a_events = _read_events(tmp_path / 'task_a' / 'schedule_events.jsonl')
+    assert [
+        event['result']
+        for event in task_a_events
+        if event['event'] in {'step_failure', 'resource_released'}
+    ] == ['failure', 'released']
+    assert [
+        event['active_steps']
+        for event in task_a_events
+        if event['event'] == 'resource_released'
+    ] == [0]
 
 
 def test_scheduler_run_suite_records_completed_and_cached_skips(
