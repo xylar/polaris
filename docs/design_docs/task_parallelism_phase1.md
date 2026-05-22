@@ -980,6 +980,28 @@ machine validation should still confirm the generated scripts on each target
 HPC system, including environment loading, allocation sizing and the presence
 of `schedule_events.jsonl` files after `polaris run` completes.
 
+The real-task equivalence chunk shall document a routine custom-suite
+validation based on:
+
+```none
+mesh/spherical/icos/base_mesh/240km/task
+e3sm/init/icos240km/topo/remap
+e3sm/init/icos240km/topo/cull
+```
+
+This validation shall run the task set once with `polaris serial`, set up an
+equivalent `polaris run` work directory with the serial output as the baseline
+directory, run the scheduler path, then immediately rerun the scheduler path.
+The first scheduler run shall validate outputs, task logs, completion markers,
+validation markers, cached steps and Dask-backed scheduler artifacts. The
+second scheduler run shall verify already-completed and cached-step behavior.
+The expected scheduler artifacts are one `schedule_events.jsonl` file per task,
+a recorded Dask runtime event in each file and active-step counts that satisfy
+the Phase 1 single-step policy. Larger data-dependent tasks, including global
+hydrography tasks that exercise Dask-aware Python step implementations, remain
+optional manual/system validation until they are cheap enough for routine
+developer checks.
+
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
 Date last modified: 2026/05/14
