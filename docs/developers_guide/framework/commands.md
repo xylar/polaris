@@ -198,6 +198,70 @@ Data-heavy tasks, such as global hydrography workflows, can provide useful
 additional coverage for Dask-aware Python steps but should remain optional
 manual validation unless a particular release or feature change requires them.
 
+Representative suite validation should expand this check from a custom task
+list to one or more predefined ocean suites. The priority suites for the
+initial scheduler path are:
+
+- `omega_pr`, preferably run in full because it is compact
+- `omega_nightly`, either in full or as a subset that includes
+  `horiz_press_grad`, manufactured solution, transport and restart tasks
+- `mpaso_pr`, either in full or as a subset that includes thread/decomp,
+  restart, overflow or internal-wave style MPI tasks and spherical transport
+  tasks
+
+The full-suite comparison is:
+
+```bash
+export MACHINE=chrysalis
+export COMPONENT_PATH=/path/to/mpas-ocean-or-omega-build
+export WORK_ROOT=/path/to/polaris_scratch/task_parallel_phase1
+export SUITE=omega_pr
+
+polaris suite -c ocean -t ${SUITE} -m ${MACHINE} \
+    -p ${COMPONENT_PATH} -w ${WORK_ROOT}/${SUITE}_serial
+cd ${WORK_ROOT}/${SUITE}_serial
+polaris serial ${SUITE}
+
+polaris suite -c ocean -t ${SUITE} -m ${MACHINE} \
+    -p ${COMPONENT_PATH} -w ${WORK_ROOT}/${SUITE}_run \
+    -b ${WORK_ROOT}/${SUITE}_serial --run_command run
+cd ${WORK_ROOT}/${SUITE}_run
+polaris run ${SUITE}
+```
+
+For a subset run, replace `polaris suite` with `polaris setup` and provide the
+selected tasks explicitly. For example:
+
+```bash
+export SUITE=omega_nightly_subset
+export TASKS="ocean/column/horiz_press_grad/salinity_gradient \
+ocean/planar/manufactured_solution/convergence_both/default \
+ocean/spherical/icos/cosine_bell/decomp \
+ocean/spherical/icos/cosine_bell/restart"
+
+polaris setup -m ${MACHINE} -p ${COMPONENT_PATH} \
+    -w ${WORK_ROOT}/${SUITE}_serial -t ${TASKS} \
+    --suite_name ${SUITE}_serial
+cd ${WORK_ROOT}/${SUITE}_serial
+polaris serial ${SUITE}_serial
+
+polaris setup -m ${MACHINE} -p ${COMPONENT_PATH} \
+    -w ${WORK_ROOT}/${SUITE}_run -t ${TASKS} \
+    -b ${WORK_ROOT}/${SUITE}_serial --run_command run \
+    --suite_name ${SUITE}_run
+cd ${WORK_ROOT}/${SUITE}_run
+polaris run ${SUITE}_run
+```
+
+The representative-suite validation should record the machine, suite or subset
+name, model build, selected task list, final task-runtime table and the result
+of the `schedule_events.jsonl` validation snippet above. The structured events
+should show scheduler graph construction for every task, Dask runtime metadata
+for every task and no violation of the single-active-step policy. The task logs
+in `case_outputs` should preserve aggregate pass/fail status and make any
+baseline or execution failure traceable to the same task names as the serial
+comparison.
+
 In suite-wide Phase 1 scheduling, task runtime summaries are expected to become
 the sum of executed step runtimes for each task, while the suite runtime should
 remain wall-clock time for the whole suite. Until that accounting is hardened,

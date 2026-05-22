@@ -1002,6 +1002,19 @@ hydrography tasks that exercise Dask-aware Python step implementations, remain
 optional manual/system validation until they are cheap enough for routine
 developer checks.
 
+The representative-suite subset chunk shall document validation of predefined
+ocean suites, especially `omega_pr`, `omega_nightly` and `mpaso_pr`. When the
+full suite is too expensive or unavailable on a machine, the validation may use
+a custom `polaris setup` subset drawn from the corresponding suite file. The
+validation record shall include the machine, model build, suite or subset name,
+selected task list, final task-runtime table and the schedule-event summary.
+The expected result is that suite-wide `polaris run` preserves dependency
+order, aggregate pass/fail status and task logs while every task event file
+records Dask runtime metadata and satisfies the Phase 1 single-active-step
+policy. Failures in full-suite validation should be categorized as scheduler
+regressions, model/task failures, missing data, machine-environment issues or
+known unsupported tasks.
+
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
 Date last modified: 2026/05/14
