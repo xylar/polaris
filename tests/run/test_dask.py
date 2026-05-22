@@ -5,6 +5,7 @@ from polaris.run.dask import (
     dask_client_context,
     get_dask_runtime_info,
     get_dask_worker_count,
+    plan_dask_launch,
     select_dask_runtime_backend,
 )
 
@@ -35,6 +36,109 @@ def test_select_dask_runtime_backend_defaults_to_local():
 def test_select_dask_runtime_backend_rejects_unknown():
     with pytest.raises(ValueError, match='Unsupported Dask runtime backend'):
         select_dask_runtime_backend({}, backend_name='unknown')
+
+
+def test_plan_dask_launch_single_node_fallback():
+    plan = plan_dask_launch(
+        {
+            'cores': 4,
+            'nodes': 1,
+            'cores_per_node': 8,
+            'gpus': 0,
+            'mpi_allowed': True,
+        }
+    )
+
+    assert plan.backend == 'local'
+    assert plan.local_fallback
+    assert plan.scheduler_node == 0
+    assert plan.worker_count == 4
+    assert plan.total_cores == 4
+    assert plan.total_gpus == 0
+    assert plan.worker_groups[0].node_index == 0
+    assert plan.worker_groups[0].workers == 4
+    assert plan.worker_groups[0].threads_per_worker == 1
+    assert plan.worker_groups[0].cores_per_worker == 1
+
+
+def test_plan_dask_launch_multi_node_cpu_allocation():
+    plan = plan_dask_launch(
+        {
+            'cores': 128,
+            'nodes': 4,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+        }
+    )
+
+    assert plan.backend == 'allocation'
+    assert not plan.local_fallback
+    assert plan.scheduler_node == 0
+    assert plan.worker_count == 128
+    assert plan.total_cores == 128
+    assert [group.node_index for group in plan.worker_groups] == [
+        0,
+        1,
+        2,
+        3,
+    ]
+    assert [group.workers for group in plan.worker_groups] == [
+        32,
+        32,
+        32,
+        32,
+    ]
+
+
+def test_plan_dask_launch_distributes_partial_node_cpu_allocation():
+    plan = plan_dask_launch(
+        {
+            'cores': 20,
+            'nodes': 3,
+            'cores_per_node': 8,
+            'gpus': 0,
+            'mpi_allowed': True,
+        }
+    )
+
+    assert plan.backend == 'allocation'
+    assert plan.worker_count == 20
+    assert [group.workers for group in plan.worker_groups] == [8, 8, 4]
+
+
+def test_plan_dask_launch_gpu_node_metadata():
+    plan = plan_dask_launch(
+        {
+            'cores': 64,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 8,
+            'gpus_per_node': 4,
+            'mpi_allowed': True,
+        }
+    )
+
+    assert plan.backend == 'allocation'
+    assert plan.worker_count == 64
+    assert plan.total_gpus == 8
+    assert [group.gpus for group in plan.worker_groups] == [4, 4]
+
+
+def test_plan_dask_launch_falls_back_without_mpi():
+    plan = plan_dask_launch(
+        {
+            'cores': 64,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': False,
+        }
+    )
+
+    assert plan.backend == 'local'
+    assert plan.local_fallback
+    assert plan.worker_count == 32
 
 
 def test_dask_client_context_closes_client_and_cluster(monkeypatch):
