@@ -1028,6 +1028,18 @@ schedule-summary output. These measurements are intended to detect unexpected
 semantic or orchestration regressions; Phase 1 is not expected to demonstrate
 speedup.
 
+The final documentation chunk shall update user-facing docs to explain when to
+use `polaris serial`, when to opt in to `polaris run`, how generated job
+scripts select the execution command and what scheduler artifacts users may
+see in task work directories. Developer-facing docs shall explain the
+step-level meaning of task parallelism, scheduler graph and schedule-event
+semantics, resource modeling, Dask-aware step execution, local versus
+allocation-scoped Dask backends and common troubleshooting paths for missing
+inputs, infeasible resources, failed dependencies and backend startup or
+fallback. These docs shall cross-link the umbrella task-parallelism design and
+the Phase 1 design so the rollout is discoverable outside the design-doc
+directory.
+
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
 Date last modified: 2026/05/14

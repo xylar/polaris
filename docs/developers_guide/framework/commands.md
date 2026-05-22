@@ -124,6 +124,10 @@ Thus, references to Phase 1 in this module mean the opt-in `polaris run`
 scheduler path that prepares for future task parallelism while intentionally
 preserving task-serial step execution.
 
+See the [umbrella task-parallelism design](../../design_docs/task_parallelism.md)
+and [Phase 1 design](../../design_docs/task_parallelism_phase1.md) for the
+full requirements and rollout plan.
+
 For a suite run, each task work directory contains a `schedule_events.jsonl`
 file. These JSON-lines files record graph construction, selected ready steps,
 wait reasons, resource feasibility, skipped cached or completed steps, blocked
@@ -279,6 +283,29 @@ because this phase is validating correctness and readiness for later
 concurrency. Large unexpected slowdowns should be investigated by comparing the
 serial and scheduler task-runtime tables, per-step runtime lines and structured
 step-finish or step-failure durations.
+
+### Troubleshooting `polaris run`
+
+Most `polaris run` failures should be debugged from the task log in
+`case_outputs` together with the task's `schedule_events.jsonl` file:
+
+- Missing input files usually mean that a selected step did not declare a
+  dependency on the step that creates the file, or that an upstream cached or
+  completed producer is unavailable in the work directory. The scheduler should
+  report the selected order before the failing step starts.
+- Resource infeasibility means that a step's minimum CPU, GPU or node request
+  cannot be met from the available allocation. Inspect `resource_feasibility`
+  events for the requested and available resources.
+- Failed dependencies appear as `step_skipped` events with reason
+  `blocked_dependency`. These are expected when a prerequisite step fails; the
+  dependent step should not run until the prerequisite succeeds in a rerun.
+- Backend startup failures or unexpected local fallback should be investigated
+  from the `dask_runtime` event. It records the selected backend, worker count,
+  scheduler address when available and fallback reason when the local backend
+  was selected automatically.
+- If a run seems to overlap steps in Phase 1, validate the event files with
+  {py:func}`polaris.run.validation.validate_phase1_schedule_event_files()`.
+  A valid Phase 1 run should never report more than one active Polaris step.
 
 (dev-cache)=
 

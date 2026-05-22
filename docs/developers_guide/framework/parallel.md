@@ -52,6 +52,29 @@ configs use:
 - `goal_cells_per_gpu` (target; default 8000)
 - `max_cells_per_gpu` (minimum required resources; default 80000)
 
+## Scheduler Resources and Dask Runtime
+
+The `polaris run` command uses the same step resource fields as
+`polaris serial`: `ntasks`, `min_tasks`, `cpus_per_task`,
+`min_cpus_per_task`, `gpus_per_task`, `min_gpus_per_task` and `max_memory`.
+In the first task-parallel phase, the scheduler reserves resources for only
+one Polaris step at a time, then releases them before selecting the next step.
+This deliberately preserves task-serial execution while proving the resource
+model that later phases will use for concurrent steps.
+
+Steps that can use the active Dask runtime should implement `run_with_dask()`.
+When `polaris run` executes such a step, the framework passes a Dask client and
+a lightweight resource lease that includes the assigned core, worker, node, GPU
+and memory counts. Steps that do not implement Dask-aware work continue to run
+through the regular `run()` method or command-line parallel arguments.
+
+`polaris run` starts a Dask Distributed runtime for the duration of the task or
+suite. On a single node, or when an allocation-scoped launcher is unavailable,
+the command uses a local Dask backend. When a multi-node allocation and process
+launcher are available, Polaris can start an allocation-scoped Dask scheduler
+and workers. The selected backend, worker count, scheduler address and fallback
+reason are recorded in each task's `schedule_events.jsonl` file.
+
 ## Supported Parallel Systems
 
 The active system is still selected from `[parallel] system` and environment
