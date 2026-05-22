@@ -1,4 +1,5 @@
 import json
+from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
@@ -9,7 +10,14 @@ from polaris.run.scheduler import build_scheduler_graph, run_suite
 
 
 class DummyStep:
-    def __init__(self, tmp_path, name, cached=False):
+    def __init__(
+        self,
+        tmp_path,
+        name,
+        cached=False,
+        baseline_status=None,
+        property_status=None,
+    ):
         self.name = name
         self.path = f'ocean/{name}'
         self.work_dir = str(tmp_path / name)
@@ -27,12 +35,22 @@ class DummyStep:
         self.gpus_per_task = 0
         self.min_gpus_per_task = 0
         self.max_memory = None
+        self.args = None
+        self.openmp_threads = 1
+        self.is_dependency = False
+        self.component = SimpleNamespace(name='component')
+        self.subdir = name
+        self.logger = None
+        self.log_filename = None
+        self.baseline_status = baseline_status
+        self.property_status = property_status
         (tmp_path / name).mkdir()
 
     def add_dependency(self, step, name=None):
         if name is None:
             name = step.name
         self.dependencies[name] = step
+        step.is_dependency = True
 
     def add_input(self, filename):
         self.inputs.append(filename)
@@ -40,13 +58,42 @@ class DummyStep:
     def add_output(self, filename):
         self.outputs.append(filename)
 
-    @staticmethod
-    def check_properties():
-        return False, None
+    def __getstate__(self):
+        state = self.__dict__.copy()
+        state['logger'] = None
+        return state
 
-    @staticmethod
-    def validate_baselines():
-        return False, None
+    def constrain_resources(self, available_resources):
+        pass
+
+    def runtime_setup(self):
+        pass
+
+    def run(self):
+        for output in self.outputs:
+            with open(output, 'w') as output_file:
+                output_file.write(f'{self.name}\n')
+
+    def run_with_dask(self, client, resources):
+        self.run()
+
+    def check_properties(self):
+        if self.property_status is None:
+            return False, None
+        marker = 'passed' if self.property_status else 'failed'
+        filename = f'property_check_{marker}.log'
+        with open(Path(self.work_dir) / filename, 'w') as log_file:
+            log_file.write(f'{self.name}\n')
+        return True, self.property_status
+
+    def validate_baselines(self):
+        if self.baseline_status is None:
+            return False, None
+        marker = 'passed' if self.baseline_status else 'failed'
+        filename = f'baseline_{marker}.log'
+        with open(Path(self.work_dir) / filename, 'w') as log_file:
+            log_file.write(f'{self.name}\n')
+        return True, self.baseline_status
 
 
 class DummyConfig:
@@ -507,6 +554,51 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
     )
 
 
+def test_scheduler_run_task_updates_rerun_markers(tmp_path, monkeypatch):
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    init = DummyStep(tmp_path, 'init')
+    forward = DummyStep(
+        tmp_path, 'forward', baseline_status=True, property_status=False
+    )
+    init.add_output('initial_state.nc')
+    forward.add_dependency(init)
+    forward.add_input(tmp_path / 'init' / 'initial_state.nc')
+    forward.add_output('output.nc')
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['forward', 'init'],
+        steps={'init': init, 'forward': forward},
+    )
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+
+    baselines_passed = run_scheduler.run_task(
+        task,
+        {
+            'cores': 2,
+            'nodes': 1,
+            'cores_per_node': 2,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    assert baselines_passed
+    assert (tmp_path / 'init' / 'polaris_step_complete.log').exists()
+    assert (tmp_path / 'init' / 'step_after_run.pickle').exists()
+    assert (tmp_path / 'forward' / 'polaris_step_complete.log').exists()
+    assert (tmp_path / 'forward' / 'baseline_passed.log').exists()
+    assert (tmp_path / 'forward' / 'property_check_failed.log').exists()
+
+
 def test_scheduler_records_dask_runtime_info(tmp_path, monkeypatch):
     class DummyLogger:
         def info(self, message):
@@ -780,26 +872,47 @@ def test_scheduler_run_suite_blocks_failed_dependents(tmp_path, monkeypatch):
 def test_scheduler_run_suite_records_completed_and_cached_skips(
     tmp_path, monkeypatch
 ):
+    run_order = []
     completed = DummyStep(tmp_path, 'completed')
     cached = DummyStep(tmp_path, 'cached', cached=True)
+    after_completed = DummyStep(tmp_path, 'after_completed')
+    after_cached = DummyStep(tmp_path, 'after_cached')
+    completed.add_output('completed.nc')
+    cached.add_output('cached.nc')
+    after_completed.add_input(tmp_path / 'completed' / 'completed.nc')
+    after_cached.add_input(tmp_path / 'cached' / 'cached.nc')
     (tmp_path / 'completed' / 'polaris_step_complete.log').write_text(
         'complete\n'
     )
+    (tmp_path / 'completed' / 'completed.nc').write_text('completed\n')
+    (tmp_path / 'completed' / 'baseline_passed.log').write_text('pass\n')
+    (tmp_path / 'completed' / 'property_check_failed.log').write_text('fail\n')
 
     task = _make_task(
         tmp_path,
         'task',
-        {'completed': completed, 'cached': cached},
+        {
+            'completed': completed,
+            'cached': cached,
+            'after_completed': after_completed,
+            'after_cached': after_cached,
+        },
     )
     log_dir = tmp_path / 'case_outputs'
     log_dir.mkdir()
 
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+    ):
+        run_order.append(step.name)
+
     _patch_suite_setup(monkeypatch)
-    monkeypatch.setattr(
-        run_scheduler,
-        'run_step',
-        lambda *args, **kwargs: pytest.fail('skipped step was run'),
-    )
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
 
     results = run_suite(
         suite={'tasks': {'task': task}},
@@ -810,6 +923,7 @@ def test_scheduler_run_suite_records_completed_and_cached_skips(
     )
 
     assert results['failures'] == 0
+    assert run_order == ['after_completed', 'after_cached']
     events = _read_events(tmp_path / 'task' / 'schedule_events.jsonl')
     skip_events = [
         event for event in events if event['event'] == 'step_skipped'
@@ -822,11 +936,15 @@ def test_scheduler_run_suite_records_completed_and_cached_skips(
         ('completed', 'already completed', 'skipped'),
         ('cached', 'cached', 'skipped'),
     ]
+    assert all(event['satisfies_dependencies'] for event in skip_events)
+    completed_event = skip_events[0]
+    assert completed_event['baseline_status']
+    assert not completed_event['property_status']
     assert {
         event['wait_reason']
         for event in events
         if event['event'] == 'ready_selection'
-    } == {'no_dependencies'}
+    } == {'no_dependencies', 'dependencies_satisfied'}
 
 
 def test_scheduler_run_suite_records_single_suite_active_step(

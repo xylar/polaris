@@ -617,14 +617,6 @@ def _run_scheduler_node(
 
     if node.completed:
         print_to_stdout(task, '          already completed')
-        recorder.emit(
-            'step_skipped',
-            task=node.task_name,
-            step=node.step_name,
-            reason='already completed',
-            result='skipped',
-            wait_reason=_wait_reason(predecessor_keys),
-        )
         baseline_status = read_baseline_status_from_logs(step.work_dir)
         if baseline_status is not None:
             baseline_str = pass_str if baseline_status else fail_str
@@ -637,6 +629,18 @@ def _run_scheduler_node(
             print_to_stdout(
                 task, f'          property comp.:   {property_str}'
             )
+        recorder.emit(
+            'step_skipped',
+            task=node.task_name,
+            step=node.step_name,
+            baseline_status=baseline_status,
+            completion_marker=True,
+            property_status=property_status,
+            reason='already completed',
+            result='skipped',
+            satisfies_dependencies=True,
+            wait_reason=_wait_reason(predecessor_keys),
+        )
         return baseline_status, property_status
 
     if node.cached:
@@ -647,6 +651,7 @@ def _run_scheduler_node(
             step=node.step_name,
             reason='cached',
             result='skipped',
+            satisfies_dependencies=True,
             wait_reason=_wait_reason(predecessor_keys),
         )
         return None, None
