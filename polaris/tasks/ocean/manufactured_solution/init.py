@@ -42,7 +42,11 @@ class Init(OceanIOStep):
 
     def setup(self):
         super().setup()
-        output_filenames = ['culled_mesh.nc', 'initial_state.nc']
+        output_filenames = [
+            'base_mesh.nc',
+            'culled_mesh.nc',
+            'initial_state.nc',
+        ]
         model = self.config.get('ocean', 'model')
         if model == 'mpas-ocean':
             output_filenames.append('culled_graph.info')
