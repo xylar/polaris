@@ -726,6 +726,16 @@ task and step scripts shall run `polaris run` and suite scripts shall run
 `write_job_script()` custom-command hook rather than changing the default
 behavior of direct `write_job_script()` calls.
 
+The thirteenth implementation chunk shall abstract the Dask runtime backend
+behind a small backend-selection API. The default backend remains the local
+`distributed.LocalCluster` lifecycle from earlier Phase 1 work, with
+single-threaded workers capped to the local available core count. The
+selected backend shall attach structured runtime metadata to the Dask client
+so scheduler summaries can record the backend name and worker count without
+assuming a specific client implementation. Unknown backend names shall be
+rejected explicitly; allocation-scoped planning and launch remain later
+Phase 1 work.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -807,6 +817,13 @@ The setup opt-in chunk shall add tests for the generated run-command helper
 and for `polaris setup` and `polaris suite` CLI parsing. These tests shall
 verify that job scripts default to `polaris serial` and switch to `polaris run`
 only when `--run_command run` is provided.
+
+The Dask runtime backend abstraction chunk shall add unit tests showing that
+the local backend is selected by default, reports the selected backend and
+worker count, rejects unsupported backend names and closes both the Dask
+client and cluster on success and failure. Scheduler tests shall verify that
+`schedule_events.jsonl` records Dask backend metadata when the active client
+was created by a Polaris Dask runtime backend.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
