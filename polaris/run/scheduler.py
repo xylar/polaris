@@ -5,6 +5,10 @@ from dataclasses import dataclass
 from datetime import timedelta
 from typing import Any, Mapping, Optional
 
+import mpas_tools.io
+from mpas_tools.logging import LoggingContext
+
+from polaris.logging import log_function_call
 from polaris.run.dask import get_dask_runtime_info
 from polaris.run.resources import ResourcePool, get_step_resource_request
 from polaris.run.shared import (
@@ -21,6 +25,7 @@ from polaris.run.shared import (
     setup_config,
     start_time_color,
     success_str,
+    update_steps_to_run,
 )
 
 
@@ -129,6 +134,24 @@ class ScheduleRecorder:
         payload = dict(event=event, time=time.time(), **kwargs)
         with open(self.event_filename, 'a') as event_file:
             event_file.write(f'{json.dumps(payload, sort_keys=True)}\n')
+
+
+@dataclass
+class SuiteTaskRunState:
+    """
+    Runtime status for one task in a suite-wide scheduler run.
+    """
+
+    task: Any
+    log_filename: str
+    task_time: float = 0.0
+    result_str: str = pass_str
+    success: bool = True
+    exec_failed: bool = False
+    diff_failed: bool = False
+    baselines_passed: Optional[bool] = None
+    task_pass: bool = True
+    start_time: float = 0.0
 
 
 def build_scheduler_graph(tasks: Mapping[str, Any]) -> SchedulerGraph:
@@ -261,6 +284,138 @@ def build_scheduler_graph(tasks: Mapping[str, Any]) -> SchedulerGraph:
     )
 
 
+def run_suite(
+    suite,
+    stdout_logger,
+    quiet,
+    log_dir,
+    available_resources,
+    subprocess_command='run',
+    dask_client=None,
+):
+    """
+    Run a suite through one suite-wide scheduler graph.
+
+    Parameters
+    ----------
+    suite : dict
+        The suite description containing selected tasks.
+
+    stdout_logger : logging.Logger
+        Logger used for run-level output.
+
+    quiet : bool
+        Whether step progress should be omitted from stdout.
+
+    log_dir : str
+        Directory for per-task log files.
+
+    available_resources : dict
+        Available CPU, GPU and MPI resources for this run.
+
+    subprocess_command : str, optional
+        Polaris subcommand to use when a step must run in a subprocess.
+
+    dask_client : distributed.Client, optional
+        Dask client for the active ``polaris run`` lifecycle.
+
+    Returns
+    -------
+    results : dict
+        Aggregate suite results with task times, result strings, failure
+        counts and failure task lists.
+    """
+    states = _prepare_suite_tasks(
+        suite=suite,
+        stdout_logger=stdout_logger,
+        quiet=quiet,
+        log_dir=log_dir,
+    )
+    tasks = {state.task.path: state.task for state in states.values()}
+    graph = build_scheduler_graph(tasks)
+    resource_pool = ResourcePool(available_resources)
+    recorders = {
+        task_name: ScheduleRecorder(state.task)
+        for task_name, state in states.items()
+    }
+    ordered_nodes = graph.topological_order()
+    edge_count = sum(
+        len(successors) for successors in graph.successors.values()
+    )
+    runtime_info = get_dask_runtime_info(dask_client)
+    for task_name, state in states.items():
+        recorder = recorders[task_name]
+        recorder.emit(
+            'graph_constructed', nodes=len(graph.nodes), edges=edge_count
+        )
+        if runtime_info is not None:
+            recorder.emit(
+                'dask_runtime',
+                backend=runtime_info.backend,
+                workers=runtime_info.workers,
+            )
+        with LoggingContext(
+            task_name.replace('/', '_'), log_filename=state.log_filename
+        ) as task_logger:
+            _configure_task_loggers(
+                state.task,
+                task_logger,
+                stdout_logger,
+                quiet,
+                state.log_filename,
+            )
+            _log_schedule_summary(state.task, ordered_nodes)
+
+    cwd = os.getcwd()
+    current_task_name = None
+    for node in ordered_nodes:
+        if not node.selected:
+            continue
+
+        task_name = node.task_name
+        assert task_name is not None
+        state = states[task_name]
+        task = state.task
+        if task_name != current_task_name:
+            stdout_logger.info(f'{task_name}')
+            current_task_name = task_name
+
+        try:
+            with LoggingContext(
+                task_name.replace('/', '_'), log_filename=state.log_filename
+            ) as task_logger:
+                _configure_task_loggers(
+                    task, task_logger, stdout_logger, quiet, state.log_filename
+                )
+                baseline_status, _ = _run_scheduler_node(
+                    node=node,
+                    task=task,
+                    available_resources=available_resources,
+                    resource_pool=resource_pool,
+                    recorder=recorders[task_name],
+                    cwd=cwd,
+                    subprocess_command=subprocess_command,
+                    dask_client=dask_client,
+                )
+            if baseline_status is not None:
+                state.baselines_passed = accumulate_statuses(
+                    state.baselines_passed, baseline_status
+                )
+        except Exception:
+            state.task_pass = False
+            state.exec_failed = True
+            with LoggingContext(
+                task_name.replace('/', '_'), log_filename=state.log_filename
+            ) as task_logger:
+                task_logger.exception(
+                    'Exception raised while running the steps of the task'
+                )
+            break
+
+    _finalize_suite_task_states(states, stdout_logger)
+    return _suite_results(states)
+
+
 def run_task(
     task, available_resources, subprocess_command='serial', dask_client=None
 ):
@@ -288,7 +443,6 @@ def run_task(
         Aggregate baseline comparison status across selected steps. ``None``
         means no baseline comparisons were performed.
     """
-    logger = task.logger
     cwd = os.getcwd()
     graph = build_scheduler_graph({task.path: task})
     resource_pool = ResourcePool(available_resources)
@@ -315,161 +469,302 @@ def run_task(
         if not node.selected:
             continue
 
-        step = node.step
+        baseline_status, property_status = _run_scheduler_node(
+            node=node,
+            task=task,
+            available_resources=available_resources,
+            resource_pool=resource_pool,
+            recorder=recorder,
+            cwd=cwd,
+            subprocess_command=subprocess_command,
+            dask_client=dask_client,
+        )
+        if baseline_status is not None:
+            baselines_passed = accumulate_statuses(
+                baselines_passed, baseline_status
+            )
+        if property_status is not None:
+            property_passed = accumulate_statuses(
+                property_passed, property_status
+            )
+
+    return baselines_passed
+
+
+def _prepare_suite_tasks(suite, stdout_logger, quiet, log_dir):
+    states = {}
+    cwd = os.getcwd()
+    for task in suite['tasks'].values():
+        task_name = task.path.replace('/', '_')
+        log_filename = os.path.join(log_dir, f'{task_name}.log')
+        with LoggingContext(
+            task_name, log_filename=log_filename
+        ) as task_logger:
+            _configure_task_loggers(
+                task, task_logger, stdout_logger, quiet, log_filename
+            )
+            os.chdir(task.work_dir)
+            config = setup_config(task.base_work_dir, task.config.filepath)
+            task.config = config
+            mpas_tools.io.default_format = config.get('io', 'format')
+            mpas_tools.io.default_engine = config.get('io', 'engine')
+            task.steps_to_run = update_steps_to_run(
+                task.name, None, None, config, task.steps
+            )
+            log_function_call(function=run_suite, logger=task_logger)
+            task_logger.info('')
+            task_list = ', '.join(task.steps_to_run)
+            task_logger.info(f'Running steps: {task_list}')
+            os.chdir(cwd)
+        states[task.path] = SuiteTaskRunState(
+            task=task,
+            log_filename=log_filename,
+            start_time=time.time(),
+        )
+    return states
+
+
+def _configure_task_loggers(
+    task, task_logger, stdout_logger, quiet, log_filename
+):
+    if quiet:
+        task.stdout_logger = task_logger
+    else:
+        task.stdout_logger = stdout_logger
+    task.logger = task_logger
+    task.log_filename = log_filename
+    task.new_step_log_file = False
+
+
+def _run_scheduler_node(
+    node,
+    task,
+    available_resources,
+    resource_pool,
+    recorder,
+    cwd,
+    subprocess_command,
+    dask_client,
+):
+    step = node.step
+    recorder.emit(
+        'ready_selection',
+        task=node.task_name,
+        step=node.step_name,
+        status=_node_status(node),
+    )
+    print_to_stdout(task, f'  * step: {node.step_name}')
+
+    if node.completed:
+        print_to_stdout(task, '          already completed')
         recorder.emit(
-            'ready_selection',
+            'step_skipped',
             task=node.task_name,
             step=node.step_name,
-            status=_node_status(node),
+            reason='already completed',
         )
-        print_to_stdout(task, f'  * step: {node.step_name}')
-
-        if node.completed:
-            print_to_stdout(task, '          already completed')
-            recorder.emit(
-                'step_skipped',
-                task=node.task_name,
-                step=node.step_name,
-                reason='already completed',
-            )
-            baseline_status = read_baseline_status_from_logs(step.work_dir)
-            if baseline_status is not None:
-                baseline_str = pass_str if baseline_status else fail_str
-                print_to_stdout(
-                    task, f'          baseline comp.:   {baseline_str}'
-                )
-                baselines_passed = accumulate_statuses(
-                    baselines_passed, baseline_status
-                )
-            property_status = read_property_status_from_logs(step.work_dir)
-            if property_status is not None:
-                property_str = pass_str if property_status else fail_str
-                print_to_stdout(
-                    task, f'          property comp.:   {property_str}'
-                )
-                property_passed = accumulate_statuses(
-                    property_passed, property_status
-                )
-            continue
-        if node.cached:
-            print_to_stdout(task, '          cached')
-            recorder.emit(
-                'step_skipped',
-                task=node.task_name,
-                step=node.step_name,
-                reason='cached',
-            )
-            continue
-
-        step_start = time.time()
-        step.config = setup_config(step.base_work_dir, step.config.filepath)
-        if task.log_filename is not None:
-            step_log_filename = task.log_filename
-        else:
-            step_log_filename = None
-
-        reservation = None
-        try:
-            request = get_step_resource_request(step, available_resources)
-            reservation = resource_pool.reserve_step(step, request)
+        baseline_status = read_baseline_status_from_logs(step.work_dir)
+        if baseline_status is not None:
+            baseline_str = pass_str if baseline_status else fail_str
             print_to_stdout(
-                task,
-                f'          resources:        cores={reservation.cores}, '
-                f'nodes={reservation.nodes}, gpus={reservation.gpus}',
+                task, f'          baseline comp.:   {baseline_str}'
             )
-            recorder.emit(
-                'resource_reserved',
-                task=node.task_name,
-                step=node.step_name,
-                cores=reservation.cores,
-                nodes=reservation.nodes,
-                gpus=reservation.gpus,
+        property_status = read_property_status_from_logs(step.work_dir)
+        if property_status is not None:
+            property_str = pass_str if property_status else fail_str
+            print_to_stdout(
+                task, f'          property comp.:   {property_str}'
             )
-            recorder.active_steps += 1
-            recorder.emit(
-                'step_start',
-                task=node.task_name,
-                step=node.step_name,
-                active_steps=recorder.active_steps,
-            )
-            if step.run_as_subprocess:
-                run_step_as_subprocess(
-                    logger,
-                    step,
-                    task.new_step_log_file,
-                    subprocess_command=subprocess_command,
-                )
-            else:
-                run_step(
-                    task,
-                    step,
-                    task.new_step_log_file,
-                    available_resources,
-                    step_log_filename,
-                    dask_client=dask_client,
-                )
-        except Exception:
-            step_time = time.time() - step_start
-            recorder.emit(
-                'step_failure',
-                task=node.task_name,
-                step=node.step_name,
-                active_steps=recorder.active_steps,
-                duration=step_time,
-            )
-            print_to_stdout(task, f'          execution:        {error_str}')
-            raise
-        finally:
-            if recorder.active_steps > 0:
-                recorder.active_steps -= 1
-            if reservation is not None:
-                resource_pool.release(reservation)
-                recorder.emit(
-                    'resource_released',
-                    task=node.task_name,
-                    step=node.step_name,
-                    active_steps=recorder.active_steps,
-                )
-            os.chdir(cwd)
+        return baseline_status, property_status
 
-        print_to_stdout(task, f'          execution:        {success_str}')
+    if node.cached:
+        print_to_stdout(task, '          cached')
+        recorder.emit(
+            'step_skipped',
+            task=node.task_name,
+            step=node.step_name,
+            reason='cached',
+        )
+        return None, None
+
+    step_start = time.time()
+    step.config = setup_config(step.base_work_dir, step.config.filepath)
+    if task.log_filename is not None:
+        step_log_filename = task.log_filename
+    else:
+        step_log_filename = None
+
+    reservation = None
+    try:
+        request = get_step_resource_request(step, available_resources)
+        reservation = resource_pool.reserve_step(step, request)
+        print_to_stdout(
+            task,
+            f'          resources:        cores={reservation.cores}, '
+            f'nodes={reservation.nodes}, gpus={reservation.gpus}',
+        )
+        recorder.emit(
+            'resource_reserved',
+            task=node.task_name,
+            step=node.step_name,
+            cores=reservation.cores,
+            nodes=reservation.nodes,
+            gpus=reservation.gpus,
+        )
+        recorder.active_steps += 1
+        recorder.emit(
+            'step_start',
+            task=node.task_name,
+            step=node.step_name,
+            active_steps=recorder.active_steps,
+        )
+        if step.run_as_subprocess:
+            run_step_as_subprocess(
+                task.logger,
+                step,
+                task.new_step_log_file,
+                subprocess_command=subprocess_command,
+            )
+        else:
+            run_step(
+                task,
+                step,
+                task.new_step_log_file,
+                available_resources,
+                step_log_filename,
+                dask_client=dask_client,
+            )
+    except Exception:
         step_time = time.time() - step_start
         recorder.emit(
-            'step_finish',
+            'step_failure',
             task=node.task_name,
             step=node.step_name,
             active_steps=recorder.active_steps,
             duration=step_time,
         )
-        step_time_str = str(timedelta(seconds=round(step_time)))
-
-        compared, status = step.check_properties()
-        if compared:
-            property_str = pass_str if status else fail_str
-            print_to_stdout(
-                task, f'          property checks:   {property_str}'
+        print_to_stdout(task, f'          execution:        {error_str}')
+        raise
+    finally:
+        if recorder.active_steps > 0:
+            recorder.active_steps -= 1
+        if reservation is not None:
+            resource_pool.release(reservation)
+            recorder.emit(
+                'resource_released',
+                task=node.task_name,
+                step=node.step_name,
+                active_steps=recorder.active_steps,
             )
-            property_passed = accumulate_statuses(property_passed, status)
+        os.chdir(cwd)
 
-        compared, status = step.validate_baselines()
-        if compared:
-            baseline_str = pass_str if status else fail_str
-            print_to_stdout(
-                task, f'          baseline comp.:   {baseline_str}'
-            )
-            baselines_passed = accumulate_statuses(baselines_passed, status)
+    print_to_stdout(task, f'          execution:        {success_str}')
+    step_time = time.time() - step_start
+    recorder.emit(
+        'step_finish',
+        task=node.task_name,
+        step=node.step_name,
+        active_steps=recorder.active_steps,
+        duration=step_time,
+    )
+    step_time_str = str(timedelta(seconds=round(step_time)))
 
-        print_to_stdout(
-            task,
-            f'          runtime:          '
-            f'{start_time_color}{step_time_str}{end_color}',
+    property_status = None
+    compared, status = step.check_properties()
+    if compared:
+        property_str = pass_str if status else fail_str
+        print_to_stdout(task, f'          property checks:   {property_str}')
+        property_status = status
+
+    baseline_status = None
+    compared, status = step.validate_baselines()
+    if compared:
+        baseline_str = pass_str if status else fail_str
+        print_to_stdout(task, f'          baseline comp.:   {baseline_str}')
+        baseline_status = status
+
+    print_to_stdout(
+        task,
+        f'          runtime:          '
+        f'{start_time_color}{step_time_str}{end_color}',
+    )
+    return baseline_status, property_status
+
+
+def _finalize_suite_task_states(states, stdout_logger):
+    for state in states.values():
+        state.task_time = time.time() - state.start_time
+        if state.task_pass:
+            if state.baselines_passed is None:
+                state.result_str = pass_str
+                state.success = True
+            elif state.baselines_passed:
+                state.result_str = pass_str
+                state.success = True
+            else:
+                state.result_str = fail_str
+                state.success = False
+                state.diff_failed = True
+        else:
+            state.result_str = fail_str
+            state.success = False
+
+        with LoggingContext(
+            state.task.path.replace('/', '_'),
+            log_filename=state.log_filename,
+        ) as task_logger:
+            task_status = 'PASS' if state.task_pass else 'FAIL'
+            task_logger.info(f'POLARIS TASK: {task_status}')
+            if state.baselines_passed is not None:
+                baseline_status = 'PASS' if state.baselines_passed else 'FAIL'
+                task_logger.info(f'POLARIS BASELINE: {baseline_status}')
+
+        run_status = success_str if state.task_pass else error_str
+        stdout_logger.info(f'  task execution:   {run_status}')
+        if not state.success and not state.diff_failed:
+            task_name = state.task.path.replace('/', '_')
+            stdout_logger.error(f'  see: case_outputs/{task_name}.log')
+        if state.baselines_passed is not None and state.task_pass:
+            baseline_str = pass_str if state.baselines_passed else fail_str
+            stdout_logger.info(f'  baseline comp.:   {baseline_str}')
+        task_time_str = str(timedelta(seconds=round(state.task_time)))
+        stdout_logger.info(
+            f'  task runtime:     {start_time_color}{task_time_str}{end_color}'
         )
 
-    return baselines_passed
+
+def _suite_results(states):
+    exec_fail_tasks = []
+    diff_fail_tasks = []
+    task_times = {}
+    result_strs = {}
+    failures = 0
+
+    for task_name, state in states.items():
+        task_times[task_name] = state.task_time
+        result_strs[task_name] = state.result_str
+        if not state.success:
+            failures += 1
+        if state.exec_failed:
+            exec_fail_tasks.append(task_name)
+        if state.diff_failed:
+            diff_fail_tasks.append(task_name)
+
+    return dict(
+        failures=failures,
+        task_times=task_times,
+        result_strs=result_strs,
+        exec_fail_tasks=exec_fail_tasks,
+        diff_fail_tasks=diff_fail_tasks,
+    )
 
 
 def _log_schedule_summary(task, ordered_nodes: list[SchedulerNode]) -> None:
-    selected_nodes = [node for node in ordered_nodes if node.selected]
+    selected_nodes = [
+        node
+        for node in ordered_nodes
+        if node.selected and node.task_name == task.path
+    ]
     print_to_stdout(task, '  scheduler: selected order')
     for index, node in enumerate(selected_nodes, start=1):
         print_to_stdout(

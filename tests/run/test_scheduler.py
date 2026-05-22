@@ -5,7 +5,7 @@ import pytest
 
 import polaris.run.scheduler as run_scheduler
 from polaris.run.dask import DaskRuntimeInfo
-from polaris.run.scheduler import build_scheduler_graph
+from polaris.run.scheduler import build_scheduler_graph, run_suite
 
 
 class DummyStep:
@@ -236,6 +236,55 @@ def test_scheduler_does_not_infer_dependencies_from_selected_order(tmp_path):
     ]
 
 
+def test_scheduler_adds_cross_task_explicit_dependency_edge(tmp_path):
+    init = DummyStep(tmp_path, 'task_a_init')
+    forward = DummyStep(tmp_path, 'task_b_forward')
+    forward.add_dependency(init)
+    task_a = SimpleNamespace(
+        steps_to_run=['init'],
+        steps={'init': init},
+    )
+    task_b = SimpleNamespace(
+        steps_to_run=['forward'],
+        steps={'forward': forward},
+    )
+
+    graph = build_scheduler_graph(
+        {'ocean/task_b': task_b, 'ocean/task_a': task_a}
+    )
+
+    assert graph.predecessors['ocean/task_b:forward'] == {'ocean/task_a:init'}
+    assert [node.key for node in graph.topological_order()] == [
+        'ocean/task_a:init',
+        'ocean/task_b:forward',
+    ]
+
+
+def test_scheduler_adds_cross_task_file_dependency_edge(tmp_path):
+    init = DummyStep(tmp_path, 'task_a_init')
+    forward = DummyStep(tmp_path, 'task_b_forward')
+    init.add_output('initial_state.nc')
+    forward.add_input(tmp_path / 'task_a_init' / 'initial_state.nc')
+    task_a = SimpleNamespace(
+        steps_to_run=['init'],
+        steps={'init': init},
+    )
+    task_b = SimpleNamespace(
+        steps_to_run=['forward'],
+        steps={'forward': forward},
+    )
+
+    graph = build_scheduler_graph(
+        {'ocean/task_b': task_b, 'ocean/task_a': task_a}
+    )
+
+    assert graph.predecessors['ocean/task_b:forward'] == {'ocean/task_a:init'}
+    assert [node.key for node in graph.topological_order()] == [
+        'ocean/task_a:init',
+        'ocean/task_b:forward',
+    ]
+
+
 def test_scheduler_run_task_uses_graph_order_and_single_active_step(
     tmp_path, monkeypatch
 ):
@@ -366,3 +415,103 @@ def test_scheduler_records_dask_runtime_info(tmp_path, monkeypatch):
             'workers': 4,
         }
     ]
+
+
+def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
+    run_order = []
+
+    class DummyConfig:
+        filepath = 'config.cfg'
+
+        @staticmethod
+        def get(section, option):
+            if section == 'io':
+                return 'netcdf4'
+            return ''
+
+    class DummyLogger:
+        def __init__(self):
+            self.messages = []
+
+        def info(self, message):
+            self.messages.append(('info', message))
+
+        def error(self, message):
+            self.messages.append(('error', message))
+
+    init = DummyStep(tmp_path, 'task_a_init')
+    forward = DummyStep(tmp_path, 'task_b_forward')
+    init.add_output('initial_state.nc')
+    forward.add_input(tmp_path / 'task_a_init' / 'initial_state.nc')
+
+    task_a = SimpleNamespace(
+        name='task_a',
+        path='ocean/task_a',
+        work_dir=str(tmp_path / 'task_a'),
+        base_work_dir=str(tmp_path),
+        config=SimpleNamespace(filepath='config.cfg'),
+        steps_to_run=['init'],
+        steps={'init': init},
+    )
+    task_b = SimpleNamespace(
+        name='task_b',
+        path='ocean/task_b',
+        work_dir=str(tmp_path / 'task_b'),
+        base_work_dir=str(tmp_path),
+        config=SimpleNamespace(filepath='config.cfg'),
+        steps_to_run=['forward'],
+        steps={'forward': forward},
+    )
+    (tmp_path / 'task_a').mkdir()
+    (tmp_path / 'task_b').mkdir()
+    log_dir = tmp_path / 'case_outputs'
+    log_dir.mkdir()
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+    ):
+        assert dask_client == 'client'
+        run_order.append((task.path, step.name))
+        if step.outputs:
+            (tmp_path / step.name / step.outputs[0]).write_text('output\n')
+
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
+    monkeypatch.setattr(
+        run_scheduler,
+        'update_steps_to_run',
+        lambda task_name, steps_to_run, steps_to_skip, config, steps: list(
+            steps
+        ),
+    )
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+
+    results = run_suite(
+        suite={'tasks': {'task_b': task_b, 'task_a': task_a}},
+        stdout_logger=DummyLogger(),
+        quiet=False,
+        log_dir=str(log_dir),
+        available_resources={
+            'cores': 2,
+            'nodes': 1,
+            'cores_per_node': 2,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+        dask_client='client',
+    )
+
+    assert run_order == [
+        ('ocean/task_a', 'task_a_init'),
+        ('ocean/task_b', 'task_b_forward'),
+    ]
+    assert results['failures'] == 0
+    assert set(results['task_times']) == {'ocean/task_a', 'ocean/task_b'}
+    assert (tmp_path / 'task_a' / 'schedule_events.jsonl').exists()
+    assert (tmp_path / 'task_b' / 'schedule_events.jsonl').exists()
