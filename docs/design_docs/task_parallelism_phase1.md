@@ -962,6 +962,16 @@ infeasible scheduler resource events, local and allocation Dask runtime
 metadata, scheduler-address recording and validation-helper parsing of the
 expanded Dask runtime fields.
 
+The representative synthetic-suite chunk shall add compact end-to-end
+workflows that run through the same step lifecycle as production tasks while
+remaining independent of E3SM input datasets. These tests shall compare
+`polaris serial`-style task execution with suite-wide `polaris run`
+scheduling for output files, task logs, completion markers, dependency
+pickles, cached producers, completed producers, validation markers, shared
+steps and resource reservations. A separate synthetic failure suite shall
+verify that failed producers block dependent selected steps while independent
+selected steps still run.
+
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
 Date last modified: 2026/05/14
