@@ -258,6 +258,89 @@ def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
     )
 
 
+def test_run_tasks_closes_dask_lifecycle_after_scheduler_failure(
+    tmp_path, monkeypatch
+):
+    events = []
+
+    class DummyComponent:
+        name = 'ocean'
+
+        @staticmethod
+        def get_available_resources():
+            return {'cores': 2}
+
+    class DummyLogger:
+        def info(self, message):
+            events.append(('info', message))
+
+        def error(self, message):
+            events.append(('error', message))
+
+    class DummyLoggingContext:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return DummyLogger()
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+    @contextmanager
+    def _dask_client_context(available_resources, logger=None):
+        events.append(('dask', 'start'))
+        try:
+            yield 'client'
+        finally:
+            events.append(('dask', 'stop'))
+
+    def _run_suite_with_scheduler(
+        suite,
+        stdout_logger,
+        quiet,
+        log_dir,
+        available_resources,
+        subprocess_command='serial',
+        dask_client=None,
+    ):
+        assert dask_client == 'client'
+        events.append(('scheduler', 'failure'))
+        raise RuntimeError('expected scheduler failure')
+
+    component = DummyComponent()
+    task = SimpleNamespace(
+        base_work_dir=str(tmp_path),
+        component=component,
+        path='component/task',
+    )
+    suite = {'tasks': {'task': task}, 'work_dir': str(tmp_path)}
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setattr(run_command, 'unpickle_suite', lambda name: suite)
+    monkeypatch.setattr(run_command, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_command, 'set_parallel_systems', lambda *args: None
+    )
+    monkeypatch.setattr(run_command, 'LoggingContext', DummyLoggingContext)
+    monkeypatch.setattr(
+        run_command, 'dask_client_context', _dask_client_context
+    )
+    monkeypatch.setattr(
+        run_command, 'run_suite_with_scheduler', _run_suite_with_scheduler
+    )
+
+    with pytest.raises(RuntimeError, match='expected scheduler failure'):
+        run_command.run_tasks('suite')
+
+    assert ('dask', 'start') in events
+    assert ('scheduler', 'failure') in events
+    assert ('dask', 'stop') in events
+    assert events.index(('scheduler', 'failure')) < events.index(
+        ('dask', 'stop')
+    )
+
+
 def test_run_task_scope_uses_scheduler_runner(tmp_path, monkeypatch):
     called = {}
 

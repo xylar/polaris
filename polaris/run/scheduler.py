@@ -471,21 +471,45 @@ def run_task(
 
     baselines_passed = None
     property_passed = None
+    blocked_keys: set[str] = set()
+    failed_keys: set[str] = set()
+    first_exception = None
     for node in ordered_nodes:
         if not node.selected:
             continue
 
-        baseline_status, property_status = _run_scheduler_node(
-            node=node,
-            task=task,
-            available_resources=available_resources,
-            resource_pool=resource_pool,
-            recorder=recorder,
-            cwd=cwd,
-            subprocess_command=subprocess_command,
-            dask_client=dask_client,
-            predecessor_keys=graph.predecessors[node.key],
+        blocked_dependencies = sorted(
+            graph.predecessors[node.key] & (blocked_keys | failed_keys)
         )
+        if len(blocked_dependencies) > 0:
+            blocked_keys.add(node.key)
+            _block_scheduler_node(
+                node=node,
+                task=task,
+                recorder=recorder,
+                blocked_dependencies=blocked_dependencies,
+                active_counter=None,
+            )
+            continue
+
+        try:
+            baseline_status, property_status = _run_scheduler_node(
+                node=node,
+                task=task,
+                available_resources=available_resources,
+                resource_pool=resource_pool,
+                recorder=recorder,
+                cwd=cwd,
+                subprocess_command=subprocess_command,
+                dask_client=dask_client,
+                predecessor_keys=graph.predecessors[node.key],
+            )
+        except Exception as exception:
+            failed_keys.add(node.key)
+            if first_exception is None:
+                first_exception = exception
+            continue
+
         if baseline_status is not None:
             baselines_passed = accumulate_statuses(
                 baselines_passed, baseline_status
@@ -494,6 +518,9 @@ def run_task(
             property_passed = accumulate_statuses(
                 property_passed, property_status
             )
+
+    if first_exception is not None:
+        raise first_exception
 
     return baselines_passed
 
