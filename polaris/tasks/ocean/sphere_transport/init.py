@@ -2,6 +2,7 @@ import numpy as np
 import xarray as xr
 
 from polaris.constants import get_constant
+from polaris.ocean.coriolis import add_zero_coriolis
 from polaris.ocean.model import OceanIOStep
 from polaris.ocean.vertical import init_vertical_coord
 from polaris.tasks.ocean.sphere_transport.resources.flow_types import (
@@ -59,7 +60,13 @@ class Init(OceanIOStep):
             work_dir_target=f'{base_mesh.path}/graph.info',
         )
 
-        self.add_output_file(filename='initial_state.nc')
+    def setup(self):
+        super().setup()
+        self.add_output_file(filename='culled_mesh.nc')
+        self.add_output_file(filename='init.nc')
+        model = self.config.get('ocean', 'model')
+        if model == 'omega':
+            self.add_output_file(filename='vert_coord.nc')
 
     def run(self):
         """
@@ -83,6 +90,9 @@ class Init(OceanIOStep):
         latEdge = ds_mesh.latEdge
         lonCell = ds_mesh.lonCell
         lonEdge = ds_mesh.lonEdge
+
+        add_zero_coriolis(ds_mesh)
+        self.write_model_dataset(ds_mesh, 'culled_mesh.nc', config)
 
         ds = ds_mesh.copy()
 
@@ -212,8 +222,5 @@ class Init(OceanIOStep):
             dim='Time', axis=0
         )
 
-        ds['fCell'] = xr.zeros_like(ds_mesh.xCell)
-        ds['fEdge'] = xr.zeros_like(ds_mesh.xEdge)
-        ds['fVertex'] = xr.zeros_like(ds_mesh.xVertex)
-
-        self.write_model_dataset(ds, 'initial_state.nc', config)
+        self.write_vert_coord_dataset(ds, 'vert_coord.nc', config)
+        self.write_initial_state_dataset(ds, 'init.nc', config)
