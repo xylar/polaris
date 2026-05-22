@@ -785,6 +785,14 @@ Documentation shall describe how to compare `polaris run` with
 `polaris serial`, where to find scheduler artifacts and which heavy
 machine-specific checks remain manual/system validation.
 
+The nineteenth implementation chunk shall harden shared-step scheduling
+semantics. When the same underlying step work directory is selected through
+multiple tasks, repeated `Step` object references or symlinked aliases, the
+scheduler graph shall represent that producer once. Downstream explicit
+dependencies and declared input/output-file dependencies shall point to the
+canonical selected producer so the shared step runs once while all consumers
+still wait for it.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -902,6 +910,12 @@ and that suite-wide active-step counts never exceed one.
 The validation-helper chunk shall add unit tests for parsing scheduler
 event files, summarizing scheduler/Dask evidence, rejecting missing required
 events and detecting active-step counts that violate the Phase 1 policy.
+
+The shared-step hardening chunk shall add synthetic tests for repeated shared
+step objects, symlinked shared step work directories and suite execution where
+multiple selected tasks consume the same shared producer. These tests shall
+verify that the graph contains a single producer node, that consumers have an
+edge from that producer and that suite execution runs the shared step once.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 

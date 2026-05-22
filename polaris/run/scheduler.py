@@ -179,40 +179,17 @@ def build_scheduler_graph(tasks: Mapping[str, Any]) -> SchedulerGraph:
     nodes: dict[str, SchedulerNode] = {}
     predecessors: dict[str, set[str]] = {}
     successors: dict[str, set[str]] = {}
-    selected_step_keys: dict[int, list[str]] = {}
     output_providers: dict[str, list[str]] = {}
-    satisfied_output_providers: dict[str, Any] = {}
-
-    order = 0
-    for task_name, task in tasks.items():
-        for step_name in task.steps_to_run:
-            step = task.steps[step_name]
-            key = _selected_step_key(task_name, step_name)
-            node = _make_node(
-                key=key,
-                task_name=task_name,
-                step_name=step_name,
-                step=step,
-                order=order,
-                selected=True,
-            )
-            _add_node(node, nodes, predecessors, successors)
-            selected_step_keys.setdefault(id(step), []).append(key)
-            for output in step.outputs:
-                output_path = _resolve_step_path(step, output)
-                output_providers.setdefault(output_path, []).append(key)
-            order += 1
-
-    for task in tasks.values():
-        selected_steps = {
-            task.steps[step_name] for step_name in task.steps_to_run
-        }
-        for step in task.steps.values():
-            if step in selected_steps or not _is_step_satisfied(step):
-                continue
-            for output in step.outputs:
-                output_path = _resolve_step_path(step, output)
-                satisfied_output_providers[output_path] = step
+    order, selected_step_keys = _add_selected_scheduler_nodes(
+        tasks=tasks,
+        nodes=nodes,
+        predecessors=predecessors,
+        successors=successors,
+        output_providers=output_providers,
+    )
+    satisfied_output_providers = _get_satisfied_output_providers(
+        tasks=tasks, selected_step_keys=selected_step_keys
+    )
 
     for node in list(nodes.values()):
         for dependency in node.step.dependencies.values():
@@ -564,6 +541,56 @@ def _configure_task_loggers(
     task.logger = task_logger
     task.log_filename = log_filename
     task.new_step_log_file = False
+
+
+def _add_selected_scheduler_nodes(
+    tasks,
+    nodes,
+    predecessors,
+    successors,
+    output_providers,
+):
+    selected_step_keys: dict[str, list[str]] = {}
+    order = 0
+    for task_name, task in tasks.items():
+        for step_name in task.steps_to_run:
+            step = task.steps[step_name]
+            step_identity = _step_identity(step)
+            existing_keys = selected_step_keys.get(step_identity)
+            if existing_keys is not None:
+                key = existing_keys[0]
+                _add_step_outputs(output_providers, step, key)
+                continue
+
+            key = _selected_step_key(task_name, step_name)
+            node = _make_node(
+                key=key,
+                task_name=task_name,
+                step_name=step_name,
+                step=step,
+                order=order,
+                selected=True,
+            )
+            _add_node(node, nodes, predecessors, successors)
+            selected_step_keys[step_identity] = [key]
+            _add_step_outputs(output_providers, step, key)
+            order += 1
+    return order, selected_step_keys
+
+
+def _get_satisfied_output_providers(tasks, selected_step_keys):
+    satisfied_output_providers = {}
+    for task in tasks.values():
+        for step in task.steps.values():
+            step_identity = _step_identity(step)
+            if step_identity in selected_step_keys or not _is_step_satisfied(
+                step
+            ):
+                continue
+            for output in step.outputs:
+                output_path = _resolve_step_path(step, output)
+                satisfied_output_providers[output_path] = step
+    return satisfied_output_providers
 
 
 def _run_scheduler_node(
@@ -988,13 +1015,29 @@ def _add_edge(
     predecessors[to_key].add(from_key)
 
 
+def _add_step_outputs(
+    output_providers: dict[str, list[str]], step: Any, key: str
+) -> None:
+    for output in step.outputs:
+        output_path = _resolve_step_path(step, output)
+        _add_output_provider(output_providers, output_path, key)
+
+
+def _add_output_provider(
+    output_providers: dict[str, list[str]], output_path: str, key: str
+) -> None:
+    providers = output_providers.setdefault(output_path, [])
+    if key not in providers:
+        providers.append(key)
+
+
 def _find_dependency_key(
     dependency: Any,
     node: SchedulerNode,
-    selected_step_keys: dict[int, list[str]],
+    selected_step_keys: dict[str, list[str]],
     nodes: dict[str, SchedulerNode],
 ) -> Optional[str]:
-    candidates = selected_step_keys.get(id(dependency), [])
+    candidates = selected_step_keys.get(_step_identity(dependency), [])
     if len(candidates) == 0:
         return None
 
@@ -1085,6 +1128,10 @@ def _satisfied_dependency_key(step: Any) -> str:
     return f'satisfied:{step.path}'
 
 
+def _step_identity(step: Any) -> str:
+    return os.path.realpath(os.path.abspath(step.work_dir))
+
+
 def _is_step_satisfied(step: Any) -> bool:
     return step.cached or _is_step_complete(step)
 
@@ -1098,5 +1145,7 @@ def _is_step_complete(step: Any) -> bool:
 
 def _resolve_step_path(step: Any, filename: str) -> str:
     if os.path.isabs(filename):
-        return os.path.abspath(filename)
-    return os.path.abspath(os.path.join(step.work_dir, filename))
+        return os.path.realpath(os.path.abspath(filename))
+    return os.path.realpath(
+        os.path.abspath(os.path.join(step.work_dir, filename))
+    )
