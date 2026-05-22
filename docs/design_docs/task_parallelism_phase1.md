@@ -736,6 +736,16 @@ assuming a specific client implementation. Unknown backend names shall be
 rejected explicitly; allocation-scoped planning and launch remain later
 Phase 1 work.
 
+The fourteenth implementation chunk shall add an allocation-scoped Dask
+launch-plan model without replacing the current local runtime lifecycle. The
+plan shall place the Dask scheduler on logical node 0, distribute
+single-threaded Dask workers across allocation nodes according to
+`cores_per_node`, preserve GPU-per-node metadata when it is available, and
+mark single-node or unsupported launch situations as local fallbacks. This
+chunk shall validate launch planning from the existing `available_resources`
+metadata only; actual scheduler and worker process launch remains later Phase
+1 work.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -824,6 +834,12 @@ worker count, rejects unsupported backend names and closes both the Dask
 client and cluster on success and failure. Scheduler tests shall verify that
 `schedule_events.jsonl` records Dask backend metadata when the active client
 was created by a Polaris Dask runtime backend.
+
+The allocation-scoped Dask launch-planning chunk shall add unit tests for
+single-node fallback, unsupported-launch fallback, multi-node CPU worker
+placement, partial-node CPU allocations and GPU-per-node metadata. These tests
+shall exercise only pure planning logic and shall not require a real batch
+scheduler allocation.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
