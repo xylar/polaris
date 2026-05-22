@@ -352,6 +352,7 @@ def run_suite(
             recorder.emit(
                 'dask_runtime',
                 backend=runtime_info.backend,
+                state='active',
                 workers=runtime_info.workers,
             )
         with LoggingContext(
@@ -364,10 +365,13 @@ def run_suite(
                 quiet,
                 state.log_filename,
             )
-            _log_schedule_summary(state.task, ordered_nodes)
+            _log_schedule_summary(state.task, ordered_nodes, graph)
 
     cwd = os.getcwd()
     current_task_name = None
+    active_counter = dict(active_steps=0)
+    blocked_keys: set[str] = set()
+    failed_keys: set[str] = set()
     for node in ordered_nodes:
         if not node.selected:
             continue
@@ -379,6 +383,28 @@ def run_suite(
         if task_name != current_task_name:
             stdout_logger.info(f'{task_name}')
             current_task_name = task_name
+
+        blocked_dependencies = sorted(
+            graph.predecessors[node.key] & (blocked_keys | failed_keys)
+        )
+        if len(blocked_dependencies) > 0:
+            state.task_pass = False
+            state.exec_failed = True
+            blocked_keys.add(node.key)
+            with LoggingContext(
+                task_name.replace('/', '_'), log_filename=state.log_filename
+            ) as task_logger:
+                _configure_task_loggers(
+                    task, task_logger, stdout_logger, quiet, state.log_filename
+                )
+                _block_scheduler_node(
+                    node=node,
+                    task=task,
+                    recorder=recorders[task_name],
+                    blocked_dependencies=blocked_dependencies,
+                    active_counter=active_counter,
+                )
+            continue
 
         try:
             with LoggingContext(
@@ -396,6 +422,8 @@ def run_suite(
                     cwd=cwd,
                     subprocess_command=subprocess_command,
                     dask_client=dask_client,
+                    predecessor_keys=graph.predecessors[node.key],
+                    active_counter=active_counter,
                 )
             if baseline_status is not None:
                 state.baselines_passed = accumulate_statuses(
@@ -404,13 +432,13 @@ def run_suite(
         except Exception:
             state.task_pass = False
             state.exec_failed = True
+            failed_keys.add(node.key)
             with LoggingContext(
                 task_name.replace('/', '_'), log_filename=state.log_filename
             ) as task_logger:
                 task_logger.exception(
                     'Exception raised while running the steps of the task'
                 )
-            break
 
     _finalize_suite_task_states(states, stdout_logger)
     return _suite_results(states)
@@ -459,9 +487,10 @@ def run_task(
         recorder.emit(
             'dask_runtime',
             backend=runtime_info.backend,
+            state='active',
             workers=runtime_info.workers,
         )
-    _log_schedule_summary(task, ordered_nodes)
+    _log_schedule_summary(task, ordered_nodes, graph)
 
     baselines_passed = None
     property_passed = None
@@ -478,6 +507,7 @@ def run_task(
             cwd=cwd,
             subprocess_command=subprocess_command,
             dask_client=dask_client,
+            predecessor_keys=graph.predecessors[node.key],
         )
         if baseline_status is not None:
             baselines_passed = accumulate_statuses(
@@ -545,6 +575,8 @@ def _run_scheduler_node(
     cwd,
     subprocess_command,
     dask_client,
+    predecessor_keys=None,
+    active_counter=None,
 ):
     step = node.step
     recorder.emit(
@@ -552,6 +584,7 @@ def _run_scheduler_node(
         task=node.task_name,
         step=node.step_name,
         status=_node_status(node),
+        wait_reason=_wait_reason(predecessor_keys),
     )
     print_to_stdout(task, f'  * step: {node.step_name}')
 
@@ -562,6 +595,8 @@ def _run_scheduler_node(
             task=node.task_name,
             step=node.step_name,
             reason='already completed',
+            result='skipped',
+            wait_reason=_wait_reason(predecessor_keys),
         )
         baseline_status = read_baseline_status_from_logs(step.work_dir)
         if baseline_status is not None:
@@ -584,6 +619,8 @@ def _run_scheduler_node(
             task=node.task_name,
             step=node.step_name,
             reason='cached',
+            result='skipped',
+            wait_reason=_wait_reason(predecessor_keys),
         )
         return None, None
 
@@ -596,7 +633,25 @@ def _run_scheduler_node(
 
     reservation = None
     try:
-        request = get_step_resource_request(step, available_resources)
+        try:
+            request = get_step_resource_request(step, available_resources)
+        except ValueError as exception:
+            _emit_resource_feasibility(
+                recorder=recorder,
+                node=node,
+                resource_pool=resource_pool,
+                feasible=False,
+                reason=str(exception),
+            )
+            raise
+        feasible = _is_resource_request_feasible(request, resource_pool)
+        _emit_resource_feasibility(
+            recorder=recorder,
+            node=node,
+            resource_pool=resource_pool,
+            request=request,
+            feasible=feasible,
+        )
         reservation = resource_pool.reserve_step(step, request)
         print_to_stdout(
             task,
@@ -610,13 +665,17 @@ def _run_scheduler_node(
             cores=reservation.cores,
             nodes=reservation.nodes,
             gpus=reservation.gpus,
+            result='reserved',
         )
         recorder.active_steps += 1
+        _increment_active_counter(active_counter)
         recorder.emit(
             'step_start',
             task=node.task_name,
             step=node.step_name,
             active_steps=recorder.active_steps,
+            result='running',
+            suite_active_steps=_active_count(active_counter),
         )
         if step.run_as_subprocess:
             run_step_as_subprocess(
@@ -642,12 +701,15 @@ def _run_scheduler_node(
             step=node.step_name,
             active_steps=recorder.active_steps,
             duration=step_time,
+            result='failure',
+            suite_active_steps=_active_count(active_counter),
         )
         print_to_stdout(task, f'          execution:        {error_str}')
         raise
     finally:
         if recorder.active_steps > 0:
             recorder.active_steps -= 1
+        _decrement_active_counter(active_counter)
         if reservation is not None:
             resource_pool.release(reservation)
             recorder.emit(
@@ -655,6 +717,8 @@ def _run_scheduler_node(
                 task=node.task_name,
                 step=node.step_name,
                 active_steps=recorder.active_steps,
+                result='released',
+                suite_active_steps=_active_count(active_counter),
             )
         os.chdir(cwd)
 
@@ -666,6 +730,8 @@ def _run_scheduler_node(
         step=node.step_name,
         active_steps=recorder.active_steps,
         duration=step_time,
+        result='success',
+        suite_active_steps=_active_count(active_counter),
     )
     step_time_str = str(timedelta(seconds=round(step_time)))
 
@@ -689,6 +755,37 @@ def _run_scheduler_node(
         f'{start_time_color}{step_time_str}{end_color}',
     )
     return baseline_status, property_status
+
+
+def _block_scheduler_node(
+    node,
+    task,
+    recorder,
+    blocked_dependencies,
+    active_counter,
+):
+    dependency_list = ', '.join(blocked_dependencies)
+    recorder.emit(
+        'ready_selection',
+        task=node.task_name,
+        step=node.step_name,
+        status='blocked',
+        wait_reason='failed_dependency',
+    )
+    print_to_stdout(task, f'  * step: {node.step_name}')
+    print_to_stdout(
+        task, f'          blocked by failed dependency: {dependency_list}'
+    )
+    recorder.emit(
+        'step_skipped',
+        task=node.task_name,
+        step=node.step_name,
+        blocked_dependencies=blocked_dependencies,
+        reason='blocked_dependency',
+        result='blocked',
+        suite_active_steps=_active_count(active_counter),
+        wait_reason='failed_dependency',
+    )
 
 
 def _finalize_suite_task_states(states, stdout_logger):
@@ -759,7 +856,9 @@ def _suite_results(states):
     )
 
 
-def _log_schedule_summary(task, ordered_nodes: list[SchedulerNode]) -> None:
+def _log_schedule_summary(
+    task, ordered_nodes: list[SchedulerNode], graph: SchedulerGraph
+) -> None:
     selected_nodes = [
         node
         for node in ordered_nodes
@@ -770,7 +869,8 @@ def _log_schedule_summary(task, ordered_nodes: list[SchedulerNode]) -> None:
         print_to_stdout(
             task,
             f'    {index}. {node.task_name}/{node.step_name} '
-            f'[{_node_status(node)}]',
+            f'[{_node_status(node)}; wait: '
+            f'{_wait_reason(graph.predecessors[node.key])}]',
         )
 
 
@@ -780,6 +880,69 @@ def _node_status(node: SchedulerNode) -> str:
     if node.cached:
         return 'cached'
     return 'ready'
+
+
+def _wait_reason(predecessor_keys) -> str:
+    if predecessor_keys is None or len(predecessor_keys) == 0:
+        return 'no_dependencies'
+    return 'dependencies_satisfied'
+
+
+def _emit_resource_feasibility(
+    recorder,
+    node,
+    resource_pool,
+    request=None,
+    feasible=True,
+    reason=None,
+) -> None:
+    payload = dict(
+        task=node.task_name,
+        step=node.step_name,
+        feasible=feasible,
+        free_cores=resource_pool.free_cores,
+        free_nodes=resource_pool.free_nodes,
+        free_gpus=resource_pool.free_gpus,
+        total_cores=resource_pool.total_cores,
+        total_nodes=resource_pool.total_nodes,
+        total_gpus=resource_pool.total_gpus,
+    )
+    if request is not None:
+        payload.update(
+            requested_cores=request.cores,
+            requested_nodes=request.nodes,
+            requested_gpus=request.gpus,
+            minimum_cores=request.min_cores,
+            minimum_nodes=request.min_nodes,
+            minimum_gpus=request.min_gpus,
+        )
+    if reason is not None:
+        payload['reason'] = reason
+    recorder.emit('resource_feasibility', **payload)
+
+
+def _is_resource_request_feasible(request, resource_pool) -> bool:
+    return (
+        request.cores <= resource_pool.free_cores
+        and request.nodes <= resource_pool.free_nodes
+        and request.gpus <= resource_pool.free_gpus
+    )
+
+
+def _increment_active_counter(active_counter) -> None:
+    if active_counter is not None:
+        active_counter['active_steps'] += 1
+
+
+def _decrement_active_counter(active_counter) -> None:
+    if active_counter is not None and active_counter['active_steps'] > 0:
+        active_counter['active_steps'] -= 1
+
+
+def _active_count(active_counter) -> Optional[int]:
+    if active_counter is None:
+        return None
+    return active_counter['active_steps']
 
 
 def _make_node(

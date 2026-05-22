@@ -49,6 +49,68 @@ class DummyStep:
         return False, None
 
 
+class DummyConfig:
+    filepath = 'config.cfg'
+
+    @staticmethod
+    def get(section, option):
+        if section == 'io':
+            return 'netcdf4'
+        return ''
+
+
+class DummyLogger:
+    def __init__(self):
+        self.messages = []
+
+    def info(self, message):
+        self.messages.append(('info', message))
+
+    def error(self, message):
+        self.messages.append(('error', message))
+
+
+def _available_resources(cores=2):
+    return {
+        'cores': cores,
+        'nodes': 1,
+        'cores_per_node': cores,
+        'gpus': 0,
+        'mpi_allowed': True,
+    }
+
+
+def _read_events(filename):
+    return [json.loads(line) for line in filename.read_text().splitlines()]
+
+
+def _make_task(tmp_path, name, steps):
+    work_dir = tmp_path / name
+    work_dir.mkdir()
+    return SimpleNamespace(
+        name=name,
+        path=f'ocean/{name}',
+        work_dir=str(work_dir),
+        base_work_dir=str(tmp_path),
+        config=SimpleNamespace(filepath='config.cfg'),
+        steps_to_run=list(steps),
+        steps=steps,
+    )
+
+
+def _patch_suite_setup(monkeypatch):
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
+    monkeypatch.setattr(
+        run_scheduler,
+        'update_steps_to_run',
+        lambda task_name, steps_to_run, steps_to_skip, config, steps: list(
+            steps
+        ),
+    )
+
+
 def test_scheduler_inventory_preserves_selected_order_and_status(tmp_path):
     init = DummyStep(tmp_path, 'init', cached=True)
     forward = DummyStep(tmp_path, 'forward')
@@ -354,6 +416,21 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
         for event in events
         if event['event'] == 'ready_selection'
     ] == ['init', 'forward']
+    resource_events = [
+        event for event in events if event['event'] == 'resource_feasibility'
+    ]
+    assert len(resource_events) == 2
+    assert all(event['feasible'] for event in resource_events)
+    assert [event['result'] for event in events if 'result' in event] == [
+        'reserved',
+        'running',
+        'released',
+        'success',
+        'reserved',
+        'running',
+        'released',
+        'success',
+    ]
     assert (
         max(
             event.get('active_steps', 0)
@@ -411,6 +488,7 @@ def test_scheduler_records_dask_runtime_info(tmp_path, monkeypatch):
         {
             'backend': 'local',
             'event': 'dask_runtime',
+            'state': 'active',
             'time': dask_events[0]['time'],
             'workers': 4,
         }
@@ -515,3 +593,168 @@ def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
     assert set(results['task_times']) == {'ocean/task_a', 'ocean/task_b'}
     assert (tmp_path / 'task_a' / 'schedule_events.jsonl').exists()
     assert (tmp_path / 'task_b' / 'schedule_events.jsonl').exists()
+
+
+def test_scheduler_run_suite_blocks_failed_dependents(tmp_path, monkeypatch):
+    run_order = []
+
+    fail = DummyStep(tmp_path, 'task_a_fail')
+    dependent = DummyStep(tmp_path, 'task_b_dependent')
+    independent = DummyStep(tmp_path, 'task_c_independent')
+    dependent.add_dependency(fail)
+
+    task_a = _make_task(tmp_path, 'task_a', {'fail': fail})
+    task_b = _make_task(tmp_path, 'task_b', {'dependent': dependent})
+    task_c = _make_task(tmp_path, 'task_c', {'independent': independent})
+    log_dir = tmp_path / 'case_outputs'
+    log_dir.mkdir()
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+    ):
+        run_order.append((task.path, step.name))
+        if step.name == 'task_a_fail':
+            raise RuntimeError('expected failure')
+
+    _patch_suite_setup(monkeypatch)
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+
+    results = run_suite(
+        suite={
+            'tasks': {'task_b': task_b, 'task_a': task_a, 'task_c': task_c}
+        },
+        stdout_logger=DummyLogger(),
+        quiet=False,
+        log_dir=str(log_dir),
+        available_resources=_available_resources(),
+        dask_client='client',
+    )
+
+    assert run_order == [
+        ('ocean/task_a', 'task_a_fail'),
+        ('ocean/task_c', 'task_c_independent'),
+    ]
+    assert results['failures'] == 2
+    assert results['exec_fail_tasks'] == ['ocean/task_b', 'ocean/task_a']
+
+    events = _read_events(tmp_path / 'task_b' / 'schedule_events.jsonl')
+    blocked_events = [
+        event
+        for event in events
+        if event['event'] == 'step_skipped'
+        and event['reason'] == 'blocked_dependency'
+    ]
+
+    assert len(blocked_events) == 1
+    assert blocked_events[0]['blocked_dependencies'] == ['ocean/task_a:fail']
+    assert blocked_events[0]['result'] == 'blocked'
+
+
+def test_scheduler_run_suite_records_completed_and_cached_skips(
+    tmp_path, monkeypatch
+):
+    completed = DummyStep(tmp_path, 'completed')
+    cached = DummyStep(tmp_path, 'cached', cached=True)
+    (tmp_path / 'completed' / 'polaris_step_complete.log').write_text(
+        'complete\n'
+    )
+
+    task = _make_task(
+        tmp_path,
+        'task',
+        {'completed': completed, 'cached': cached},
+    )
+    log_dir = tmp_path / 'case_outputs'
+    log_dir.mkdir()
+
+    _patch_suite_setup(monkeypatch)
+    monkeypatch.setattr(
+        run_scheduler,
+        'run_step',
+        lambda *args, **kwargs: pytest.fail('skipped step was run'),
+    )
+
+    results = run_suite(
+        suite={'tasks': {'task': task}},
+        stdout_logger=DummyLogger(),
+        quiet=False,
+        log_dir=str(log_dir),
+        available_resources=_available_resources(),
+    )
+
+    assert results['failures'] == 0
+    events = _read_events(tmp_path / 'task' / 'schedule_events.jsonl')
+    skip_events = [
+        event for event in events if event['event'] == 'step_skipped'
+    ]
+
+    assert [
+        (event['step'], event['reason'], event['result'])
+        for event in skip_events
+    ] == [
+        ('completed', 'already completed', 'skipped'),
+        ('cached', 'cached', 'skipped'),
+    ]
+    assert {
+        event['wait_reason']
+        for event in events
+        if event['event'] == 'ready_selection'
+    } == {'no_dependencies'}
+
+
+def test_scheduler_run_suite_records_single_suite_active_step(
+    tmp_path, monkeypatch
+):
+    run_order = []
+    tasks = {}
+    for index in range(3):
+        step = DummyStep(tmp_path, f'task_{index}_step')
+        task = _make_task(tmp_path, f'task_{index}', {'step': step})
+        tasks[task.name] = task
+
+    log_dir = tmp_path / 'case_outputs'
+    log_dir.mkdir()
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+    ):
+        run_order.append((task.path, step.name))
+
+    _patch_suite_setup(monkeypatch)
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+
+    results = run_suite(
+        suite={'tasks': tasks},
+        stdout_logger=DummyLogger(),
+        quiet=False,
+        log_dir=str(log_dir),
+        available_resources=_available_resources(),
+    )
+
+    assert results['failures'] == 0
+    assert run_order == [
+        ('ocean/task_0', 'task_0_step'),
+        ('ocean/task_1', 'task_1_step'),
+        ('ocean/task_2', 'task_2_step'),
+    ]
+
+    suite_active_steps: list[int] = []
+    for task_name in tasks:
+        events = _read_events(tmp_path / task_name / 'schedule_events.jsonl')
+        suite_active_steps.extend(
+            event['suite_active_steps']
+            for event in events
+            if event.get('suite_active_steps') is not None
+        )
+
+    assert max(suite_active_steps) == 1
