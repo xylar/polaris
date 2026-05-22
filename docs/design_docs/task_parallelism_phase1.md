@@ -766,6 +766,25 @@ run only one Polaris step at a time. Per-task logs, completion markers,
 structured schedule-event files and aggregate suite pass/fail summaries shall
 remain available.
 
+The seventeenth implementation chunk shall harden schedule observability and
+failure semantics. The human-readable selected-order summary and
+`schedule_events.jsonl` files shall include wait reasons, resource-feasibility
+decisions, skip reasons, result status, Dask backend state and active-step
+counts. Suite-wide scheduling shall not run a selected step after one of its
+dependencies has failed or been blocked. Instead, the dependent step shall be
+marked as blocked so the failure cause remains visible without confusing it
+with an independent execution failure. Tests shall verify failures,
+completed-step reruns, cached steps, blocked dependents and the Phase 1
+single-active-step policy across a suite graph.
+
+The eighteenth implementation chunk shall add lightweight Phase 1 validation
+helpers and documentation. These helpers shall parse scheduler event files,
+summarize whether the scheduler and Dask orchestration paths were used, and
+verify that active-step counts do not exceed the Phase 1 single-step policy.
+Documentation shall describe how to compare `polaris run` with
+`polaris serial`, where to find scheduler artifacts and which heavy
+machine-specific checks remain manual/system validation.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -874,6 +893,16 @@ shall verify that the suite graph, not the outer task loop, chooses execution
 order while preserving per-task schedule-event files and aggregate task
 results.
 
+The observability and failure-semantics chunk shall add tests for failed steps
+that block dependents without blocking independent ready steps. It shall also
+verify that completed and cached steps are recorded as skipped with explicit
+result status, that resource-feasibility and Dask runtime events are present,
+and that suite-wide active-step counts never exceed one.
+
+The validation-helper chunk shall add unit tests for parsing scheduler
+event files, summarizing scheduler/Dask evidence, rejecting missing required
+events and detecting active-step counts that violate the Phase 1 policy.
+
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
 Date last modified: 2026/05/14
@@ -913,3 +942,11 @@ Representative suite validation should include `omega_pr`, `omega_nightly`
 and `mpaso_pr` on Chrysalis, Perlmutter and Aurora where available. The
 structured schedule summary should confirm that Phase 1 ran through the Dask
 orchestration path while keeping only one step active at a time.
+
+Phase 1 validation should treat task and suite timing as distinct metrics.
+Task runtime should eventually be reported as the sum of the runtime of the
+steps that actually ran for that task, while suite runtime should remain the
+wall-clock duration of the whole suite run. Until that summary behavior is
+hardened, validation should rely on per-step runtime lines and structured
+step start/finish/failure events when comparing `polaris run` and
+`polaris serial` timing.

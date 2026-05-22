@@ -85,6 +85,38 @@ whole.
 from a given task, skipping any others, displaying the output in the terminal
 window rather than a log file.
 
+(dev-run-parallel)=
+
+## run.parallel module
+
+The {py:func}`polaris.run.parallel.run_tasks()` function is used to run a
+suite or task with `polaris run`. This command path uses a Dask Distributed
+runtime and the Phase 1 scheduler. Phase 1 still runs only one Polaris step at
+a time, but it builds and validates a dependency graph, records scheduler
+decisions and keeps the Dask runtime alive for the duration of the run.
+
+For a suite run, each task work directory contains a `schedule_events.jsonl`
+file. These JSON-lines files record graph construction, selected ready steps,
+wait reasons, resource feasibility, skipped cached or completed steps, blocked
+dependencies, step start/finish/failure events, resource release and Dask
+backend state. They are intended for developer validation and for debugging
+future task-parallel behavior without scraping free-form logs.
+
+The {py:func}`polaris.run.validation.validate_phase1_schedule_event_files()`
+helper can be used in manual or system validation to check these artifacts. A
+typical suite validation should compare `polaris run` with `polaris serial`
+for outputs, completion markers and validation markers, then parse all
+`schedule_events.jsonl` files to confirm that the scheduler path was used, the
+Dask runtime was recorded and no event recorded more than one active Polaris
+step. Heavy machine-specific suite validation remains a manual/system activity
+when it is too expensive or data-dependent for unit tests.
+
+In suite-wide Phase 1 scheduling, task runtime summaries are expected to become
+the sum of executed step runtimes for each task, while the suite runtime should
+remain wall-clock time for the whole suite. Until that accounting is hardened,
+developers should use per-step runtime lines and structured step events when
+comparing `polaris run` timing with `polaris serial`.
+
 (dev-cache)=
 
 ## cache module
