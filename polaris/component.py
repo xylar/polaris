@@ -91,6 +91,7 @@ class Component:
             gpus=self.parallel_system.gpus,
             gpus_per_node=self.parallel_system.gpus_per_node,
             mpi_allowed=self.parallel_system.mpi_allowed,
+            parallel_system=self.parallel_system,
         )
 
     def run_parallel_command(

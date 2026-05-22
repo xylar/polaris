@@ -1,7 +1,9 @@
 import pytest
 
 from polaris.run.dask import (
+    AllocationDaskRuntimeBackend,
     LocalDaskRuntimeBackend,
+    ParallelSystemDaskProcessLauncher,
     dask_client_context,
     get_dask_runtime_info,
     get_dask_worker_count,
@@ -16,6 +18,38 @@ class DummyLogger:
 
     def info(self, message):
         self.messages.append(message)
+
+
+class FakeProcess:
+    def __init__(self, name, events):
+        self.name = name
+        self.events = events
+        self.returncode = None
+        events.append((name, 'start'))
+
+    def poll(self):
+        return self.returncode
+
+    def terminate(self):
+        self.events.append((self.name, 'terminate'))
+        self.returncode = 0
+
+    def wait(self, timeout=None):
+        self.events.append((self.name, 'wait', timeout))
+        self.returncode = 0
+
+    def kill(self):
+        self.events.append((self.name, 'kill'))
+        self.returncode = -9
+
+
+class FakeClient:
+    def __init__(self, scheduler_file):
+        self.scheduler_file = scheduler_file
+        self.closed = False
+
+    def close(self):
+        self.closed = True
 
 
 def test_get_dask_worker_count():
@@ -36,6 +70,40 @@ def test_select_dask_runtime_backend_defaults_to_local():
 def test_select_dask_runtime_backend_rejects_unknown():
     with pytest.raises(ValueError, match='Unsupported Dask runtime backend'):
         select_dask_runtime_backend({}, backend_name='unknown')
+
+
+def test_select_dask_runtime_backend_auto_allocation_with_launcher():
+    backend = select_dask_runtime_backend(
+        {
+            'cores': 64,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+        process_launcher=object(),
+        client_class=FakeClient,
+    )
+
+    assert isinstance(backend, AllocationDaskRuntimeBackend)
+    assert backend.runtime_info.backend == 'allocation'
+    assert backend.runtime_info.workers == 64
+
+
+def test_select_dask_runtime_backend_auto_falls_back_without_launcher():
+    backend = select_dask_runtime_backend(
+        {
+            'cores': 64,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+        }
+    )
+
+    assert isinstance(backend, LocalDaskRuntimeBackend)
+    assert backend.runtime_info.backend == 'local'
+    assert backend.runtime_info.workers == 32
 
 
 def test_plan_dask_launch_single_node_fallback():
@@ -139,6 +207,170 @@ def test_plan_dask_launch_falls_back_without_mpi():
     assert plan.backend == 'local'
     assert plan.local_fallback
     assert plan.worker_count == 32
+
+
+def test_parallel_system_process_launcher_builds_worker_command():
+    captured = {}
+
+    class FakeParallelSystem:
+        def get_parallel_command(
+            self, args, ntasks, cpus_per_task, gpus_per_task
+        ):
+            captured['args'] = args
+            captured['ntasks'] = ntasks
+            captured['cpus_per_task'] = cpus_per_task
+            captured['gpus_per_task'] = gpus_per_task
+            return ['srun', '-n', str(ntasks), *args]
+
+    class FakeLauncher(ParallelSystemDaskProcessLauncher):
+        @staticmethod
+        def _launch(command, label, logger=None):
+            captured['command'] = command
+            captured['label'] = label
+            return 'process'
+
+    launch_plan = plan_dask_launch(
+        {
+            'cores': 64,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+        }
+    )
+    launcher = FakeLauncher(FakeParallelSystem())
+    process = launcher.launch_workers(
+        ['dask', 'worker', '--scheduler-file', 'scheduler.json'],
+        launch_plan,
+    )
+
+    assert process == 'process'
+    assert captured['args'] == [
+        'dask',
+        'worker',
+        '--scheduler-file',
+        'scheduler.json',
+    ]
+    assert captured['ntasks'] == 64
+    assert captured['cpus_per_task'] == 1
+    assert captured['gpus_per_task'] == 0
+    assert captured['command'] == [
+        'srun',
+        '-n',
+        '64',
+        'dask',
+        'worker',
+        '--scheduler-file',
+        'scheduler.json',
+    ]
+    assert captured['label'] == 'workers'
+
+
+def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
+    events: list[tuple[object, ...]] = []
+    launched_commands = {}
+
+    class FakeProcessLauncher:
+        def launch_scheduler(self, command, logger=None):
+            launched_commands['scheduler'] = command
+            scheduler_file = command[command.index('--scheduler-file') + 1]
+            (tmp_path / scheduler_file).write_text('{"address": "tcp://x"}')
+            return FakeProcess('scheduler', events)
+
+        def launch_workers(self, command, launch_plan, logger=None):
+            launched_commands['workers'] = command
+            launched_commands['worker_count'] = launch_plan.worker_count
+            return FakeProcess('workers', events)
+
+    class RecordingClient(FakeClient):
+        def __init__(self, scheduler_file):
+            super().__init__(scheduler_file)
+            events.append(('client', 'start', scheduler_file))
+
+        def close(self):
+            events.append(('client', 'close'))
+            super().close()
+
+    monkeypatch.chdir(tmp_path)
+    logger = DummyLogger()
+    with dask_client_context(
+        {
+            'cores': 64,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+        logger=logger,
+        backend_name='allocation',
+        process_launcher=FakeProcessLauncher(),
+        client_class=RecordingClient,
+    ) as client:
+        runtime_info = get_dask_runtime_info(client)
+        assert runtime_info.backend == 'allocation'
+        assert runtime_info.workers == 64
+
+    assert launched_commands['scheduler'][:3] == [
+        'dask',
+        'scheduler',
+        '--no-dashboard',
+    ]
+    assert launched_commands['workers'][:2] == ['dask', 'worker']
+    assert launched_commands['worker_count'] == 64
+    assert events == [
+        ('scheduler', 'start'),
+        ('workers', 'start'),
+        ('client', 'start', launched_commands['scheduler'][-1]),
+        ('client', 'close'),
+        ('workers', 'terminate'),
+        ('workers', 'wait', 10),
+        ('scheduler', 'terminate'),
+        ('scheduler', 'wait', 10),
+    ]
+    assert logger.messages == [
+        'Starting Dask Distributed backend=allocation workers=64',
+        'Stopped Dask Distributed',
+    ]
+
+
+def test_allocation_dask_client_context_cleans_up_after_failure(
+    tmp_path, monkeypatch
+):
+    events: list[tuple[object, ...]] = []
+
+    class FakeProcessLauncher:
+        def launch_scheduler(self, command, logger=None):
+            scheduler_file = command[command.index('--scheduler-file') + 1]
+            (tmp_path / scheduler_file).write_text('{"address": "tcp://x"}')
+            return FakeProcess('scheduler', events)
+
+        def launch_workers(self, command, launch_plan, logger=None):
+            return FakeProcess('workers', events)
+
+    monkeypatch.chdir(tmp_path)
+    with pytest.raises(RuntimeError, match='boom'):
+        with dask_client_context(
+            {
+                'cores': 64,
+                'nodes': 2,
+                'cores_per_node': 32,
+                'gpus': 0,
+                'mpi_allowed': True,
+            },
+            backend_name='allocation',
+            process_launcher=FakeProcessLauncher(),
+            client_class=FakeClient,
+        ):
+            raise RuntimeError('boom')
+
+    assert events == [
+        ('scheduler', 'start'),
+        ('workers', 'start'),
+        ('workers', 'terminate'),
+        ('workers', 'wait', 10),
+        ('scheduler', 'terminate'),
+        ('scheduler', 'wait', 10),
+    ]
 
 
 def test_dask_client_context_closes_client_and_cluster(monkeypatch):

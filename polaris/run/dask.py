@@ -1,5 +1,9 @@
+import os
+import subprocess
+import time
 from contextlib import contextmanager
 from dataclasses import dataclass
+from tempfile import TemporaryDirectory
 
 from distributed import Client, LocalCluster
 
@@ -161,6 +165,186 @@ class LocalDaskRuntimeBackend:
                 self.logger.info('Stopped Dask Distributed')
 
 
+class AllocationDaskRuntimeBackend:
+    """
+    Allocation-scoped Dask backend for ``polaris run``.
+    """
+
+    name = 'allocation'
+
+    def __init__(
+        self,
+        available_resources,
+        logger=None,
+        process_launcher=None,
+        client_class=None,
+    ):
+        """
+        Create an allocation-scoped Dask runtime backend.
+
+        Parameters
+        ----------
+        available_resources : dict
+            Available CPU, GPU and MPI resources for this run.
+
+        logger : logging.Logger, optional
+            Logger used for run-level lifecycle messages.
+
+        process_launcher : DaskProcessLauncher, optional
+            Launcher used to start scheduler and worker processes.
+
+        client_class : class, optional
+            Dask client class. Defaults to ``distributed.Client``.
+        """
+        self.available_resources = available_resources
+        self.logger = logger
+        self.launch_plan = plan_dask_launch(available_resources)
+        self.process_launcher = process_launcher
+        if self.process_launcher is None:
+            self.process_launcher = _get_default_process_launcher(
+                available_resources
+            )
+        if self.process_launcher is None:
+            raise ValueError(
+                'An allocation-scoped Dask backend requires a process '
+                'launcher.'
+            )
+        self.client_class = Client if client_class is None else client_class
+
+    @property
+    def runtime_info(self):
+        """
+        Return structured metadata for this runtime backend.
+        """
+        return DaskRuntimeInfo(
+            backend=self.name, workers=self.launch_plan.worker_count
+        )
+
+    @contextmanager
+    def client_context(self):
+        """
+        Start and clean up an allocation-scoped Dask client.
+
+        Yields
+        ------
+        client : distributed.Client
+            The Dask client for the run.
+        """
+        if self.logger is not None:
+            self.logger.info(
+                f'Starting Dask Distributed backend={self.name} '
+                f'workers={self.launch_plan.worker_count}'
+            )
+
+        client = None
+        processes = []
+        with TemporaryDirectory(
+            prefix='.polaris-dask-', dir=os.getcwd()
+        ) as runtime_dir:
+            scheduler_file = os.path.join(runtime_dir, 'scheduler.json')
+            try:
+                scheduler_process = self._launch_scheduler(scheduler_file)
+                processes.append(scheduler_process)
+                _wait_for_scheduler_file(
+                    scheduler_file=scheduler_file,
+                    scheduler_process=scheduler_process,
+                )
+                worker_process = self._launch_workers(scheduler_file)
+                processes.append(worker_process)
+                client = self.client_class(scheduler_file=scheduler_file)
+                _attach_runtime_info(client, self.runtime_info)
+                yield client
+            finally:
+                if client is not None:
+                    client.close()
+                _stop_processes(processes)
+                if self.logger is not None:
+                    self.logger.info('Stopped Dask Distributed')
+
+    def _launch_scheduler(self, scheduler_file):
+        command = [
+            'dask',
+            'scheduler',
+            '--no-dashboard',
+            '--scheduler-file',
+            scheduler_file,
+        ]
+        return self.process_launcher.launch_scheduler(command, self.logger)
+
+    def _launch_workers(self, scheduler_file):
+        command = [
+            'dask',
+            'worker',
+            '--scheduler-file',
+            scheduler_file,
+            '--nthreads',
+            '1',
+            '--no-dashboard',
+        ]
+        return self.process_launcher.launch_workers(
+            command, self.launch_plan, self.logger
+        )
+
+
+class SubprocessDaskProcessLauncher:
+    """
+    Launch Dask scheduler and worker processes with ``subprocess.Popen``.
+    """
+
+    def launch_scheduler(self, command, logger=None):
+        """
+        Launch the Dask scheduler command.
+        """
+        return self._launch(command, label='scheduler', logger=logger)
+
+    def launch_workers(self, command, launch_plan, logger=None):
+        """
+        Launch Dask workers with one local worker process per planned worker.
+        """
+        command = command + [
+            '--nworkers',
+            str(launch_plan.worker_count),
+            '--name',
+            'polaris-worker',
+        ]
+        return self._launch(command, label='workers', logger=logger)
+
+    @staticmethod
+    def _launch(command, label, logger=None):
+        if logger is not None:
+            logger.info(f'Starting Dask {label}: {" ".join(command)}')
+        return subprocess.Popen(command)
+
+
+class ParallelSystemDaskProcessLauncher(SubprocessDaskProcessLauncher):
+    """
+    Launch Dask workers through a ``mache`` parallel system.
+    """
+
+    def __init__(self, parallel_system):
+        """
+        Create a launcher from a ``mache`` parallel system.
+
+        Parameters
+        ----------
+        parallel_system : mache.parallel.ParallelSystem
+            The active Polaris parallel system.
+        """
+        self.parallel_system = parallel_system
+
+    def launch_workers(self, command, launch_plan, logger=None):
+        """
+        Launch one Dask worker process per planned worker.
+        """
+        command = self.parallel_system.get_parallel_command(
+            args=command,
+            ntasks=launch_plan.worker_count,
+            cpus_per_task=1,
+            gpus_per_task=0,
+        )
+        return self._launch(command, label='workers', logger=logger)
+
+
 def get_dask_worker_count(available_resources):
     """
     Determine the number of local single-threaded Dask workers for this run.
@@ -184,7 +368,11 @@ def get_dask_worker_count(available_resources):
 
 
 def select_dask_runtime_backend(
-    available_resources, logger=None, backend_name='local'
+    available_resources,
+    logger=None,
+    backend_name='auto',
+    process_launcher=None,
+    client_class=None,
 ):
     """
     Select a Dask runtime backend for ``polaris run``.
@@ -198,16 +386,50 @@ def select_dask_runtime_backend(
         Logger used for run-level lifecycle messages.
 
     backend_name : str, optional
-        The backend name to select. Currently only ``local`` is supported.
+        The backend name to select. ``auto`` selects an allocation-scoped
+        backend when the active resources and launcher support it, otherwise
+        it falls back to ``local``.
+
+    process_launcher : DaskProcessLauncher, optional
+        Launcher used for the allocation backend.
+
+    client_class : class, optional
+        Dask client class used for the allocation backend.
 
     Returns
     -------
-    backend : LocalDaskRuntimeBackend
+    backend : LocalDaskRuntimeBackend or AllocationDaskRuntimeBackend
         The selected runtime backend.
     """
-    if backend_name != LocalDaskRuntimeBackend.name:
+    launch_plan = plan_dask_launch(available_resources)
+    allocation_supported = not launch_plan.local_fallback and (
+        process_launcher is not None
+        or available_resources.get('parallel_system') is not None
+    )
+
+    if backend_name == 'auto':
+        if allocation_supported:
+            return AllocationDaskRuntimeBackend(
+                available_resources,
+                logger=logger,
+                process_launcher=process_launcher,
+                client_class=client_class,
+            )
+        return LocalDaskRuntimeBackend(available_resources, logger=logger)
+
+    if backend_name == LocalDaskRuntimeBackend.name:
+        return LocalDaskRuntimeBackend(available_resources, logger=logger)
+
+    if backend_name == AllocationDaskRuntimeBackend.name:
+        return AllocationDaskRuntimeBackend(
+            available_resources,
+            logger=logger,
+            process_launcher=process_launcher,
+            client_class=client_class,
+        )
+
+    else:
         raise ValueError(f'Unsupported Dask runtime backend: {backend_name}')
-    return LocalDaskRuntimeBackend(available_resources, logger=logger)
 
 
 def plan_dask_launch(available_resources):
@@ -293,7 +515,11 @@ def get_dask_runtime_info(client):
 
 @contextmanager
 def dask_client_context(
-    available_resources, logger=None, backend_name='local'
+    available_resources,
+    logger=None,
+    backend_name='auto',
+    process_launcher=None,
+    client_class=None,
 ):
     """
     Start and clean up a Dask Distributed client for ``polaris run``.
@@ -307,8 +533,13 @@ def dask_client_context(
         Logger used for run-level lifecycle messages.
 
     backend_name : str, optional
-        The Dask runtime backend to use. Currently only ``local`` is
-        supported.
+        The Dask runtime backend to use.
+
+    process_launcher : DaskProcessLauncher, optional
+        Launcher used for the allocation backend.
+
+    client_class : class, optional
+        Dask client class used for the allocation backend.
 
     Yields
     ------
@@ -316,7 +547,11 @@ def dask_client_context(
         The Dask client for the run.
     """
     backend = select_dask_runtime_backend(
-        available_resources, logger=logger, backend_name=backend_name
+        available_resources,
+        logger=logger,
+        backend_name=backend_name,
+        process_launcher=process_launcher,
+        client_class=client_class,
     )
     with backend.client_context() as client:
         yield client
@@ -327,6 +562,51 @@ def _attach_runtime_info(client, runtime_info):
         client.polaris_dask_runtime_info = runtime_info
     except AttributeError:
         pass
+
+
+def _get_default_process_launcher(available_resources):
+    parallel_system = available_resources.get('parallel_system')
+    if parallel_system is None:
+        return None
+    return ParallelSystemDaskProcessLauncher(parallel_system)
+
+
+def _wait_for_scheduler_file(
+    scheduler_file,
+    scheduler_process,
+    timeout=30.0,
+):
+    start_time = time.time()
+    while not os.path.exists(scheduler_file):
+        if _process_returncode(scheduler_process) is not None:
+            raise RuntimeError('Dask scheduler exited before it was ready.')
+        if time.time() - start_time > timeout:
+            raise TimeoutError(
+                f'Dask scheduler did not write {scheduler_file} within '
+                f'{timeout:g} seconds.'
+            )
+        time.sleep(0.1)
+
+
+def _stop_processes(processes):
+    for process in reversed(processes):
+        if _process_returncode(process) is not None:
+            continue
+        process.terminate()
+        try:
+            process.wait(timeout=10)
+        except TypeError:
+            process.wait()
+        except subprocess.TimeoutExpired:
+            process.kill()
+            process.wait()
+
+
+def _process_returncode(process):
+    poll = getattr(process, 'poll', None)
+    if poll is None:
+        return None
+    return poll()
 
 
 def _plan_worker_groups(

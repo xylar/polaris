@@ -746,6 +746,17 @@ chunk shall validate launch planning from the existing `available_resources`
 metadata only; actual scheduler and worker process launch remains later Phase
 1 work.
 
+The fifteenth implementation chunk shall add the first multi-node-capable
+Dask runtime lifecycle behind the backend abstraction. The automatic backend
+selector shall use the allocation backend when the launch plan is multi-node
+and a process launcher is available from the active `mache` parallel system;
+otherwise it shall preserve the local backend fallback. The allocation backend
+shall launch a Dask scheduler process, wait for scheduler connection metadata,
+launch Dask workers through a pluggable launcher, create a Dask client from
+the scheduler metadata and clean up the client, workers and scheduler on
+normal completion or failure. Unit tests shall use fake launchers and clients;
+real multi-node validation remains a manual/system activity.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -840,6 +851,12 @@ single-node fallback, unsupported-launch fallback, multi-node CPU worker
 placement, partial-node CPU allocations and GPU-per-node metadata. These tests
 shall exercise only pure planning logic and shall not require a real batch
 scheduler allocation.
+
+The multi-node-capable Dask lifecycle chunk shall add tests for automatic
+allocation-backend selection when a launcher is available, local fallback when
+it is not, worker launch through a fake `mache` parallel system, and cleanup
+of scheduler, worker and client resources on success and failure. These tests
+shall not require Slurm, PBS or multiple allocated nodes.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
