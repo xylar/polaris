@@ -48,7 +48,14 @@ def test_summarize_schedule_events(tmp_path):
                 ),
                 (
                     '{"active_steps": 0, "event": "step_finish", '
-                    '"step": "init", "suite_active_steps": 0, '
+                    '"duration": 2.5, "step": "init", '
+                    '"suite_active_steps": 0, '
+                    '"task": "ocean/task"}'
+                ),
+                (
+                    '{"active_steps": 0, "event": "step_failure", '
+                    '"duration": 0.75, "step": "failed", '
+                    '"suite_active_steps": 0, '
                     '"task": "ocean/task"}'
                 ),
                 (
@@ -77,9 +84,14 @@ def test_summarize_schedule_events(tmp_path):
     assert summary.ready_steps == ('ocean/task/init',)
     assert summary.started_steps == ('ocean/task/init',)
     assert summary.finished_steps == ('ocean/task/init',)
+    assert summary.failed_steps == ('ocean/task/failed',)
     assert summary.skipped_steps == ('ocean/task/cached',)
     assert summary.blocked_steps == ('ocean/task/blocked',)
+    assert summary.event_count == 10
     assert summary.resource_decisions == 1
+    assert summary.finished_step_runtime == 2.5
+    assert summary.failed_step_runtime == 0.75
+    assert summary.total_step_runtime == 3.25
 
 
 def test_validate_phase1_schedule_events_rejects_missing_dask(tmp_path):
@@ -131,6 +143,11 @@ def test_validate_phase1_schedule_event_files(tmp_path):
                         '{"active_steps": 1, "event": "step_start", '
                         '"suite_active_steps": 1, "step": "init"}'
                     ),
+                    (
+                        '{"active_steps": 0, "duration": 1.5, '
+                        '"event": "step_finish", '
+                        '"suite_active_steps": 0, "step": "init"}'
+                    ),
                 ]
             )
         )
@@ -141,6 +158,10 @@ def test_validate_phase1_schedule_event_files(tmp_path):
     assert summary.scheduler_path_used
     assert summary.single_active_step
     assert summary.max_suite_active_steps == 1
+    assert summary.event_count == 8
+    assert summary.finished_step_runtime == 3.0
+    assert summary.failed_step_runtime == 0.0
+    assert summary.total_step_runtime == 3.0
 
 
 def test_validate_phase1_schedule_event_files_rejects_empty_list():

@@ -191,6 +191,10 @@ assert summary.scheduler_path_used
 assert summary.dask_runtime_used
 assert summary.single_active_step
 print(f'validated {len(events)} schedule event files')
+print(f'scheduler events: {summary.event_count}')
+print(f'successful step runtime: {summary.finished_step_runtime:.1f} s')
+print(f'failed step runtime: {summary.failed_step_runtime:.1f} s')
+print(f'all started-step runtime: {summary.total_step_runtime:.1f} s')
 PY
 ```
 
@@ -262,11 +266,19 @@ in `case_outputs` should preserve aggregate pass/fail status and make any
 baseline or execution failure traceable to the same task names as the serial
 comparison.
 
-In suite-wide Phase 1 scheduling, task runtime summaries are expected to become
-the sum of executed step runtimes for each task, while the suite runtime should
-remain wall-clock time for the whole suite. Until that accounting is hardened,
-developers should use per-step runtime lines and structured step events when
-comparing `polaris run` timing with `polaris serial`.
+Phase 1 timing comparisons should be treated as overhead checks, not speedup
+claims. Record the `Total runtime` line from `polaris serial` and
+`polaris run`, then record the `all started-step runtime` value from the
+structured-event snippet above. The difference between `polaris run` wall time
+and summed started-step runtime is the scheduler-path overhead plus any idle
+time between steps. Expected sources of overhead include Dask startup and
+shutdown, scheduler graph construction, runtime config reloads, resource
+feasibility and reservation bookkeeping, structured event writing and the
+extra schedule-summary output. A modest slowdown is acceptable in Phase 1
+because this phase is validating correctness and readiness for later
+concurrency. Large unexpected slowdowns should be investigated by comparing the
+serial and scheduler task-runtime tables, per-step runtime lines and structured
+step-finish or step-failure durations.
 
 (dev-cache)=
 

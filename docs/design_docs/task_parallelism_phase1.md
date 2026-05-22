@@ -1015,6 +1015,19 @@ policy. Failures in full-suite validation should be categorized as scheduler
 regressions, model/task failures, missing data, machine-environment issues or
 known unsupported tasks.
 
+The overhead-measurement chunk shall extend the structured schedule-event
+summary with event counts and summed durations from started steps, using
+successful `step_finish` events and failed `step_failure` events. Validation
+should record serial suite wall time, scheduler suite wall time and summed
+started-step runtime from the event summary. The difference between scheduler
+wall time and summed started-step runtime should be interpreted as Phase 1
+overhead plus inter-step idle time. Expected overhead sources include Dask
+startup and shutdown, graph construction, runtime config reloads, resource
+feasibility and reservation bookkeeping, structured event writing and extra
+schedule-summary output. These measurements are intended to detect unexpected
+semantic or orchestration regressions; Phase 1 is not expected to demonstrate
+speedup.
+
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
 Date last modified: 2026/05/14
