@@ -972,6 +972,14 @@ steps and resource reservations. A separate synthetic failure suite shall
 verify that failed producers block dependent selected steps while independent
 selected steps still run.
 
+The job-script hardening chunk shall add dry-run tests for Slurm and PBS
+rendering that verify default `polaris serial` behavior and explicit
+`--run_command run` opt-in behavior for suite scripts. These tests shall check
+the batch metadata and rendered run commands without submitting jobs. Manual
+machine validation should still confirm the generated scripts on each target
+HPC system, including environment loading, allocation sizing and the presence
+of `schedule_events.jsonl` files after `polaris run` completes.
+
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
 Date last modified: 2026/05/14

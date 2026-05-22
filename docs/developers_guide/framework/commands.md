@@ -31,6 +31,15 @@ pickle files are not intended for users (or developers) to read or modify.
 Properties of the task and step objects are not intended to change between
 setting up and running a suite, task or step.
 
+Generated job scripts use `polaris serial` by default. Developers can opt in
+to the initial task-parallel scheduler command path during setup with
+`polaris setup --run_command run` or `polaris suite --run_command run`. Task
+and step job scripts generated with this option run `polaris run`; suite job
+scripts run `polaris run <suite>`. To verify that the scheduler path was used,
+inspect each task work directory for `schedule_events.jsonl` and summarize the
+files with
+{py:func}`polaris.run.validation.validate_phase1_schedule_event_files()`.
+
 (dev-suite)=
 
 ## suite module
@@ -39,8 +48,9 @@ The {py:func}`polaris.suite.setup_suite()` function is used by `polaris suite`
 to set up a suite in a work directory.  Setting up a suite includes setting up
 the tasks (see {ref}`dev-setup`), writing out a {ref}`dev-provenance` file, and
 saving a pickle file containing a python dictionary that defines the suite for
-later use by `polaris serial`.  The "target" and "minimum" number of cores
-required for running the suite are displayed.  The "target" is determined
+later use by `polaris serial` or `polaris run`. The "target" and "minimum"
+number of cores required for running the suite are displayed. The "target" is
+determined
 based on the maximum product of the `ntasks` and `cpus_per_task`
 attributes of each step in the suite.  This is the number of cores to run
 on to complete the suite as quickly as possible, with the
@@ -91,9 +101,28 @@ window rather than a log file.
 
 The {py:func}`polaris.run.parallel.run_tasks()` function is used to run a
 suite or task with `polaris run`. This command path uses a Dask Distributed
-runtime and the Phase 1 scheduler. Phase 1 still runs only one Polaris step at
-a time, but it builds and validates a dependency graph, records scheduler
-decisions and keeps the Dask runtime alive for the duration of the run.
+runtime and the first task-parallel scheduler.
+
+In the task-parallel rollout, a "task" in "task parallelism" refers to a
+Polaris `Step` as the schedulable unit, not a whole Polaris `Task`. The rollout
+is divided into four phases so the execution path can be validated before
+turning on increasingly broad forms of concurrent execution:
+
+- Phase 1 adds the permanent `polaris run` command path, dependency graph,
+  resource accounting, Dask runtime, generated-job-script opt-in and structured
+  scheduler events. It still runs only one Polaris step at a time, so its goal
+  is correctness and observability rather than speedup.
+- Phase 2 enables concurrent execution of eligible non-MPI steps when their
+  dependencies and resource requirements allow it. MPI steps and steps marked
+  ineligible remain serialized.
+- Phase 3 adds concurrent execution of eligible MPI steps. MPI and non-MPI
+  work still run in separate phases, so the two classes of work do not overlap.
+- Phase 4 removes the MPI/non-MPI barrier and allows all eligible ready steps
+  to share the allocation dynamically, with stricter resource accounting.
+
+Thus, references to Phase 1 in this module mean the opt-in `polaris run`
+scheduler path that prepares for future task parallelism while intentionally
+preserving task-serial step execution.
 
 For a suite run, each task work directory contains a `schedule_events.jsonl`
 file. These JSON-lines files record graph construction, selected ready steps,
