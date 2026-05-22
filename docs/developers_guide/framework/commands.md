@@ -140,6 +140,64 @@ Dask runtime was recorded and no event recorded more than one active Polaris
 step. Heavy machine-specific suite validation remains a manual/system activity
 when it is too expensive or data-dependent for unit tests.
 
+For routine real-task validation of the initial scheduler path, developers
+should prefer a small custom suite that exercises real Polaris setup, cached
+steps, shared outputs and baseline/property validation without requiring a
+large ocean initialization workflow. On a supported HPC system, a typical
+comparison is:
+
+```bash
+export MACHINE=chrysalis
+export COMPONENT_PATH=/path/to/mpas-ocean-or-omega-build
+export WORK_ROOT=/path/to/polaris_scratch/task_parallel_phase1
+export TASKS="mesh/spherical/icos/base_mesh/240km/task \
+e3sm/init/icos240km/topo/remap \
+e3sm/init/icos240km/topo/cull"
+
+polaris setup -m ${MACHINE} -p ${COMPONENT_PATH} \
+    -w ${WORK_ROOT}/serial -t ${TASKS} \
+    --suite_name icos240_phase1_serial
+cd ${WORK_ROOT}/serial
+polaris serial icos240_phase1_serial
+
+polaris setup -m ${MACHINE} -p ${COMPONENT_PATH} \
+    -w ${WORK_ROOT}/run -t ${TASKS} \
+    -b ${WORK_ROOT}/serial --run_command run \
+    --suite_name icos240_phase1_run
+cd ${WORK_ROOT}/run
+polaris run icos240_phase1_run
+polaris run icos240_phase1_run
+```
+
+The first `polaris run` invocation should pass execution and validation for
+the selected tasks. The second invocation is a rerun check: steps with
+completion markers should be reported as already completed, cached steps should
+remain cached and dependent steps should not rerun unnecessarily. The
+`polaris serial` and `polaris run` logs are not expected to be byte-for-byte
+identical because the scheduler emits dependency and resource information, but
+they should contain the same task/step success status and validation outcomes.
+
+After the run, validate the scheduler artifacts from the run work directory:
+
+```bash
+python - <<'PY'
+from pathlib import Path
+from polaris.run.validation import validate_phase1_schedule_event_files
+
+events = sorted(Path('.').glob('**/schedule_events.jsonl'))
+summary = validate_phase1_schedule_event_files(
+    events, require_dask_runtime=True)
+assert summary.scheduler_path_used
+assert summary.dask_runtime_used
+assert summary.single_active_step
+print(f'validated {len(events)} schedule event files')
+PY
+```
+
+Data-heavy tasks, such as global hydrography workflows, can provide useful
+additional coverage for Dask-aware Python steps but should remain optional
+manual validation unless a particular release or feature change requires them.
+
 In suite-wide Phase 1 scheduling, task runtime summaries are expected to become
 the sum of executed step runtimes for each task, while the suite runtime should
 remain wall-clock time for the whole suite. Until that accounting is hardened,
