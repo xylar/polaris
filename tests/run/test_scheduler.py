@@ -347,6 +347,72 @@ def test_scheduler_adds_cross_task_file_dependency_edge(tmp_path):
     ]
 
 
+def test_scheduler_deduplicates_repeated_shared_step(tmp_path):
+    shared = DummyStep(tmp_path, 'shared')
+    first = DummyStep(tmp_path, 'first')
+    second = DummyStep(tmp_path, 'second')
+    shared.add_output('shared.nc')
+    first.add_input(tmp_path / 'shared' / 'shared.nc')
+    second.add_input(tmp_path / 'shared' / 'shared.nc')
+    task_a = SimpleNamespace(
+        steps_to_run=['shared', 'first'],
+        steps={'shared': shared, 'first': first},
+    )
+    task_b = SimpleNamespace(
+        steps_to_run=['shared', 'second'],
+        steps={'shared': shared, 'second': second},
+    )
+
+    graph = build_scheduler_graph(
+        {'ocean/task_a': task_a, 'ocean/task_b': task_b}
+    )
+
+    assert [node.key for node in graph.ordered_nodes()] == [
+        'ocean/task_a:shared',
+        'ocean/task_a:first',
+        'ocean/task_b:second',
+    ]
+    assert graph.predecessors['ocean/task_a:first'] == {'ocean/task_a:shared'}
+    assert graph.predecessors['ocean/task_b:second'] == {'ocean/task_a:shared'}
+    assert [node.key for node in graph.topological_order()] == [
+        'ocean/task_a:shared',
+        'ocean/task_a:first',
+        'ocean/task_b:second',
+    ]
+
+
+def test_scheduler_deduplicates_symlinked_shared_step(tmp_path):
+    shared = DummyStep(tmp_path, 'shared')
+    shared.add_output('shared.nc')
+    shared_alias = DummyStep(tmp_path, 'shared_alias')
+    shared_link = tmp_path / 'shared_link'
+    shared_link.symlink_to(tmp_path / 'shared', target_is_directory=True)
+    shared_alias.work_dir = str(shared_link)
+    shared_alias.add_output('shared.nc')
+    consumer = DummyStep(tmp_path, 'consumer')
+    consumer.add_input(shared_link / 'shared.nc')
+    task_a = SimpleNamespace(
+        steps_to_run=['shared'],
+        steps={'shared': shared},
+    )
+    task_b = SimpleNamespace(
+        steps_to_run=['shared_alias', 'consumer'],
+        steps={'shared_alias': shared_alias, 'consumer': consumer},
+    )
+
+    graph = build_scheduler_graph(
+        {'ocean/task_a': task_a, 'ocean/task_b': task_b}
+    )
+
+    assert [node.key for node in graph.ordered_nodes()] == [
+        'ocean/task_a:shared',
+        'ocean/task_b:consumer',
+    ]
+    assert graph.predecessors['ocean/task_b:consumer'] == {
+        'ocean/task_a:shared'
+    }
+
+
 def test_scheduler_run_task_uses_graph_order_and_single_active_step(
     tmp_path, monkeypatch
 ):
@@ -593,6 +659,62 @@ def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
     assert set(results['task_times']) == {'ocean/task_a', 'ocean/task_b'}
     assert (tmp_path / 'task_a' / 'schedule_events.jsonl').exists()
     assert (tmp_path / 'task_b' / 'schedule_events.jsonl').exists()
+
+
+def test_scheduler_run_suite_runs_shared_step_once(tmp_path, monkeypatch):
+    run_order = []
+
+    shared = DummyStep(tmp_path, 'shared')
+    first = DummyStep(tmp_path, 'first')
+    second = DummyStep(tmp_path, 'second')
+    shared.add_output('shared.nc')
+    first.add_input(tmp_path / 'shared' / 'shared.nc')
+    second.add_input(tmp_path / 'shared' / 'shared.nc')
+
+    task_a = _make_task(tmp_path, 'task_a', {'shared': shared, 'first': first})
+    task_b = _make_task(
+        tmp_path, 'task_b', {'shared': shared, 'second': second}
+    )
+    log_dir = tmp_path / 'case_outputs'
+    log_dir.mkdir()
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+    ):
+        run_order.append((task.path, step.name))
+        if step.outputs:
+            (tmp_path / step.name / step.outputs[0]).write_text('output\n')
+
+    _patch_suite_setup(monkeypatch)
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+
+    results = run_suite(
+        suite={'tasks': {'task_a': task_a, 'task_b': task_b}},
+        stdout_logger=DummyLogger(),
+        quiet=False,
+        log_dir=str(log_dir),
+        available_resources=_available_resources(),
+    )
+
+    assert run_order == [
+        ('ocean/task_a', 'shared'),
+        ('ocean/task_a', 'first'),
+        ('ocean/task_b', 'second'),
+    ]
+    assert results['failures'] == 0
+
+    task_a_events = _read_events(tmp_path / 'task_a' / 'schedule_events.jsonl')
+    task_b_events = _read_events(tmp_path / 'task_b' / 'schedule_events.jsonl')
+    assert [
+        event['step']
+        for event in task_a_events + task_b_events
+        if event['event'] == 'step_start'
+    ] == ['shared', 'first', 'second']
 
 
 def test_scheduler_run_suite_blocks_failed_dependents(tmp_path, monkeypatch):
