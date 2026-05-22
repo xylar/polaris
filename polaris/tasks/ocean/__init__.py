@@ -317,6 +317,9 @@ class Ocean(Component):
                 ds_vc, config=config, src_var_name='restingThickness'
             )
             if pseudothickness is not None:
+                # VertCoordInit stream is time-independent; drop Time dim
+                if 'Time' in pseudothickness.dims:
+                    pseudothickness = pseudothickness.isel(Time=0)
                 ds_vc['RefPseudoThickness'] = pseudothickness
 
         # Collect the vert coord variables (excluding restingThickness since
