@@ -87,7 +87,6 @@ Omega:
   IOStreams:
     InitialVertCoord:
       UsePointerFile: false
-      Filename: OmegaMesh.nc
       Mode: read
       Precision: double
       Freq: 1
@@ -100,7 +99,6 @@ Omega:
     # "OnStartup" to "never" so that the initial state file is not read.
     InitialState:
       UsePointerFile: false
-      Filename: OmegaMesh.nc
       Mode: read
       Precision: double
       Freq: 1
