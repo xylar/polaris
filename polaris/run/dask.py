@@ -1,3 +1,4 @@
+import json
 import os
 import subprocess
 import time
@@ -22,10 +23,38 @@ class DaskRuntimeInfo:
 
     workers : int
         The number of Dask workers requested for this runtime.
+
+    scheduler_address : str, optional
+        Scheduler address for allocation-scoped backends.
+
+    scheduler_node : int, optional
+        Logical allocation node where the scheduler was placed.
+
+    worker_groups : tuple of dict
+        Worker placement metadata by logical allocation node.
+
+    total_cores : int, optional
+        Total CPU cores represented by the runtime.
+
+    total_gpus : int, optional
+        Total GPUs represented by the runtime.
+
+    local_fallback : bool
+        Whether this backend is a local fallback from allocation planning.
+
+    fallback_reason : str, optional
+        Reason the local backend was selected as a fallback.
     """
 
     backend: str
     workers: int
+    scheduler_address: str | None = None
+    scheduler_node: int | None = None
+    worker_groups: tuple[dict[str, int], ...] = ()
+    total_cores: int | None = None
+    total_gpus: int | None = None
+    local_fallback: bool = False
+    fallback_reason: str | None = None
 
 
 @dataclass(frozen=True)
@@ -83,6 +112,9 @@ class DaskLaunchPlan:
 
     total_gpus : int
         Total GPUs represented by the plan.
+
+    fallback_reason : str, optional
+        Reason the plan falls back to the local backend.
     """
 
     backend: str
@@ -91,6 +123,7 @@ class DaskLaunchPlan:
     local_fallback: bool
     total_cores: int
     total_gpus: int
+    fallback_reason: str | None = None
 
     @property
     def worker_count(self):
@@ -107,7 +140,7 @@ class LocalDaskRuntimeBackend:
 
     name = 'local'
 
-    def __init__(self, available_resources, logger=None):
+    def __init__(self, available_resources, logger=None, fallback_reason=None):
         """
         Create the local Dask runtime backend.
 
@@ -122,13 +155,31 @@ class LocalDaskRuntimeBackend:
         self.available_resources = available_resources
         self.logger = logger
         self.worker_count = get_dask_worker_count(available_resources)
+        self.fallback_reason = fallback_reason
 
     @property
     def runtime_info(self):
         """
         Return structured metadata for this runtime backend.
         """
-        return DaskRuntimeInfo(backend=self.name, workers=self.worker_count)
+        return DaskRuntimeInfo(
+            backend=self.name,
+            workers=self.worker_count,
+            scheduler_node=0,
+            worker_groups=(
+                dict(
+                    node_index=0,
+                    workers=self.worker_count,
+                    threads_per_worker=1,
+                    cores_per_worker=1,
+                    gpus=0,
+                ),
+            ),
+            total_cores=self.worker_count,
+            total_gpus=0,
+            local_fallback=self.fallback_reason is not None,
+            fallback_reason=self.fallback_reason,
+        )
 
     @contextmanager
     def client_context(self):
@@ -216,8 +267,8 @@ class AllocationDaskRuntimeBackend:
         """
         Return structured metadata for this runtime backend.
         """
-        return DaskRuntimeInfo(
-            backend=self.name, workers=self.launch_plan.worker_count
+        return _runtime_info_from_launch_plan(
+            backend=self.name, launch_plan=self.launch_plan
         )
 
     @contextmanager
@@ -252,7 +303,15 @@ class AllocationDaskRuntimeBackend:
                 worker_process = self._launch_workers(scheduler_file)
                 processes.append(worker_process)
                 client = self.client_class(scheduler_file=scheduler_file)
-                _attach_runtime_info(client, self.runtime_info)
+                scheduler_address = _read_scheduler_address(scheduler_file)
+                _attach_runtime_info(
+                    client,
+                    _runtime_info_from_launch_plan(
+                        backend=self.name,
+                        launch_plan=self.launch_plan,
+                        scheduler_address=scheduler_address,
+                    ),
+                )
                 yield client
             finally:
                 if client is not None:
@@ -415,7 +474,14 @@ def select_dask_runtime_backend(
                 process_launcher=process_launcher,
                 client_class=client_class,
             )
-        return LocalDaskRuntimeBackend(available_resources, logger=logger)
+        fallback_reason = launch_plan.fallback_reason
+        if fallback_reason is None:
+            fallback_reason = 'missing_process_launcher'
+        return LocalDaskRuntimeBackend(
+            available_resources,
+            logger=logger,
+            fallback_reason=fallback_reason,
+        )
 
     if backend_name == LocalDaskRuntimeBackend.name:
         return LocalDaskRuntimeBackend(available_resources, logger=logger)
@@ -451,7 +517,8 @@ def plan_dask_launch(available_resources):
     """
     nodes = _resource_count(available_resources.get('nodes'), default=1)
     mpi_allowed = available_resources.get('mpi_allowed', True)
-    local_fallback = nodes <= 1 or not mpi_allowed
+    fallback_reason = _get_launch_fallback_reason(nodes, mpi_allowed)
+    local_fallback = fallback_reason is not None
 
     total_cores = _get_total_cores(available_resources, nodes)
     cores_per_node = _get_cores_per_node(available_resources, total_cores)
@@ -492,6 +559,7 @@ def plan_dask_launch(available_resources):
         local_fallback=local_fallback,
         total_cores=total_cores,
         total_gpus=total_gpus,
+        fallback_reason=fallback_reason,
     )
 
 
@@ -562,6 +630,49 @@ def _attach_runtime_info(client, runtime_info):
         client.polaris_dask_runtime_info = runtime_info
     except AttributeError:
         pass
+
+
+def _runtime_info_from_launch_plan(
+    backend, launch_plan, scheduler_address=None
+):
+    worker_groups = tuple(
+        dict(
+            node_index=group.node_index,
+            workers=group.workers,
+            threads_per_worker=group.threads_per_worker,
+            cores_per_worker=group.cores_per_worker,
+            gpus=group.gpus,
+        )
+        for group in launch_plan.worker_groups
+    )
+    return DaskRuntimeInfo(
+        backend=backend,
+        workers=launch_plan.worker_count,
+        scheduler_address=scheduler_address,
+        scheduler_node=launch_plan.scheduler_node,
+        worker_groups=worker_groups,
+        total_cores=launch_plan.total_cores,
+        total_gpus=launch_plan.total_gpus,
+        local_fallback=launch_plan.local_fallback,
+        fallback_reason=launch_plan.fallback_reason,
+    )
+
+
+def _get_launch_fallback_reason(nodes, mpi_allowed):
+    if nodes <= 1:
+        return 'single_node_allocation'
+    if not mpi_allowed:
+        return 'mpi_unavailable'
+    return None
+
+
+def _read_scheduler_address(scheduler_file):
+    try:
+        with open(scheduler_file) as handle:
+            metadata = json.load(handle)
+    except (FileNotFoundError, json.JSONDecodeError):
+        return None
+    return metadata.get('address')
 
 
 def _get_default_process_launcher(available_resources):

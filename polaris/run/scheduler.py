@@ -1,7 +1,7 @@
 import json
 import os
 import time
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass
 from datetime import timedelta
 from typing import Any, Mapping, Optional
 
@@ -326,12 +326,7 @@ def run_suite(
             'graph_constructed', nodes=len(graph.nodes), edges=edge_count
         )
         if runtime_info is not None:
-            recorder.emit(
-                'dask_runtime',
-                backend=runtime_info.backend,
-                state='active',
-                workers=runtime_info.workers,
-            )
+            _emit_dask_runtime(recorder, runtime_info)
         with LoggingContext(
             task_name.replace('/', '_'), log_filename=state.log_filename
         ) as task_logger:
@@ -461,12 +456,7 @@ def run_task(
     )
     runtime_info = get_dask_runtime_info(dask_client)
     if runtime_info is not None:
-        recorder.emit(
-            'dask_runtime',
-            backend=runtime_info.backend,
-            state='active',
-            workers=runtime_info.workers,
-        )
+        _emit_dask_runtime(recorder, runtime_info)
     _log_schedule_summary(task, ordered_nodes, graph)
 
     baselines_passed = None
@@ -722,9 +712,15 @@ def _run_scheduler_node(
             task=node.task_name,
             step=node.step_name,
             cores=reservation.cores,
+            free_cores=resource_pool.free_cores,
+            free_gpus=resource_pool.free_gpus,
+            free_nodes=resource_pool.free_nodes,
             nodes=reservation.nodes,
             gpus=reservation.gpus,
             result='reserved',
+            total_cores=resource_pool.total_cores,
+            total_gpus=resource_pool.total_gpus,
+            total_nodes=resource_pool.total_nodes,
         )
         recorder.active_steps += 1
         _increment_active_counter(active_counter)
@@ -776,8 +772,14 @@ def _run_scheduler_node(
                 task=node.task_name,
                 step=node.step_name,
                 active_steps=recorder.active_steps,
+                free_cores=resource_pool.free_cores,
+                free_gpus=resource_pool.free_gpus,
+                free_nodes=resource_pool.free_nodes,
                 result='released',
                 suite_active_steps=_active_count(active_counter),
+                total_cores=resource_pool.total_cores,
+                total_gpus=resource_pool.total_gpus,
+                total_nodes=resource_pool.total_nodes,
             )
         os.chdir(cwd)
 
@@ -947,6 +949,16 @@ def _wait_reason(predecessor_keys) -> str:
     return 'dependencies_satisfied'
 
 
+def _emit_dask_runtime(recorder, runtime_info) -> None:
+    payload = {
+        field: value
+        for field, value in asdict(runtime_info).items()
+        if value is not None
+    }
+    payload['state'] = 'active'
+    recorder.emit('dask_runtime', **payload)
+
+
 def _emit_resource_feasibility(
     recorder,
     node,
@@ -959,6 +971,10 @@ def _emit_resource_feasibility(
         task=node.task_name,
         step=node.step_name,
         feasible=feasible,
+        result='feasible' if feasible else 'infeasible',
+        wait_reason='resources_available'
+        if feasible
+        else 'insufficient_resources',
         free_cores=resource_pool.free_cores,
         free_nodes=resource_pool.free_nodes,
         free_gpus=resource_pool.free_gpus,
@@ -967,6 +983,7 @@ def _emit_resource_feasibility(
         total_gpus=resource_pool.total_gpus,
     )
     if request is not None:
+        insufficient = _resource_shortfalls(request, resource_pool)
         payload.update(
             requested_cores=request.cores,
             requested_nodes=request.nodes,
@@ -974,7 +991,10 @@ def _emit_resource_feasibility(
             minimum_cores=request.min_cores,
             minimum_nodes=request.min_nodes,
             minimum_gpus=request.min_gpus,
+            insufficient=insufficient,
         )
+    elif not feasible:
+        payload['insufficient'] = ['request']
     if reason is not None:
         payload['reason'] = reason
     recorder.emit('resource_feasibility', **payload)
@@ -986,6 +1006,17 @@ def _is_resource_request_feasible(request, resource_pool) -> bool:
         and request.nodes <= resource_pool.free_nodes
         and request.gpus <= resource_pool.free_gpus
     )
+
+
+def _resource_shortfalls(request, resource_pool) -> list[str]:
+    shortfalls = []
+    if request.cores > resource_pool.free_cores:
+        shortfalls.append('cores')
+    if request.nodes > resource_pool.free_nodes:
+        shortfalls.append('nodes')
+    if request.gpus > resource_pool.free_gpus:
+        shortfalls.append('gpus')
+    return shortfalls
 
 
 def _increment_active_counter(active_counter) -> None:

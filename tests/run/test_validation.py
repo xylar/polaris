@@ -24,7 +24,9 @@ def test_summarize_schedule_events(tmp_path):
                 '{"edges": 1, "event": "graph_constructed", "nodes": 2}',
                 (
                     '{"backend": "local", "event": "dask_runtime", '
-                    '"state": "active", "workers": 4}'
+                    '"fallback_reason": "single_node_allocation", '
+                    '"scheduler_address": "tcp://x", "state": "active", '
+                    '"workers": 4}'
                 ),
                 (
                     '{"event": "ready_selection", "task": "ocean/task", '
@@ -68,6 +70,8 @@ def test_summarize_schedule_events(tmp_path):
     assert summary.dask_runtime_used
     assert summary.dask_backend == 'local'
     assert summary.dask_workers == 4
+    assert summary.dask_scheduler_address == 'tcp://x'
+    assert summary.dask_fallback_reason == 'single_node_allocation'
     assert summary.scheduler_path_used
     assert summary.single_active_step
     assert summary.ready_steps == ('ocean/task/init',)

@@ -65,6 +65,8 @@ def test_select_dask_runtime_backend_defaults_to_local():
     assert isinstance(backend, LocalDaskRuntimeBackend)
     assert backend.runtime_info.backend == 'local'
     assert backend.runtime_info.workers == 2
+    assert backend.runtime_info.local_fallback
+    assert backend.runtime_info.fallback_reason == 'single_node_allocation'
 
 
 def test_select_dask_runtime_backend_rejects_unknown():
@@ -88,6 +90,23 @@ def test_select_dask_runtime_backend_auto_allocation_with_launcher():
     assert isinstance(backend, AllocationDaskRuntimeBackend)
     assert backend.runtime_info.backend == 'allocation'
     assert backend.runtime_info.workers == 64
+    assert not backend.runtime_info.local_fallback
+    assert backend.runtime_info.worker_groups == (
+        {
+            'node_index': 0,
+            'workers': 32,
+            'threads_per_worker': 1,
+            'cores_per_worker': 1,
+            'gpus': 0,
+        },
+        {
+            'node_index': 1,
+            'workers': 32,
+            'threads_per_worker': 1,
+            'cores_per_worker': 1,
+            'gpus': 0,
+        },
+    )
 
 
 def test_select_dask_runtime_backend_auto_falls_back_without_launcher():
@@ -104,6 +123,8 @@ def test_select_dask_runtime_backend_auto_falls_back_without_launcher():
     assert isinstance(backend, LocalDaskRuntimeBackend)
     assert backend.runtime_info.backend == 'local'
     assert backend.runtime_info.workers == 32
+    assert backend.runtime_info.local_fallback
+    assert backend.runtime_info.fallback_reason == 'missing_process_launcher'
 
 
 def test_plan_dask_launch_single_node_fallback():
@@ -119,6 +140,7 @@ def test_plan_dask_launch_single_node_fallback():
 
     assert plan.backend == 'local'
     assert plan.local_fallback
+    assert plan.fallback_reason == 'single_node_allocation'
     assert plan.scheduler_node == 0
     assert plan.worker_count == 4
     assert plan.total_cores == 4
@@ -142,6 +164,7 @@ def test_plan_dask_launch_multi_node_cpu_allocation():
 
     assert plan.backend == 'allocation'
     assert not plan.local_fallback
+    assert plan.fallback_reason is None
     assert plan.scheduler_node == 0
     assert plan.worker_count == 128
     assert plan.total_cores == 128
@@ -206,6 +229,7 @@ def test_plan_dask_launch_falls_back_without_mpi():
 
     assert plan.backend == 'local'
     assert plan.local_fallback
+    assert plan.fallback_reason == 'mpi_unavailable'
     assert plan.worker_count == 32
 
 
@@ -309,6 +333,10 @@ def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
         runtime_info = get_dask_runtime_info(client)
         assert runtime_info.backend == 'allocation'
         assert runtime_info.workers == 64
+        assert runtime_info.scheduler_address == 'tcp://x'
+        assert runtime_info.scheduler_node == 0
+        assert runtime_info.total_cores == 64
+        assert runtime_info.worker_groups[0]['workers'] == 32
 
     assert launched_commands['scheduler'][:3] == [
         'dask',

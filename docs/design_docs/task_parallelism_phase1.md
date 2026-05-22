@@ -811,6 +811,16 @@ recorded blocked dependents, preserving the existing caller-facing failure
 contract. The Dask runtime context shall continue to clean up when the
 scheduler path raises.
 
+The twenty-second implementation chunk shall improve resource and backend
+diagnostics. Resource feasibility events shall report whether a request is
+feasible or infeasible, resource wait reason, free and total resource counts,
+minimum and requested resources when available, and any resource shortfalls.
+Reservation and release events shall also record free and total resource
+counts after the transition. Dask runtime events shall include backend
+selection, worker count, scheduler address when available, planned scheduler
+node, worker placement, total planned cores and GPUs, and any local-fallback
+reason.
+
 ## Testing
 
 ### Testing and Validation: New Task-Parallel Command Path
@@ -946,6 +956,11 @@ suite-scope failures. These tests shall verify that failed steps release
 resources, selected dependents are blocked, independent selected steps can
 still run where graph dependencies allow and the `polaris run` Dask lifecycle
 is closed when scheduler execution raises.
+
+The resource/backend diagnostics chunk shall add tests for feasible and
+infeasible scheduler resource events, local and allocation Dask runtime
+metadata, scheduler-address recording and validation-helper parsing of the
+expanded Dask runtime fields.
 
 ### Testing and Validation: Phase-1 Scheduler and Graph
 
