@@ -4,6 +4,7 @@ from mpas_tools.mesh.conversion import convert, cull
 from mpas_tools.planar_hex import make_planar_hex_mesh
 
 from polaris.mesh.planar import compute_planar_hex_nx_ny
+from polaris.ocean.coriolis import add_constant_coriolis
 from polaris.ocean.model import OceanIOStep
 from polaris.ocean.vertical import init_vertical_coord
 from polaris.tasks.ocean.manufactured_solution.exact_solution import (
@@ -42,10 +43,12 @@ class Init(OceanIOStep):
 
     def setup(self):
         super().setup()
-        output_filenames = ['culled_mesh.nc', 'initial_state.nc']
+        output_filenames = ['culled_mesh.nc', 'init.nc']
         model = self.config.get('ocean', 'model')
         if model == 'mpas-ocean':
             output_filenames.append('culled_graph.info')
+        elif model == 'omega':
+            output_filenames.append('vert_coord.nc')
         for filename in output_filenames:
             self.add_output_file(filename=filename)
 
@@ -75,6 +78,7 @@ class Init(OceanIOStep):
         ds_mesh = convert(
             ds_mesh, graphInfoFileName='culled_graph.info', logger=logger
         )
+        add_constant_coriolis(ds_mesh, coriolis_parameter=coriolis_parameter)
         self.write_model_dataset(ds_mesh, 'culled_mesh.nc', config)
 
         bottom_depth = config.getfloat('vertical_grid', 'bottom_depth')
@@ -85,10 +89,6 @@ class Init(OceanIOStep):
         ds['bottomDepth'] = bottom_depth * xr.ones_like(ds_mesh.xCell)
 
         init_vertical_coord(config, ds)
-
-        ds['fCell'] = coriolis_parameter * xr.ones_like(ds_mesh.xCell)
-        ds['fEdge'] = coriolis_parameter * xr.ones_like(ds_mesh.xEdge)
-        ds['fVertex'] = coriolis_parameter * xr.ones_like(ds_mesh.xVertex)
 
         # Evaluate the exact solution at time=0
         exact_solution = ExactSolution(config, ds)
@@ -112,4 +112,5 @@ class Init(OceanIOStep):
         ds['temperature'] = xr.zeros_like(layer_thickness)
         ds['salinity'] = xr.ones_like(layer_thickness)
 
-        self.write_model_dataset(ds, 'initial_state.nc', config)
+        self.write_vert_coord_dataset(ds, 'vert_coord.nc', config)
+        self.write_initial_state_dataset(ds, 'init.nc', config)
