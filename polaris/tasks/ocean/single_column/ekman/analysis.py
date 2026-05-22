@@ -29,9 +29,7 @@ class Analysis(Step):
 
         """
         super().__init__(component=component, name='analysis', indir=indir)
-        self.add_input_file(
-            filename='init.nc', target='../forward/initial_state.nc'
-        )
+        self.add_input_file(filename='init.nc', target='../forward/init.nc')
         self.add_input_file(
             filename='output.nc', target='../forward/output.nc'
         )
