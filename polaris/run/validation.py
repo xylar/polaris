@@ -23,6 +23,12 @@ class ScheduleEventSummary:
     dask_workers : int, optional
         The Dask worker count recorded by the run, if present.
 
+    dask_scheduler_address : str, optional
+        The Dask scheduler address recorded by the run, if present.
+
+    dask_fallback_reason : str, optional
+        Reason the Dask runtime fell back to the local backend, if present.
+
     ready_steps : tuple of str
         Steps selected by the scheduler.
 
@@ -58,6 +64,8 @@ class ScheduleEventSummary:
     graph_constructed: bool
     dask_backend: Optional[str]
     dask_workers: Optional[int]
+    dask_scheduler_address: Optional[str]
+    dask_fallback_reason: Optional[str]
     ready_steps: tuple[str, ...]
     started_steps: tuple[str, ...]
     finished_steps: tuple[str, ...]
@@ -206,6 +214,12 @@ def summarize_schedule_events(event_filename) -> ScheduleEventSummary:
         is not None,
         dask_backend=None if dask_event is None else dask_event.get('backend'),
         dask_workers=None if dask_event is None else dask_event.get('workers'),
+        dask_scheduler_address=None
+        if dask_event is None
+        else dask_event.get('scheduler_address'),
+        dask_fallback_reason=None
+        if dask_event is None
+        else dask_event.get('fallback_reason'),
         ready_steps=_event_steps(events, 'ready_selection'),
         started_steps=_event_steps(events, 'step_start'),
         finished_steps=_event_steps(events, 'step_finish'),

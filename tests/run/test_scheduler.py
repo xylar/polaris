@@ -534,11 +534,19 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
     ]
     assert len(resource_events) == 2
     assert all(event['feasible'] for event in resource_events)
+    assert all(event['result'] == 'feasible' for event in resource_events)
+    assert all(
+        event['wait_reason'] == 'resources_available'
+        for event in resource_events
+    )
+    assert all(event['insufficient'] == [] for event in resource_events)
     assert [event['result'] for event in events if 'result' in event] == [
+        'feasible',
         'reserved',
         'running',
         'released',
         'success',
+        'feasible',
         'reserved',
         'running',
         'released',
@@ -684,6 +692,54 @@ def test_scheduler_run_task_blocks_failed_dependents_and_releases_resources(
     assert release_events[1]['step'] == 'independent'
 
 
+def test_scheduler_records_infeasible_resource_diagnostics(
+    tmp_path, monkeypatch
+):
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    step = DummyStep(tmp_path, 'too_large')
+    step.ntasks = 4
+    step.min_tasks = 4
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['too_large'],
+        steps={'too_large': step},
+    )
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+
+    with pytest.raises(ValueError, match='minimum'):
+        run_scheduler.run_task(
+            task,
+            {
+                'cores': 2,
+                'nodes': 1,
+                'cores_per_node': 2,
+                'gpus': 0,
+                'mpi_allowed': True,
+            },
+        )
+
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+    resource_events = [
+        event for event in events if event['event'] == 'resource_feasibility'
+    ]
+
+    assert len(resource_events) == 1
+    assert not resource_events[0]['feasible']
+    assert resource_events[0]['result'] == 'infeasible'
+    assert resource_events[0]['wait_reason'] == 'insufficient_resources'
+    assert resource_events[0]['insufficient'] == ['request']
+    assert 'minimum' in resource_events[0]['reason']
+
+
 def test_scheduler_records_dask_runtime_info(tmp_path, monkeypatch):
     class DummyLogger:
         def info(self, message):
@@ -731,8 +787,10 @@ def test_scheduler_records_dask_runtime_info(tmp_path, monkeypatch):
         {
             'backend': 'local',
             'event': 'dask_runtime',
+            'local_fallback': False,
             'state': 'active',
             'time': dask_events[0]['time'],
+            'worker_groups': [],
             'workers': 4,
         }
     ]
