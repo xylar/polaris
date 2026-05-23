@@ -958,9 +958,23 @@ def _log_schedule_summary(
         print_to_stdout(
             task,
             f'    {index}. {node.task_name}/{node.step_name} '
-            f'[{_node_status(node)}; wait: '
-            f'{_wait_reason(graph.predecessors[node.key])}]',
+            f'[{_summary_node_status(node)}; wait: '
+            f'{_summary_wait_reason(graph.predecessors[node.key])}]',
         )
+
+
+def _summary_node_status(node: SchedulerNode) -> str:
+    if node.completed:
+        return 'already completed'
+    if node.cached:
+        return 'cached'
+    return 'pending'
+
+
+def _summary_wait_reason(predecessor_keys) -> str:
+    if predecessor_keys is None or len(predecessor_keys) == 0:
+        return 'no_dependencies'
+    return 'waiting_for_dependencies'
 
 
 def _node_status(node: SchedulerNode) -> str:
