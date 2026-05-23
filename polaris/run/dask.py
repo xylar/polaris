@@ -327,9 +327,15 @@ class AllocationDaskRuntimeBackend:
                 )
                 yield client
             finally:
+                client_shutdown = False
                 if client is not None:
-                    client.close()
-                _stop_processes(processes)
+                    client_shutdown = _shutdown_dask_client(
+                        client=client, logger=self.logger
+                    )
+                _stop_processes(
+                    processes,
+                    graceful_timeout=10 if client_shutdown else 0,
+                )
                 self.process_launcher.output_file = None
                 if self.logger is not None:
                     self.logger.info('Stopped Dask Distributed')
@@ -778,10 +784,33 @@ def _wait_for_scheduler_file(
         time.sleep(0.1)
 
 
-def _stop_processes(processes):
+def _shutdown_dask_client(client, logger=None):
+    try:
+        client.shutdown()
+        shutdown_requested = True
+    except Exception as exception:
+        shutdown_requested = False
+        if logger is not None:
+            logger.info(f'Dask client shutdown failed: {exception}')
+    finally:
+        client.close()
+
+    return shutdown_requested
+
+
+def _stop_processes(processes, graceful_timeout=0):
     for process in reversed(processes):
         if _process_returncode(process) is not None:
             continue
+        if graceful_timeout > 0:
+            try:
+                process.wait(timeout=graceful_timeout)
+            except TypeError:
+                process.wait()
+            except subprocess.TimeoutExpired:
+                pass
+            if _process_returncode(process) is not None:
+                continue
         process.terminate()
         try:
             process.wait(timeout=10)

@@ -51,6 +51,10 @@ class FakeClient:
     def __init__(self, scheduler_file):
         self.scheduler_file = scheduler_file
         self.closed = False
+        self.shutdown_requested = False
+
+    def shutdown(self):
+        self.shutdown_requested = True
 
     def close(self):
         self.closed = True
@@ -355,6 +359,10 @@ def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
             events.append(('client', 'close'))
             super().close()
 
+        def shutdown(self):
+            events.append(('client', 'shutdown'))
+            super().shutdown()
+
     monkeypatch.chdir(tmp_path)
     logger = DummyLogger()
     with dask_client_context(
@@ -396,10 +404,9 @@ def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
         ('scheduler', 'start'),
         ('workers', 'start'),
         ('client', 'start', launched_commands['scheduler'][-1]),
+        ('client', 'shutdown'),
         ('client', 'close'),
-        ('workers', 'terminate'),
         ('workers', 'wait', 10),
-        ('scheduler', 'terminate'),
         ('scheduler', 'wait', 10),
     ]
     assert launched_commands['log_filename'] == str(
@@ -450,12 +457,58 @@ def test_allocation_dask_client_context_cleans_up_after_failure(
     assert events == [
         ('scheduler', 'start'),
         ('workers', 'start'),
+        ('workers', 'wait', 10),
+        ('scheduler', 'wait', 10),
+    ]
+    assert (tmp_path / 'dask_runtime.log').exists()
+
+
+def test_allocation_dask_client_context_terminates_after_shutdown_failure(
+    tmp_path, monkeypatch
+):
+    events: list[tuple[object, ...]] = []
+
+    class FakeProcessLauncher:
+        output_file = None
+
+        def launch_scheduler(self, command, logger=None):
+            scheduler_file = command[command.index('--scheduler-file') + 1]
+            (tmp_path / scheduler_file).write_text('{"address": "tcp://x"}')
+            return FakeProcess('scheduler', events)
+
+        def launch_workers(self, command, launch_plan, logger=None):
+            return FakeProcess('workers', events)
+
+    class BrokenShutdownClient(FakeClient):
+        def shutdown(self):
+            raise RuntimeError('shutdown boom')
+
+    monkeypatch.chdir(tmp_path)
+    logger = DummyLogger()
+    with dask_client_context(
+        {
+            'cores': 64,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+        logger=logger,
+        backend_name='allocation',
+        process_launcher=FakeProcessLauncher(),
+        client_class=BrokenShutdownClient,
+    ):
+        pass
+
+    assert events == [
+        ('scheduler', 'start'),
+        ('workers', 'start'),
         ('workers', 'terminate'),
         ('workers', 'wait', 10),
         ('scheduler', 'terminate'),
         ('scheduler', 'wait', 10),
     ]
-    assert (tmp_path / 'dask_runtime.log').exists()
+    assert 'Dask client shutdown failed: shutdown boom' in logger.messages
 
 
 def test_subprocess_dask_process_launcher_redirects_output(monkeypatch):
