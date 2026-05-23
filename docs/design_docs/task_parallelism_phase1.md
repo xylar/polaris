@@ -1087,3 +1087,73 @@ wall-clock duration of the whole suite run. Until that summary behavior is
 hardened, validation should rely on per-step runtime lines and structured
 step start/finish/failure events when comparing `polaris run` and
 `polaris serial` timing.
+
+### Phase 1 Acceptance and Phase 2 Handoff
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Phase 1 is accepted when the branch satisfies the following checklist:
+
+- Commands: `polaris run` supports suite, task and single-step execution, while
+  `polaris serial` remains available and unchanged as the default generated
+  command path. `polaris setup --run_command run` and
+  `polaris suite --run_command run` opt generated job scripts into the
+  scheduler path.
+- Scheduler semantics: the scheduler builds a dependency graph from explicit
+  step dependencies and declared input/output relationships, rejects invalid
+  graphs, chooses ready steps deterministically and preserves Phase 1
+  single-active-step execution.
+- Dask lifecycle: local and allocation-scoped Dask backends start once per
+  `polaris run` invocation, record runtime metadata, make the active client
+  available to Dask-aware steps and subprocess steps, write backend logs to a
+  dedicated `dask_runtime.log` file and shut down cleanly at run completion.
+- Resource accounting: scheduler decisions use step CPU, node and GPU
+  requirements; infeasible minimum requests fail clearly rather than silently
+  weakening resource constraints. The resource model is sufficient for Phase 2
+  to pack multiple ready non-MPI steps without replacing the graph builder.
+- Observability: each task records `schedule_events.jsonl` with graph,
+  selection, wait-reason, resource, Dask-runtime, step-timing and final-status
+  events. The validation helper can confirm scheduler-path use, Dask-runtime
+  use and the Phase 1 single-active-step invariant.
+- Validation status: unit tests, synthetic integration tests, real-task
+  scheduler-path checks and representative-suite system checks are documented.
+  Expensive or machine-specific suites may remain manual validation items.
+
+The recorded machine validation status at the end of Phase 1 is:
+
+- Chrysalis: primary development and system-validation target. Real-task
+  custom icosahedral/topography workflows and `omega_pr` scheduler-path runs
+  have passed, including Dask runtime startup, subprocess-client reuse,
+  dedicated Dask logging and graceful Dask shutdown. Additional suites should
+  still be run before a release candidate.
+- Perlmutter: required target for later phases, but no Phase 1 system
+  validation result is recorded in this branch yet.
+- Aurora: required target for later phases, but no Phase 1 system validation
+  result is recorded in this branch yet.
+- Frontier: desired target. No Phase 1 validation result is recorded in this
+  branch yet.
+
+The following work is explicitly handed to Phase 2 or later:
+
+- concurrent ready-step execution, beginning with eligible non-MPI steps in
+  Phase 2;
+- a cheap Dask-aware regression task or fixture that exercises Dask-aware step
+  code without requiring a long global hydrography workflow;
+- MPI-step concurrency and MPI/non-MPI scheduling barriers, which belong to
+  Phases 3 and 4;
+- memory-aware scheduling and prevention of memory oversubscription, which
+  belongs to Phase 4;
+- broader platform validation on Perlmutter, Aurora and Frontier;
+- final hardening of suite-level timing summaries so task runtime reports the
+  sum of executed step runtimes while suite runtime reports suite wall time.
+
+Phase 2 should be able to inherit the Phase 1 command path, graph builder,
+resource feasibility model, Dask runtime, subprocess-client propagation and
+structured event stream. The main Phase 2 scheduling change should be replacing
+the single-active-step policy with conservative packing of eligible ready
+non-MPI steps.
