@@ -135,6 +135,12 @@ dependencies, step start/finish/failure events, resource release and Dask
 backend state. They are intended for developer validation and for debugging
 future task-parallel behavior without scraping free-form logs.
 
+Allocation-scoped Dask scheduler and worker output is written to
+`dask_runtime.log` in the run work directory. This file is useful when
+debugging backend startup, worker registration or shutdown behavior, but it is
+kept separate from the main Polaris suite log so successful runs are not
+obscured by routine Dask lifecycle messages.
+
 The {py:func}`polaris.run.validation.validate_phase1_schedule_event_files()`
 helper can be used in manual or system validation to check these artifacts. A
 typical suite validation should compare `polaris run` with `polaris serial`
@@ -300,7 +306,8 @@ Most `polaris run` failures should be debugged from the task log in
   `blocked_dependency`. These are expected when a prerequisite step fails; the
   dependent step should not run until the prerequisite succeeds in a rerun.
 - Backend startup failures or unexpected local fallback should be investigated
-  from the `dask_runtime` event. It records the selected backend, worker count,
+  from the `dask_runtime` event and, for allocation-scoped runs,
+  `dask_runtime.log`. The event records the selected backend, worker count,
   scheduler address when available and fallback reason when the local backend
   was selected automatically.
 - If a run seems to overlap steps in Phase 1, validate the event files with
