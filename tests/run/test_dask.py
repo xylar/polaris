@@ -1,3 +1,5 @@
+import subprocess
+
 import pytest
 
 from polaris.run.dask import (
@@ -329,8 +331,12 @@ def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
     launched_commands = {}
 
     class FakeProcessLauncher:
+        output_file = None
+
         def launch_scheduler(self, command, logger=None):
             launched_commands['scheduler'] = command
+            assert self.output_file is not None
+            launched_commands['log_filename'] = self.output_file.name
             scheduler_file = command[command.index('--scheduler-file') + 1]
             (tmp_path / scheduler_file).write_text('{"address": "tcp://x"}')
             return FakeProcess('scheduler', events)
@@ -396,8 +402,15 @@ def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
         ('scheduler', 'terminate'),
         ('scheduler', 'wait', 10),
     ]
+    assert launched_commands['log_filename'] == str(
+        tmp_path / 'dask_runtime.log'
+    )
+    assert (tmp_path / 'dask_runtime.log').read_text() == (
+        'Dask Distributed backend=allocation workers=64\n'
+    )
     assert logger.messages == [
         'Starting Dask Distributed backend=allocation workers=64',
+        f'Writing Dask runtime log: {tmp_path}/dask_runtime.log',
         'Stopped Dask Distributed',
     ]
 
@@ -408,6 +421,8 @@ def test_allocation_dask_client_context_cleans_up_after_failure(
     events: list[tuple[object, ...]] = []
 
     class FakeProcessLauncher:
+        output_file = None
+
         def launch_scheduler(self, command, logger=None):
             scheduler_file = command[command.index('--scheduler-file') + 1]
             (tmp_path / scheduler_file).write_text('{"address": "tcp://x"}')
@@ -440,6 +455,28 @@ def test_allocation_dask_client_context_cleans_up_after_failure(
         ('scheduler', 'terminate'),
         ('scheduler', 'wait', 10),
     ]
+    assert (tmp_path / 'dask_runtime.log').exists()
+
+
+def test_subprocess_dask_process_launcher_redirects_output(monkeypatch):
+    captured = {}
+
+    class FakePopen:
+        def __init__(self, command, **kwargs):
+            captured['command'] = command
+            captured['kwargs'] = kwargs
+
+    output_file = object()
+    launcher = ParallelSystemDaskProcessLauncher(parallel_system=None)
+    launcher.output_file = output_file
+    monkeypatch.setattr('polaris.run.dask.subprocess.Popen', FakePopen)
+
+    process = launcher._launch(['dask', 'scheduler'], 'scheduler')
+
+    assert isinstance(process, FakePopen)
+    assert captured['command'] == ['dask', 'scheduler']
+    assert captured['kwargs']['stdout'] is output_file
+    assert captured['kwargs']['stderr'] == subprocess.STDOUT
 
 
 def test_dask_client_context_closes_client_and_cluster(monkeypatch):
