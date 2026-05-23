@@ -898,6 +898,8 @@ def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
 
 def test_scheduler_run_suite_runs_shared_step_once(tmp_path, monkeypatch):
     run_order = []
+    step_durations = {'shared': 2.0, 'first': 3.0, 'second': 5.0}
+    clock = SimpleNamespace(current=100.0)
 
     shared = DummyStep(tmp_path, 'shared')
     first = DummyStep(tmp_path, 'first')
@@ -922,11 +924,13 @@ def test_scheduler_run_suite_runs_shared_step_once(tmp_path, monkeypatch):
         dask_client=None,
     ):
         run_order.append((task.path, step.name))
+        clock.current += step_durations[step.name]
         if step.outputs:
             (tmp_path / step.name / step.outputs[0]).write_text('output\n')
 
     _patch_suite_setup(monkeypatch)
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    monkeypatch.setattr(run_scheduler.time, 'time', lambda: clock.current)
 
     results = run_suite(
         suite={'tasks': {'task_a': task_a, 'task_b': task_b}},
@@ -942,6 +946,10 @@ def test_scheduler_run_suite_runs_shared_step_once(tmp_path, monkeypatch):
         ('ocean/task_b', 'second'),
     ]
     assert results['failures'] == 0
+    assert results['task_times'] == {
+        'ocean/task_a': 5.0,
+        'ocean/task_b': 7.0,
+    }
 
     task_a_events = _read_events(tmp_path / 'task_a' / 'schedule_events.jsonl')
     task_b_events = _read_events(tmp_path / 'task_b' / 'schedule_events.jsonl')

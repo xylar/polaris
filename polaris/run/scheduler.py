@@ -352,6 +352,7 @@ def run_suite(
     active_counter = dict(active_steps=0)
     blocked_keys: set[str] = set()
     failed_keys: set[str] = set()
+    step_runtimes: dict[str, float] = {}
     for node in ordered_nodes:
         if not node.selected:
             continue
@@ -404,6 +405,7 @@ def run_suite(
                     dask_client=dask_client,
                     predecessor_keys=graph.predecessors[node.key],
                     active_counter=active_counter,
+                    step_runtimes=step_runtimes,
                 )
             if baseline_status is not None:
                 state.baselines_passed = accumulate_statuses(
@@ -420,7 +422,7 @@ def run_suite(
                     'Exception raised while running the steps of the task'
                 )
 
-    _finalize_suite_task_states(states, stdout_logger)
+    _finalize_suite_task_states(states, stdout_logger, step_runtimes)
     return _suite_results(states)
 
 
@@ -629,6 +631,7 @@ def _run_scheduler_node(
     dask_client,
     predecessor_keys=None,
     active_counter=None,
+    step_runtimes=None,
 ):
     step = node.step
     recorder.emit(
@@ -759,6 +762,7 @@ def _run_scheduler_node(
             )
     except Exception:
         step_time = time.time() - step_start
+        _record_step_runtime(step_runtimes, step, step_time)
         recorder.emit(
             'step_failure',
             task=node.task_name,
@@ -794,6 +798,7 @@ def _run_scheduler_node(
 
     print_to_stdout(task, f'          execution:        {success_str}')
     step_time = time.time() - step_start
+    _record_step_runtime(step_runtimes, step, step_time)
     recorder.emit(
         'step_finish',
         task=node.task_name,
@@ -858,9 +863,9 @@ def _block_scheduler_node(
     )
 
 
-def _finalize_suite_task_states(states, stdout_logger):
+def _finalize_suite_task_states(states, stdout_logger, step_runtimes):
     for state in states.values():
-        state.task_time = time.time() - state.start_time
+        state.task_time = _task_step_runtime(state.task, step_runtimes)
         if state.task_pass:
             if state.baselines_passed is None:
                 state.result_str = pass_str
@@ -898,6 +903,20 @@ def _finalize_suite_task_states(states, stdout_logger):
         stdout_logger.info(
             f'  task runtime:     {start_time_color}{task_time_str}{end_color}'
         )
+
+
+def _record_step_runtime(step_runtimes, step, step_time) -> None:
+    if step_runtimes is None:
+        return
+    step_runtimes[_step_identity(step)] = step_time
+
+
+def _task_step_runtime(task, step_runtimes) -> float:
+    total = 0.0
+    for step_name in task.steps_to_run:
+        step = task.steps[step_name]
+        total += step_runtimes.get(_step_identity(step), 0.0)
+    return total
 
 
 def _suite_results(states):
