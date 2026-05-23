@@ -12,18 +12,9 @@ Contributors:
 Phase 1 introduces the future task-parallel execution path in Polaris without
 yet enabling concurrent step execution. This phase adds a new command,
 `polaris run`, that mirrors the current `polaris serial` command as closely as
-practical for suites, tasks and individual steps. The new command should be
-able to discover work from the same work directories, accept similar command
-line options, and preserve the per-step execution semantics that users rely on.
-
-Unlike `polaris serial`, `polaris run` is intended to become the foundation
-for later task parallelism. In Phase 1, it should build the full scheduling
-framework needed for future task-parallel execution, including dependency-graph
-construction, ready-step selection, resource-aware scheduling, deterministic
-step ordering, schedule summaries and metadata for future step eligibility.
-It should also establish the long-lived Dask Distributed orchestration layer
-that Phase 2 will use for concurrent non-MPI execution. However, the scheduler
-will still execute only one ready step at a time in this phase.
+practical for suites, tasks and individual steps. The new command discovers
+work from the same work directories, accepts similar command-line options and
+preserves the per-step execution semantics that users rely on.
 
 The phrase "task parallelism" is the historical project label, but the Polaris
 scheduling unit is a `Step`. Later phases are intended to run independent
@@ -31,41 +22,50 @@ selected steps concurrently, potentially drawn from one task or from multiple
 tasks in a suite. They are not intended to treat whole Polaris `Task` objects
 as the indivisible unit of parallel execution.
 
-Phase 1 therefore aims to prove that the new execution path is correct and
-complete before it is asked to deliver speedup. The phase is expected to add
-overhead, and some slowdown relative to `polaris serial` is acceptable. The
-goal is not improved wall time in this phase, but rather that nearly all of
-the infrastructure needed for Phase 2 is already in place, so Phase 2 can
-focus primarily on enabling parallel execution of eligible non-MPI steps and
-debugging any issues that arise.
+Unlike `polaris serial`, `polaris run` is intended to become the foundation
+for later task parallelism. In Phase 1, it builds the scheduling framework
+needed for future concurrent execution, including dependency-graph
+construction, ready-step selection, resource-aware scheduling, deterministic
+step ordering, schedule summaries, structured scheduler events and metadata
+for future step eligibility. It also establishes the Dask Distributed
+orchestration layer that later phases can use for concurrent non-MPI
+execution. However, the scheduler still executes only one ready Polaris step
+at a time in Phase 1.
 
-`polaris serial` should remain unchanged and should continue to be the default
-execution path recommended by `polaris setup` and `polaris suite`. Phase 1
-should also provide an opt-in path for `polaris setup` and `polaris suite` to
-set up tasks and suites that use `polaris run`. `polaris serial` should remain
-a viable option indefinitely unless a later design decision shows that keeping
-it unchanged would fundamentally block the task-parallel architecture.
+Phase 1 therefore aims to prove that the new execution path is correct and
+complete before it is asked to deliver speedup. Some slowdown relative to
+`polaris serial` is acceptable. The goal is not improved wall time in this
+phase, but rather that the infrastructure needed for Phase 2 is already in
+place, so Phase 2 can focus primarily on enabling parallel execution of
+eligible non-MPI steps and debugging any issues that arise.
+
+`polaris serial` remains unchanged and continues to be the default execution
+path recommended by `polaris setup` and `polaris suite`. Phase 1 provides an
+opt-in path for `polaris setup` and `polaris suite` to set up tasks and suites
+that use `polaris run`.
 
 Success in Phase 1 means that `polaris run`:
 
-- works correctly for suites, tasks and steps,
+- works correctly for suites, tasks and individual steps,
 - preserves per-step outputs, logs, completion markers and runtime input
   checking,
-- produces final outputs that match task-serial baselines exactly,
+- produces final outputs that match task-serial baselines for deterministic
+  workflows,
 - schedules steps from explicit dependencies and declared input/output file
   dependencies rather than from implicit serial order,
 - rejects invalid dependency graphs before running,
 - enforces minimum resource requirements even though it still runs one step at
-  a time, and
-- remains within an acceptable slowdown budget on representative suites such
-  as `omega_pr`, `omega_nightly` and `mpaso_pr`, on the order of roughly
-  40-50% slower than `polaris serial` but not much more.
+  a time,
+- records enough structured scheduler data to verify single-active-step
+  execution and diagnose later task-parallel behavior, and
+- has been validated on representative workflows, with remaining platform and
+  suite validation recorded explicitly.
 
 ## Requirements
 
 ### Requirement: New Task-Parallel Command Path
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -90,7 +90,7 @@ default in Phase 1.
 
 ### Requirement: Backward-Compatible Per-Step Execution Semantics
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -113,7 +113,7 @@ and resources.
 
 ### Requirement: Task-Parallel Output Equivalence
 
-Date last modified: 2026/04/28
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -130,7 +130,7 @@ before Phase 2 enables concurrent execution.
 
 ### Requirement: Explicit Dependency-Graph Scheduling
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -143,8 +143,8 @@ input/output-file dependencies.
 
 Implicit dependence on the order of `steps_to_run` shall not be treated as a
 source of truth for scheduling. If an existing suite or task relied on serial
-ordering without declaring a true dependency, it is acceptable for `polaris
-run` to expose that bug.
+ordering without declaring a true dependency, it is acceptable for
+`polaris run` to expose that bug.
 
 Before starting execution, `polaris run` shall reject invalid dependency
 graphs, including cycles and cases where declared dependencies cannot be
@@ -152,7 +152,7 @@ satisfied.
 
 ### Requirement: Deterministic Ready-Step Selection
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -170,7 +170,7 @@ easy to interpret.
 
 ### Requirement: Resource-Aware Scheduling and Enforcement
 
-Date last modified: 2026/04/28
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -195,7 +195,7 @@ them concurrently without oversubscribing the available allocation.
 
 ### Requirement: Single-Step Execution in Phase 1
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -218,7 +218,7 @@ concurrency is enabled.
 
 ### Requirement: Future Parallel-Eligibility Metadata
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -241,7 +241,7 @@ unsafe or ineligible for task-parallel execution.
 
 ### Requirement: Observable Execution and Schedule Summaries
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -263,7 +263,7 @@ run summaries.
 
 ### Requirement: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -286,7 +286,7 @@ budget, on the order of roughly 40-50% and not much more.
 
 ### Desired: Frontier Support
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -296,9 +296,9 @@ Contributors:
 Frontier support and validation in Phase 1 would be valuable, even if it is
 not required.
 
-### Desired: Task-serial Summary
+### Desired: Task-Serial Summary
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -313,7 +313,7 @@ Phase 1.
 
 ### Algorithm Design: New Task-Parallel Command Path
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -326,22 +326,22 @@ artifacts, pickle files, work-directory discovery and user-facing scope as
 `polaris serial`, but it should route execution through a scheduler that owns
 the dependency graph, resource pool and step lifecycle.
 
-Phase 1 should stand up an allocation-scoped Dask Distributed environment
-before executing work. This environment should contain one Dask scheduler for
-the run and multiple single-threaded Dask worker processes per allocated node.
-All allocated nodes, including the node that hosts the scheduler and
-orchestrator, should be eligible to host workers. Dask Distributed is therefore
-a runtime dependency of `polaris run`.
+Phase 1 should stand up a Dask Distributed environment before executing work.
+The default local backend uses a local `distributed.LocalCluster`. On
+multi-node supported allocations, an allocation-scoped backend should launch
+one Dask scheduler and multiple single-threaded worker processes across the
+allocated nodes. Dask Distributed is therefore a runtime dependency of
+`polaris run`.
 
-Polaris should control the Dask scheduler and worker lifecycle directly rather
-than using `dask-mpi` as the primary orchestration mechanism. This keeps
-resource handoff policy in Polaris, avoids making the batch scheduler
-responsible for many small Python tasks, and leaves room for scheduler-specific
-MPI launch behavior to remain isolated in later phases.
+Polaris should control the Dask scheduler and worker lifecycle directly
+rather than using `dask-mpi` as the primary orchestration mechanism. This
+keeps resource handoff policy in Polaris, avoids making the batch scheduler
+responsible for many small Python tasks, and leaves room for
+scheduler-specific MPI launch behavior to remain isolated in later phases.
 
 ### Algorithm Design: Backward-Compatible Per-Step Execution Semantics
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -356,20 +356,20 @@ decide when a step is eligible to begin, but it should not change what it
 means for the step to run successfully.
 
 For atomic steps, the whole Polaris step is the scheduling unit. Phase 1
-should submit only one such step to Dask at a time. The step may run in a
-worker process, but it should preserve the same working directory, logging,
-environment and completion semantics as existing task-serial execution.
+should submit only one such step at a time. The step may run in a worker
+process or a subprocess when required by the existing step configuration, but
+it should preserve the same working directory, logging, environment and
+completion semantics as existing task-serial execution.
 
-Dask-aware non-MPI steps should be introduced with a separate execution hook
-rather than by changing the meaning of `run()`. A Dask-aware step should run
-coordinating code under the Polaris orchestrator with an assigned Dask client
-and resource lease, and that coordinating code may submit internal Dask work.
-This hook gives large Python steps a path to use multiple workers without
-changing ordinary step semantics.
+Dask-aware non-MPI steps should use a separate execution hook rather than
+changing the meaning of `run()`. A Dask-aware step should run coordinating
+code with an assigned Dask client and resource lease, and that coordinating
+code may submit internal Dask work. This hook gives large Python steps a path
+to use multiple workers without changing ordinary step semantics.
 
 ### Algorithm Design: Task-Parallel Output Equivalence
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -388,7 +388,7 @@ completed work.
 
 ### Algorithm Design: Explicit Dependency-Graph Scheduling
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -413,9 +413,13 @@ They should be treated as satisfied nodes when their expected completion or
 cached-output evidence is present, but their outputs should still be available
 for dependency reasoning.
 
+Shared steps should be identified by canonical work directory. If the same
+underlying step is selected by multiple tasks, the scheduler should execute it
+once and make all consumers depend on the same producer node.
+
 ### Algorithm Design: Deterministic Ready-Step Selection
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -434,7 +438,7 @@ steps into the available resource pool.
 
 ### Algorithm Design: Resource-Aware Scheduling and Enforcement
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -456,14 +460,11 @@ For non-MPI atomic steps that do not opt in to Dask-aware execution,
 and minimum core reservation for the step. `ntasks` and `min_tasks` should
 remain MPI-oriented fields. Non-MPI steps that need multiple workers should
 use the Dask-aware step hook and Dask-specific worker metadata rather than
-treating MPI task counts as non-MPI worker counts. The active execution
-backend determines which resource request is reserved: ordinary execution
-reserves the ordinary step resources, while Dask-aware execution reserves the
-CPU cores needed by the assigned Dask workers.
+treating MPI task counts as non-MPI worker counts.
 
 ### Algorithm Design: Single-Step Execution in Phase 1
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -477,7 +478,7 @@ top of the future task-parallel scheduler. The scheduler should repeatedly:
 - filter them by completion, cached status and resource feasibility,
 - choose the first ready step in deterministic order,
 - reserve resources for that step,
-- execute it through the `polaris run` Dask orchestration path, and
+- execute it through the `polaris run` orchestration path, and
 - release resources after the step succeeds or fails.
 
 No second step should be started while another step is active, even if it is
@@ -487,7 +488,7 @@ and Dask execution path are already real.
 
 ### Algorithm Design: Future Parallel-Eligibility Metadata
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -512,7 +513,7 @@ system.
 
 ### Algorithm Design: Observable Execution and Schedule Summaries
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -526,14 +527,22 @@ structured output should record schedule/resource events so Phase 2 and later
 debugging can reconstruct what happened without scraping free-form logs.
 
 Structured events should include at least graph construction, ready-step
-selection, resource reservation, Dask worker-pool state, step start, step
-finish, failure and resource release. These events should be sufficient to
-verify that Phase 1 did not accidentally run steps concurrently and that Phase
-2 does run eligible steps concurrently.
+selection, resource feasibility, resource reservation, Dask runtime state,
+step start, step finish, step failure, skipped or blocked steps and resource
+release. These events should be sufficient to verify that Phase 1 did not
+accidentally run steps concurrently and that Phase 2 does run eligible steps
+concurrently.
+
+Task and suite timing should be distinct. Suite runtime should be wall-clock
+time for the whole run. A task runtime reported by `polaris run` should be the
+sum of measured runtimes for that task's selected steps. If a shared step is
+used by multiple tasks, its measured runtime should contribute to each task
+that references it, reflecting the time that task would have taken if it were
+run in isolation.
 
 ### Algorithm Design: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -541,9 +550,10 @@ Contributors:
 - Codex
 
 The Phase 1 algorithm should assume the batch scheduler provides a fixed
-allocation, while Polaris manages Dask worker resources inside that allocation.
-Machine-specific differences should be confined to allocation discovery, job
-script generation, worker launch details and later MPI launch behavior.
+allocation, while Polaris manages Dask worker resources inside that
+allocation. Machine-specific differences should be confined to allocation
+discovery, job script generation, worker launch details and later MPI launch
+behavior.
 
 On Slurm systems such as Chrysalis and Perlmutter, the design should avoid
 using a scheduler-launched job step for every small Python step. On PBS-based
@@ -552,7 +562,7 @@ the conceptual target even if worker launch details differ.
 
 ### Algorithm Design: Frontier Support
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -563,9 +573,9 @@ N/A for Phase 1. Frontier validation is desired, but it does not change the
 core Phase 1 algorithm beyond the cross-machine portability choices described
 above.
 
-### Algorithm Design: Task-serial Summary
+### Algorithm Design: Task-Serial Summary
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/23
 
 Contributors:
 
@@ -580,515 +590,32 @@ validation status. They do not need Dask worker or resource-pool events.
 
 ### Implementation: New Task-Parallel Command Path
 
-Date last modified: 2026/05/18
+Date last modified: 2026/05/23
 
 Contributors:
 
 - Xylar Asay-Davis
 - Codex
 
-The first implementation chunk shall declare Dask Distributed as a Polaris
-runtime dependency. The pixi deployment template is the source of truth for
-the development and supported deployment environments, so `dask` and
-`distributed` shall be added to `deploy/pixi.toml.j2`.
-
-Matching entries shall also be added to `pyproject.toml` so package metadata
-and `pip check` can verify that the Python dependency set is complete. Polaris
-is not expected to run from PyPI dependencies alone; the `pyproject.toml`
-entries are a consistency check rather than the deployment source of truth.
-
-This chunk shall not introduce `polaris run`, Dask lifecycle management, or
-changes to `polaris serial`. Those will be implemented in later, separately
-reviewed commits.
-
-The second implementation chunk shall extract command-independent pieces of
-the existing `polaris serial` implementation into shared run infrastructure.
-The extracted helpers shall cover suite unpickling, runtime config setup,
-dependency loading, completion markers, step-list selection, task logging and
-status accumulation, completed-step validation marker reads, per-step
-lifecycle execution, subprocess step execution and pull-request summary
-generation.
-
-`polaris serial` shall import and use these shared helpers without changing
-its command line, work-directory discovery or runtime behavior. This chunk is
-intended to make the next `polaris run` commit small: the new command should
-be able to reuse the same task and step lifecycle helpers rather than
-depending on private functions inside `polaris.run.serial`.
-
-The third implementation chunk shall add a thin `polaris run` command
-skeleton. The command shall be wired into the top-level Polaris CLI and shall
-mirror `polaris serial` work-directory discovery for suites, tasks and single
-steps. In this chunk, `polaris run` shall still execute task-serially through
-the shared task and step lifecycle helpers; it shall not yet start a Dask
-client, build a dependency graph or change setup-generated job scripts.
-
-The fourth implementation chunk shall add the first Dask Distributed
-lifecycle wrapper for `polaris run`. The command shall start one local Dask
-cluster and client for each suite, task or single-step run, using
-single-threaded workers capped to the local node's available core count. This
-chunk shall not yet launch workers across all nodes in a multi-node
-allocation; parallel-system-aware multi-node worker launch shall come with the
-later scheduler and resource-management work. The client shall be passed
-through the shared run helpers so later Dask-aware hooks can use it, but this
-chunk shall keep the existing task-serial step loop and shall not run more
-than one Polaris step at a time. The Dask client and cluster shall be closed
-on normal completion and on failure.
-
-The fifth implementation chunk shall add conservative step execution metadata
-and the first Dask-aware step hook. Each step shall have an execution kind
-that is derived as MPI when the step requests more than one task, requires
-more than one task, or uses command-line parallel arguments. Step authors may
-override the derived execution kind when the conservative default is wrong.
-Non-MPI steps shall be considered eligible for future concurrent scheduling by
-default, with an opt-out flag for steps that are not safe to run concurrently.
-
-This chunk shall also add Dask-specific worker metadata to each step and a
-lightweight step resource lease with assigned cores and Dask workers, plus
-optional fields for later node, GPU and memory accounting. Ordinary resource
-fields such as `cpus_per_task` shall describe the non-Dask execution resource
-request. `dask_workers` and `min_dask_workers` shall describe the Dask-aware
-execution resource request, and those workers still represent CPU cores that
-must be reserved while the Dask-aware step is active. When `polaris run`
-executes a Python step with a Dask client, it shall call
-`run_with_dask(client, resources)`. The default implementation of that hook
-shall fall back to `run()`, so ordinary step behavior remains unchanged unless
-a step opts in to Dask-aware behavior.
-
-The sixth implementation chunk shall convert the WOA23 hydrography combine
-step into the first Dask-aware pilot. The ordinary `run()` path shall continue
-to combine the January and annual WOA climatologies and convert TEOS-10 fields
-serially. The new `run_with_dask()` path shall keep the same input/output
-contract but submit conservative-temperature and absolute-salinity conversion
-work per depth slice to the active Dask client, then gather and reassemble
-results in deterministic depth order before writing `woa_combined.nc`.
-
-The seventh implementation chunk shall add the first scheduler graph module
-without routing `polaris run` through it yet. The module shall inventory
-selected task steps in stable suite/task/step order, preserve cached and
-already completed selected steps as graph nodes, add directed edges from
-explicit `Step.dependencies`, and reject graphs with cycles. If a selected
-step has an explicit dependency that is not itself selected, graph
-construction shall require that dependency to already be satisfied by cache or
-an existing completion marker and shall keep that satisfied dependency as an
-unselected graph participant.
-
-The eighth implementation chunk shall extend scheduler graph construction to
-derive dependency edges from declared step input and output files. File paths
-shall be resolved to absolute paths before matching. If a selected step
-consumes a file produced by another selected step, the producing step shall be
-a graph predecessor regardless of the selected-step order. Existing input
-files with no selected producer shall be treated as external satisfied inputs.
-Missing declared inputs shall be rejected unless they are produced by a
-selected step or by an unselected cached or already completed step that can be
-kept in the graph as a satisfied participant.
-
-The ninth implementation chunk shall introduce a scheduler resource-pool
-model for the existing `available_resources` metadata. The pool shall track
-logical nodes, CPU cores and GPUs and shall support reserving and releasing
-step resource requests. Step resource requests shall be derived without
-mutating the step, using the same feasibility constraints as
-`Step.constrain_resources()` for MPI availability, CPU core limits and GPU
-limits. This chunk shall not change the existing per-step
-`constrain_resources()` lifecycle call; it shall make the scheduler able to
-reject impossible minimum CPU/GPU requirements before starting a step and to
-account for reservations in later scheduler integration commits.
-
-The tenth implementation chunk shall route task-scope `polaris run` through
-the scheduler while keeping suite-scope `polaris run`, `polaris serial` and
-single-step runs unchanged. The task scheduler shall build the dependency
-graph, choose selected steps in deterministic topological order, skip cached
-and already completed selected steps, reserve one step's resources at a time,
-execute that step through the existing shared lifecycle helpers and release
-the reservation in a `finally` block. This preserves the Phase 1 single-active
-step policy while proving that task-scope `polaris run` now depends on graph
-validity and resource feasibility rather than on a serial selected-step loop.
-
-The eleventh implementation chunk shall route suite-scope `polaris run`
-through the same per-task scheduler runner while preserving the existing suite
-task loop, per-task logs and aggregate pass/fail accounting. Each scheduled
-task shall write a human-readable selected-order summary to its normal task
-output and a `schedule_events.jsonl` file in the task work directory. The
-structured events shall record graph construction, ready selection, skipped
-cached/completed steps, resource reservation, step start, step finish/failure
-and resource release. These events shall include an active-step count so tests
-and developers can verify that Phase 1 keeps only one Polaris step active at
-a time. This chunk shall continue to use the existing Dask lifecycle
-abstraction; replacing the current local Dask deployment with an
-allocation-scoped scheduler and workers remains later Phase 1 work.
-
-The twelfth implementation chunk shall add an explicit setup-time opt-in for
-generated job scripts to use `polaris run`. The `polaris setup` and
-`polaris suite` commands shall accept `--run_command` with choices `serial`
-and `run`, defaulting to `serial`. Generated job scripts shall continue to run
-`polaris serial` unless the user opts in to `--run_command run`, in which case
-task and step scripts shall run `polaris run` and suite scripts shall run
-`polaris run <suite>`. This chunk shall reuse the existing
-`write_job_script()` custom-command hook rather than changing the default
-behavior of direct `write_job_script()` calls.
-
-The thirteenth implementation chunk shall abstract the Dask runtime backend
-behind a small backend-selection API. The default backend remains the local
-`distributed.LocalCluster` lifecycle from earlier Phase 1 work, with
-single-threaded workers capped to the local available core count. The
-selected backend shall attach structured runtime metadata to the Dask client
-so scheduler summaries can record the backend name and worker count without
-assuming a specific client implementation. Unknown backend names shall be
-rejected explicitly; allocation-scoped planning and launch remain later
-Phase 1 work.
-
-The fourteenth implementation chunk shall add an allocation-scoped Dask
-launch-plan model without replacing the current local runtime lifecycle. The
-plan shall place the Dask scheduler on logical node 0, distribute
-single-threaded Dask workers across allocation nodes according to
-`cores_per_node`, preserve GPU-per-node metadata when it is available, and
-mark single-node or unsupported launch situations as local fallbacks. This
-chunk shall validate launch planning from the existing `available_resources`
-metadata only; actual scheduler and worker process launch remains later Phase
-1 work.
-
-The fifteenth implementation chunk shall add the first multi-node-capable
-Dask runtime lifecycle behind the backend abstraction. The automatic backend
-selector shall use the allocation backend when the launch plan is multi-node
-and a process launcher is available from the active `mache` parallel system;
-otherwise it shall preserve the local backend fallback. The allocation backend
-shall launch a Dask scheduler process, wait for scheduler connection metadata,
-launch Dask workers through a pluggable launcher, create a Dask client from
-the scheduler metadata and clean up the client, workers and scheduler on
-normal completion or failure. Unit tests shall use fake launchers and clients;
-real multi-node validation remains a manual/system activity.
-
-The sixteenth implementation chunk shall add suite-wide scheduler execution.
-Suite-scope `polaris run` shall prepare all selected task step lists, build
-one scheduler graph across all selected tasks, preserve explicit and
-file-derived dependencies across task boundaries, and execute selected nodes
-from that suite graph in deterministic topological order. Phase 1 shall still
-run only one Polaris step at a time. Per-task logs, completion markers,
-structured schedule-event files and aggregate suite pass/fail summaries shall
-remain available.
-
-The seventeenth implementation chunk shall harden schedule observability and
-failure semantics. The human-readable selected-order summary and
-`schedule_events.jsonl` files shall include wait reasons, resource-feasibility
-decisions, skip reasons, result status, Dask backend state and active-step
-counts. Suite-wide scheduling shall not run a selected step after one of its
-dependencies has failed or been blocked. Instead, the dependent step shall be
-marked as blocked so the failure cause remains visible without confusing it
-with an independent execution failure. Tests shall verify failures,
-completed-step reruns, cached steps, blocked dependents and the Phase 1
-single-active-step policy across a suite graph.
-
-The eighteenth implementation chunk shall add lightweight Phase 1 validation
-helpers and documentation. These helpers shall parse scheduler event files,
-summarize whether the scheduler and Dask orchestration paths were used, and
-verify that active-step counts do not exceed the Phase 1 single-step policy.
-Documentation shall describe how to compare `polaris run` with
-`polaris serial`, where to find scheduler artifacts and which heavy
-machine-specific checks remain manual/system validation.
-
-The nineteenth implementation chunk shall harden shared-step scheduling
-semantics. When the same underlying step work directory is selected through
-multiple tasks, repeated `Step` object references or symlinked aliases, the
-scheduler graph shall represent that producer once. Downstream explicit
-dependencies and declared input/output-file dependencies shall point to the
-canonical selected producer so the shared step runs once while all consumers
-still wait for it.
-
-The twentieth implementation chunk shall harden cached and completed-step
-rerun semantics. Cached and already completed selected steps shall remain
-first-class graph nodes with explicit skip events that say they satisfy
-dependencies. Already completed steps shall report existing baseline and
-property marker status in the structured schedule events. Selected downstream
-steps shall continue to run after cached or completed producers, and steps
-that do run shall continue to create completion markers, validation markers
-and `step_after_run.pickle` files through the existing shared lifecycle.
-
-The twenty-first implementation chunk shall harden failure and blocked
-dependency semantics. Task-scope and suite-scope scheduler runs shall both
-record failed steps, release their resource reservations, block selected
-dependent steps and keep independent ready steps eligible to run. Task-scope
-runs shall still raise the original execution failure after the scheduler has
-recorded blocked dependents, preserving the existing caller-facing failure
-contract. The Dask runtime context shall continue to clean up when the
-scheduler path raises.
-
-The twenty-second implementation chunk shall improve resource and backend
-diagnostics. Resource feasibility events shall report whether a request is
-feasible or infeasible, resource wait reason, free and total resource counts,
-minimum and requested resources when available, and any resource shortfalls.
-Reservation and release events shall also record free and total resource
-counts after the transition. Dask runtime events shall include backend
-selection, worker count, scheduler address when available, planned scheduler
-node, worker placement, total planned cores and GPUs, and any local-fallback
-reason.
-
-## Testing
-
-### Testing and Validation: New Task-Parallel Command Path
-
-Date last modified: 2026/05/18
-
-Contributors:
-
-- Xylar Asay-Davis
-- Codex
-
-The dependency declaration chunk shall be validated by importing `dask` and
-`distributed` from the deployed pixi environment, running `pip check` in that
-environment, and running pre-commit on the changed files.
-
-The shared-infrastructure refactor shall be validated with focused unit tests
-for step selection, validation marker reads and status accumulation. Existing
-targeted tests shall also be run to catch import or runtime regressions from
-moving helpers out of `polaris.run.serial`. Pre-commit shall be run on all
-changed files.
-
-The thin-command skeleton shall be validated with unit tests for top-level CLI
-dispatch, `polaris run --help` and suite/task/step work-directory scope
-detection. Existing targeted tests shall also be run to confirm the new command
-does not regress the shared serial execution helpers.
-
-The Dask lifecycle chunk shall be validated with unit tests that fake the
-Dask `Client` and `LocalCluster` classes to verify worker-count selection and
-cleanup without launching real workers. Focused run-command tests shall verify
-that `polaris run` creates one Dask lifecycle around task execution and passes
-the client to the shared task helper. Shared run-helper tests shall verify
-that the existing step loop remains single-active-step even when a Dask client
-is available.
-
-The step-metadata chunk shall be validated with unit tests for default
-execution-kind classification, MPI classification from task counts and
-command-line parallel arguments, explicit overrides, invalid overrides,
-non-MPI task-parallel opt-out behavior and the default `run_with_dask()`
-fallback. Resource-lease tests shall cover assigned cores, workers and
-placeholder fields for future scheduler accounting. Shared run-helper tests
-shall verify that `polaris run` uses `run_with_dask()` when a Dask client is
-available.
-
-The WOA23 Dask-aware pilot shall be validated with the existing helper tests
-and a synthetic local-client test that writes tiny WOA-like NetCDF files,
-runs `CombineStep.run_with_dask()` and verifies that the resulting
-`woa_combined.nc` matches the serial helper output. The unit test shall not
-require downloading the full WOA23 dataset.
-
-The first scheduler graph chunk shall be validated with focused unit tests for
-stable selected-step inventory, cached and already completed graph-node
-status, explicit dependency edges, unsatisfied dependencies and cycle
-rejection. Because this chunk is not wired into `polaris run`, the runtime
-command-path behavior shall remain covered by the existing run-command and
-shared lifecycle tests.
-
-The file-dependency graph chunk shall add tests for selected output to
-selected input edges, already existing external inputs, missing declared
-inputs, cached/completed unselected file providers and the absence of implicit
-dependencies from `steps_to_run` order alone.
-
-The resource-pool chunk shall add tests for deriving scheduler resource
-requests from step CPU/GPU metadata, minimum CPU and GPU feasibility failures,
-and reservation/release accounting for CPU cores, nodes and GPUs.
-
-The task-scheduler integration chunk shall add tests showing that task-scope
-`polaris run` selects the scheduler-backed task runner while suite-scope runs
-continue to use the shared serial task helper. Scheduler runner tests shall
-verify dependency-graph order and Phase 1 single-active-step behavior while
-still invoking the existing step lifecycle helper with the active Dask client.
-
-The suite-scheduler and observability chunk shall update run-command tests to
-verify that suite-scope tasks also receive the scheduler-backed runner.
-Scheduler tests shall verify that structured schedule events are written,
-that ready selections follow dependency order and that active-step counts in
-the events never exceed one.
-
-The setup opt-in chunk shall add tests for the generated run-command helper
-and for `polaris setup` and `polaris suite` CLI parsing. These tests shall
-verify that job scripts default to `polaris serial` and switch to `polaris run`
-only when `--run_command run` is provided.
-
-The Dask runtime backend abstraction chunk shall add unit tests showing that
-the local backend is selected by default, reports the selected backend and
-worker count, rejects unsupported backend names and closes both the Dask
-client and cluster on success and failure. Scheduler tests shall verify that
-`schedule_events.jsonl` records Dask backend metadata when the active client
-was created by a Polaris Dask runtime backend.
-
-The allocation-scoped Dask launch-planning chunk shall add unit tests for
-single-node fallback, unsupported-launch fallback, multi-node CPU worker
-placement, partial-node CPU allocations and GPU-per-node metadata. These tests
-shall exercise only pure planning logic and shall not require a real batch
-scheduler allocation.
-
-The multi-node-capable Dask lifecycle chunk shall add tests for automatic
-allocation-backend selection when a launcher is available, local fallback when
-it is not, worker launch through a fake `mache` parallel system, and cleanup
-of scheduler, worker and client resources on success and failure. These tests
-shall not require Slurm, PBS or multiple allocated nodes.
-
-The suite-wide scheduler chunk shall add tests for cross-task explicit
-dependencies, cross-task file-derived dependencies and a synthetic suite run
-where dependency order differs from suite task order. The synthetic suite test
-shall verify that the suite graph, not the outer task loop, chooses execution
-order while preserving per-task schedule-event files and aggregate task
-results.
-
-The observability and failure-semantics chunk shall add tests for failed steps
-that block dependents without blocking independent ready steps. It shall also
-verify that completed and cached steps are recorded as skipped with explicit
-result status, that resource-feasibility and Dask runtime events are present,
-and that suite-wide active-step counts never exceed one.
-
-The validation-helper chunk shall add unit tests for parsing scheduler
-event files, summarizing scheduler/Dask evidence, rejecting missing required
-events and detecting active-step counts that violate the Phase 1 policy.
-
-The shared-step hardening chunk shall add synthetic tests for repeated shared
-step objects, symlinked shared step work directories and suite execution where
-multiple selected tasks consume the same shared producer. These tests shall
-verify that the graph contains a single producer node, that consumers have an
-edge from that producer and that suite execution runs the shared step once.
-
-The cached/completed rerun chunk shall add tests for mixed rerun scenarios in
-which cached and already completed producers are skipped but selected
-downstream steps still run. It shall also test that executed scheduler steps
-write completion markers, validation markers and dependency pickle files in
-the same way as the shared serial step lifecycle.
-
-The failure and blocked-dependency chunk shall add tests for task-scope and
-suite-scope failures. These tests shall verify that failed steps release
-resources, selected dependents are blocked, independent selected steps can
-still run where graph dependencies allow and the `polaris run` Dask lifecycle
-is closed when scheduler execution raises.
-
-The resource/backend diagnostics chunk shall add tests for feasible and
-infeasible scheduler resource events, local and allocation Dask runtime
-metadata, scheduler-address recording and validation-helper parsing of the
-expanded Dask runtime fields.
-
-The representative synthetic-suite chunk shall add compact end-to-end
-workflows that run through the same step lifecycle as production tasks while
-remaining independent of E3SM input datasets. These tests shall compare
-`polaris serial`-style task execution with suite-wide `polaris run`
-scheduling for output files, task logs, completion markers, dependency
-pickles, cached producers, completed producers, validation markers, shared
-steps and resource reservations. A separate synthetic failure suite shall
-verify that failed producers block dependent selected steps while independent
-selected steps still run.
-
-The job-script hardening chunk shall add dry-run tests for Slurm and PBS
-rendering that verify default `polaris serial` behavior and explicit
-`--run_command run` opt-in behavior for suite scripts. These tests shall check
-the batch metadata and rendered run commands without submitting jobs. Manual
-machine validation should still confirm the generated scripts on each target
-HPC system, including environment loading, allocation sizing and the presence
-of `schedule_events.jsonl` files after `polaris run` completes.
-
-The real-task equivalence chunk shall document a routine custom-suite
-validation based on:
-
-```none
-mesh/spherical/icos/base_mesh/240km/task
-e3sm/init/icos240km/topo/remap
-e3sm/init/icos240km/topo/cull
-```
-
-This validation shall run the task set once with `polaris serial`, set up an
-equivalent `polaris run` work directory with the serial output as the baseline
-directory, run the scheduler path, then immediately rerun the scheduler path.
-The first scheduler run shall validate outputs, task logs, completion markers,
-validation markers, cached steps and Dask-backed scheduler artifacts. The
-second scheduler run shall verify already-completed and cached-step behavior.
-The expected scheduler artifacts are one `schedule_events.jsonl` file per task,
-a recorded Dask runtime event in each file and active-step counts that satisfy
-the Phase 1 single-step policy. Larger data-dependent tasks, including global
-hydrography tasks that exercise Dask-aware Python step implementations, remain
-optional manual/system validation until they are cheap enough for routine
-developer checks.
-
-The representative-suite subset chunk shall document validation of predefined
-ocean suites, especially `omega_pr`, `omega_nightly` and `mpaso_pr`. When the
-full suite is too expensive or unavailable on a machine, the validation may use
-a custom `polaris setup` subset drawn from the corresponding suite file. The
-validation record shall include the machine, model build, suite or subset name,
-selected task list, final task-runtime table and the schedule-event summary.
-The expected result is that suite-wide `polaris run` preserves dependency
-order, aggregate pass/fail status and task logs while every task event file
-records Dask runtime metadata and satisfies the Phase 1 single-active-step
-policy. Failures in full-suite validation should be categorized as scheduler
-regressions, model/task failures, missing data, machine-environment issues or
-known unsupported tasks.
-
-The overhead-measurement chunk shall extend the structured schedule-event
-summary with event counts and summed durations from started steps, using
-successful `step_finish` events and failed `step_failure` events. Validation
-should record serial suite wall time, scheduler suite wall time and summed
-started-step runtime from the event summary. The difference between scheduler
-wall time and summed started-step runtime should be interpreted as Phase 1
-overhead plus inter-step idle time. Expected overhead sources include Dask
-startup and shutdown, graph construction, runtime config reloads, resource
-feasibility and reservation bookkeeping, structured event writing and extra
-schedule-summary output. These measurements are intended to detect unexpected
-semantic or orchestration regressions; Phase 1 is not expected to demonstrate
-speedup.
-
-The final documentation chunk shall update user-facing docs to explain when to
-use `polaris serial`, when to opt in to `polaris run`, how generated job
-scripts select the execution command and what scheduler artifacts users may
-see in task work directories. Developer-facing docs shall explain the
-step-level meaning of task parallelism, scheduler graph and schedule-event
-semantics, resource modeling, Dask-aware step execution, local versus
-allocation-scoped Dask backends and common troubleshooting paths for missing
-inputs, infeasible resources, failed dependencies and backend startup or
-fallback. These docs shall cross-link the umbrella task-parallelism design and
-the Phase 1 design so the rollout is discoverable outside the design-doc
-directory.
-
-### Testing and Validation: Phase-1 Scheduler and Graph
-
-Date last modified: 2026/05/14
-
-Contributors:
-
-- Xylar Asay-Davis
-- Codex
-
-Unit tests should cover graph construction from explicit dependencies and
-input/output file relationships, including cycles, missing producers,
-completed steps, cached steps, skipped steps and already satisfied external
-inputs. Tests should verify that `steps_to_run` affects deterministic order
-but does not create implicit dependencies.
-
-Scheduler tests should cover deterministic ready-step selection, invalid
-resource requests and single-active-step enforcement. Synthetic workflows
-should include independent branches, shared dependencies and intentionally
-failed steps.
-
-### Testing and Validation: Phase-1 Execution Equivalence
-
-Date last modified: 2026/05/14
-
-Contributors:
-
-- Xylar Asay-Davis
-- Codex
-
-Integration tests should compare `polaris run` with `polaris serial` for
-suites, tasks and individual steps. These tests should verify equivalent
-outputs, runtime input failures, per-step logs, completion markers,
-`step_after_run.pickle` behavior, baseline/property markers and rerun
-behavior.
-
-Representative suite validation should include `omega_pr`, `omega_nightly`
-and `mpaso_pr` on Chrysalis, Perlmutter and Aurora where available. The
-structured schedule summary should confirm that Phase 1 ran through the Dask
-orchestration path while keeping only one step active at a time.
-
-Phase 1 validation should treat task and suite timing as distinct metrics.
-Task runtime should eventually be reported as the sum of the runtime of the
-steps that actually ran for that task, while suite runtime should remain the
-wall-clock duration of the whole suite run. Until that summary behavior is
-hardened, validation should rely on per-step runtime lines and structured
-step start/finish/failure events when comparing `polaris run` and
-`polaris serial` timing.
-
-### Phase 1 Acceptance and Phase 2 Handoff
+Dask Distributed is part of the Polaris runtime dependency set. The
+`polaris.run.parallel` module implements the `polaris run` command path and
+shares command-independent lifecycle helpers with `polaris serial` through
+`polaris.run.shared`. These shared helpers cover suite unpickling, runtime
+configuration setup, dependency loading, step selection, completion markers,
+task logging, status accumulation, per-step lifecycle execution, subprocess
+step execution and pull-request summary generation.
+
+`polaris run` is wired into the top-level Polaris CLI and mirrors
+`polaris serial` scope detection for suites, tasks and individual steps. The
+command starts one Dask runtime for the run, then passes the active Dask client
+to scheduler and step lifecycle helpers.
+
+Generated job scripts remain task-serial by default. `polaris setup` and
+`polaris suite` accept `--run_command` with choices `serial` and `run`. When
+`--run_command run` is selected, task and step scripts run `polaris run` and
+suite scripts run `polaris run <suite>`.
+
+### Implementation: Backward-Compatible Per-Step Execution Semantics
 
 Date last modified: 2026/05/23
 
@@ -1097,46 +624,511 @@ Contributors:
 - Xylar Asay-Davis
 - Codex
 
-Phase 1 is accepted when the branch satisfies the following checklist:
+The scheduler executes each started step through the same shared lifecycle
+used by `polaris serial`. Runtime configuration is reloaded before the step
+runs, runtime dependencies are refreshed from post-run pickle files,
+resources are constrained, `runtime_setup()` is called, command-line or Python
+step execution is performed, outputs are checked, validation hooks run and
+completion markers are written.
 
-- Commands: `polaris run` supports suite, task and single-step execution, while
-  `polaris serial` remains available and unchanged as the default generated
-  command path. `polaris setup --run_command run` and
-  `polaris suite --run_command run` opt generated job scripts into the
-  scheduler path.
-- Scheduler semantics: the scheduler builds a dependency graph from explicit
-  step dependencies and declared input/output relationships, rejects invalid
-  graphs, chooses ready steps deterministically and preserves Phase 1
-  single-active-step execution.
-- Dask lifecycle: local and allocation-scoped Dask backends start once per
-  `polaris run` invocation, record runtime metadata, make the active client
-  available to Dask-aware steps and subprocess steps, write backend logs to a
-  dedicated `dask_runtime.log` file and shut down cleanly at run completion.
-- Resource accounting: scheduler decisions use step CPU, node and GPU
-  requirements; infeasible minimum requests fail clearly rather than silently
-  weakening resource constraints. The resource model is sufficient for Phase 2
-  to pack multiple ready non-MPI steps without replacing the graph builder.
-- Observability: each task records `schedule_events.jsonl` with graph,
-  selection, wait-reason, resource, Dask-runtime, step-timing and final-status
-  events. The validation helper can confirm scheduler-path use, Dask-runtime
-  use and the Phase 1 single-active-step invariant.
-- Validation status: unit tests, synthetic integration tests, real-task
-  scheduler-path checks and representative-suite system checks are documented.
-  Expensive or machine-specific suites may remain manual validation items.
+Steps that require subprocess execution keep that behavior under
+`polaris run`. The parent run passes the active Dask scheduler address through
+the `POLARIS_DASK_SCHEDULER_ADDRESS` environment variable so the subprocess
+can connect to the existing Dask runtime instead of starting a nested runtime.
 
-The recorded machine validation status at the end of Phase 1 is:
+Dask-aware steps can implement `run_with_dask(client, resources)`. The default
+implementation falls back to `run()`, so ordinary step behavior does not
+change unless a step opts in. The WOA23 hydrography combine step currently
+provides a Dask-aware implementation, but it remains an expensive manual
+validation target rather than a routine regression test.
 
-- Chrysalis: primary development and system-validation target. Real-task
-  custom icosahedral/topography workflows and `omega_pr` scheduler-path runs
-  have passed, including Dask runtime startup, subprocess-client reuse,
-  dedicated Dask logging and graceful Dask shutdown. Additional suites should
-  still be run before a release candidate.
+### Implementation: Task-Parallel Output Equivalence
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Baseline and property comparisons remain part of the normal shared step
+lifecycle. Scheduler results aggregate task execution status, baseline status
+and property status using the same markers used by `polaris serial`.
+
+Cached and already completed selected steps remain graph participants. They
+are skipped at execution time, emit explicit structured skip events and can
+contribute existing baseline and property marker status to task summaries.
+Downstream selected steps can therefore rely on cached or completed producers
+without forcing reruns.
+
+### Implementation: Explicit Dependency-Graph Scheduling
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+`polaris.run.scheduler` defines `SchedulerNode`, `SchedulerGraph`,
+`build_scheduler_graph()`, `run_task()` and `run_suite()`. The graph builder
+inventories selected steps in stable suite/task/step order, preserves cached
+and already completed selected steps as graph nodes, adds edges from explicit
+`Step.dependencies` and adds edges from declared input/output file
+relationships. File paths are resolved to canonical absolute paths before
+matching.
+
+Unselected cached or completed dependencies may appear as satisfied graph
+participants. Existing input files with no selected producer are treated as
+external satisfied inputs. Missing declared inputs are rejected unless they
+are produced by a selected step or by an unselected cached or already
+completed step. Cycles are rejected before execution.
+
+Shared-step handling uses the canonical step work directory as the step
+identity. Repeated selected step objects and symlinked aliases are represented
+by one producer node, and all explicit or file-derived consumers point to that
+node.
+
+### Implementation: Deterministic Ready-Step Selection
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+The graph stores an inventory order for every selected or satisfied node. The
+scheduler uses deterministic topological ordering based on dependency
+constraints and that stable inventory order. `steps_to_run` therefore affects
+tie-breaking among otherwise ready steps but does not create dependency edges.
+
+Suite-scope `polaris run` builds one scheduler graph across all selected
+tasks. This lets cross-task explicit dependencies and file-derived
+dependencies affect order directly, rather than relying on an outer suite task
+loop.
+
+### Implementation: Resource-Aware Scheduling and Enforcement
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+`polaris.run.resources` provides resource-request and resource-pool helpers.
+The scheduler derives step resource requests from step CPU, node, GPU and MPI
+metadata without mutating the step. It checks minimum feasibility before
+starting a step, reserves resources for the active step, records the
+reservation, and releases the reservation in a `finally` block.
+
+Resource feasibility, reservation and release are recorded in structured
+events. These events include requested and minimum resources when available,
+free and total resource counts, infeasible shortfalls and result status.
+
+The Dask runtime backend also records planned worker resources. The local
+backend uses single-threaded local workers. The allocation backend plans a
+single Dask scheduler and single-threaded workers distributed across the
+allocation, using physical core counts from the active machine resource model.
+
+### Implementation: Single-Step Execution in Phase 1
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+The Phase 1 scheduler uses a single-active-step policy in both task-scope and
+suite-scope runs. It never starts a second Polaris step while another step is
+active. The active-step count is maintained in the scheduler and recorded in
+`schedule_events.jsonl` as both per-task and suite-wide active-step metadata.
+
+Failed steps release resources, record failure events and block selected
+dependents. Independent selected steps remain eligible to run if their
+dependencies are satisfied. Task-scope runs re-raise the original execution
+failure after the scheduler has recorded blocked dependents; suite-scope runs
+preserve aggregate pass/fail status and task log reporting.
+
+### Implementation: Future Parallel-Eligibility Metadata
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Step execution-kind metadata distinguishes MPI-style steps from non-MPI
+steps. The default classification is conservative: steps that request more
+than one MPI task, require more than one MPI task or use command-line parallel
+arguments are treated as MPI. Step authors can override the derived execution
+kind when the default is wrong.
+
+Non-MPI steps are considered eligible for future concurrent execution by
+default. Step authors can mark a non-MPI step ineligible when it has shared
+mutable state, external side effects, uncontrolled process launching or other
+behavior that should remain serialized in Phase 2.
+
+### Implementation: Observable Execution and Schedule Summaries
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Each task work directory gets a `schedule_events.jsonl` file when it is run
+through the scheduler. These JSON-lines files record graph construction, Dask
+runtime metadata, ready selection, wait reasons, resource feasibility,
+resource reservation, step start, step finish, step failure, skipped or
+blocked steps, and resource release.
+
+Task logs include a human-readable selected-order summary with node status and
+wait reason. The main suite log reports per-step runtime lines, per-task
+execution status and final task-runtime summaries.
+
+Task runtime summaries in `polaris run` are computed as the sum of measured
+durations for each task's selected steps. Shared steps are still executed once
+but are counted in the runtime of each task that references them. Suite
+runtime remains the wall-clock duration of the whole run.
+
+Allocation-scoped Dask scheduler and worker output is written to
+`dask_runtime.log` in the run work directory. This keeps useful backend
+debugging output available without obscuring the main Polaris log with normal
+Dask lifecycle messages.
+
+The `polaris.run.validation` module provides helpers for parsing scheduler
+event files, summarizing scheduler and Dask evidence, counting events,
+summing started-step durations and verifying that active-step counts satisfy
+the Phase 1 single-step policy.
+
+### Implementation: Cross-Machine Phase-1 Functionality
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Dask runtime selection is abstracted behind backend classes. The automatic
+selection path uses the allocation backend when the available resources
+represent a multi-node allocation and a process launcher is available from
+the active `mache` parallel system. Otherwise it falls back to the local
+backend and records the fallback reason.
+
+The allocation backend launches the Dask scheduler as a subprocess, writes a
+scheduler metadata file, launches workers through a pluggable process
+launcher, creates a Dask client from the scheduler metadata, and shuts down
+the client, workers and scheduler at the end of the run. On Slurm systems,
+the worker command is launched through the active parallel system rather than
+launching one batch step per Polaris step.
+
+The implementation has been exercised most heavily on Chrysalis. Perlmutter
+and Aurora remain required validation targets for the broader rollout.
+
+### Implementation: Frontier Support
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+No Frontier-specific implementation is required for Phase 1. Any
+Frontier-specific work should be limited to the same machine-resource,
+job-script and Dask-worker launch abstractions used by the required
+cross-machine targets.
+
+### Implementation: Task-Serial Summary
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+No task-serial schedule-summary implementation is required for Phase 1.
+`polaris serial` continues to use its existing log and runtime summaries.
+
+## Testing
+
+### Testing and Validation: New Task-Parallel Command Path
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Unit tests cover top-level CLI dispatch, `polaris run --help`, suite/task/step
+work-directory discovery, `polaris run` Dask lifecycle creation and client
+propagation, and generated job-script command selection. Setup and suite tests
+verify that job scripts default to `polaris serial` and switch to
+`polaris run` only when `--run_command run` is provided.
+
+Dependency metadata is validated by importing `dask` and `distributed` from
+the deployed pixi environment and by running `pip check` in that environment.
+Pre-commit is run on changed files.
+
+### Testing and Validation: Backward-Compatible Per-Step Execution Semantics
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Shared run-helper tests cover step selection, completion marker behavior,
+validation marker reads, status accumulation, subprocess step execution and
+Dask-client propagation. Scheduler tests verify that both task-scope and
+suite-scope `polaris run` still invoke the shared step lifecycle helpers with
+the active Dask client.
+
+Synthetic integration tests compare serial-style task execution with
+scheduler execution for output files, task logs, completion markers,
+dependency pickles, cached producers, completed producers, validation markers
+and shared steps.
+
+### Testing and Validation: Task-Parallel Output Equivalence
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Unit and synthetic tests verify that scheduler execution preserves completion
+markers, `step_after_run.pickle`, baseline markers and property markers. They
+also verify that cached and completed producers are skipped with explicit
+events while downstream selected steps still run.
+
+Real-task validation on Chrysalis has used a small custom suite containing:
+
+```none
+mesh/spherical/icos/base_mesh/240km/task
+e3sm/init/icos240km/topo/remap
+e3sm/init/icos240km/topo/cull
+```
+
+This validation has been run with `polaris serial`, then with an equivalent
+`polaris run` work directory using the serial output as the baseline. The
+first scheduler run verified outputs, task logs, completion markers,
+validation markers, cached steps and Dask-backed scheduler artifacts. Reruns
+verified already-completed and cached-step behavior.
+
+The `omega_pr` suite has also been run successfully on Chrysalis with the
+serial version as a baseline. The run recorded in
+`omega-pr-parallel2/polaris_omega_pr.o1221657` passed all tasks. That run also
+exposed the earlier task-runtime summary issue in which every task displayed
+the suite wall time; the scheduler summary has since been updated to report
+per-task summed step runtime.
+
+### Testing and Validation: Explicit Dependency-Graph Scheduling
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Scheduler unit tests cover graph construction from explicit dependencies and
+declared input/output file relationships. These tests include selected
+producer/consumer edges, cross-task dependencies, cycles, missing producers,
+existing external inputs, cached producers, completed producers and already
+satisfied unselected dependencies.
+
+Shared-step tests cover repeated shared step objects, symlinked shared step
+work directories and suite execution where multiple selected tasks consume
+the same shared producer. These tests verify that the graph contains a single
+producer node, that all consumers depend on that producer and that suite
+execution runs the shared step only once.
+
+### Testing and Validation: Deterministic Ready-Step Selection
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Scheduler tests verify that topological order is deterministic and that
+`steps_to_run` order affects tie-breaking without creating implicit
+dependencies. Suite-wide scheduler tests verify that the suite graph, not the
+outer task loop, chooses execution order when dependency order differs from
+suite task order.
+
+Human-readable selected-order summaries and `ready_selection` events are
+checked in tests and in manual suite validation to confirm that selected order
+is understandable and repeatable.
+
+### Testing and Validation: Resource-Aware Scheduling and Enforcement
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Resource tests cover scheduler resource-request derivation from step CPU, GPU
+and MPI metadata; minimum CPU and GPU feasibility failures; and
+reservation/release accounting for CPU cores, nodes and GPUs.
+
+Scheduler tests verify feasible and infeasible resource events, resource
+shortfalls, resource reservation and resource release. Dask-runtime tests
+cover local worker-count selection, allocation launch planning, multi-node
+CPU worker placement, partial-node CPU allocations, GPU-per-node metadata and
+local fallback reasons.
+
+### Testing and Validation: Single-Step Execution in Phase 1
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Scheduler tests verify that the maximum active Polaris step count never
+exceeds one in task-scope and suite-scope runs. Synthetic suites include
+independent branches that could run concurrently in later phases but must
+remain single-active-step in Phase 1.
+
+Failure tests verify that failed steps release resources, selected dependents
+are blocked, independent selected steps can still run where graph
+dependencies allow and the Dask runtime context is closed when scheduler
+execution raises.
+
+The validation helper
+`polaris.run.validation.validate_phase1_schedule_event_files()` checks
+`schedule_events.jsonl` files for the single-active-step invariant. Manual
+system validation should run this helper on representative suite outputs.
+
+### Testing and Validation: Future Parallel-Eligibility Metadata
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Unit tests cover default execution-kind classification, MPI classification
+from task counts and command-line parallel arguments, explicit overrides,
+invalid overrides, non-MPI task-parallel opt-out behavior and the default
+`run_with_dask()` fallback.
+
+Resource-lease tests cover assigned cores, workers and placeholder fields for
+future node, GPU and memory accounting.
+
+### Testing and Validation: Observable Execution and Schedule Summaries
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Scheduler tests verify that `schedule_events.jsonl` files are written and
+that they include graph construction, Dask runtime metadata, ready selection,
+wait reasons, resource feasibility, reservation, start, finish, failure,
+skip, block and release events.
+
+Validation-helper tests cover parsing scheduler event files, summarizing
+scheduler/Dask evidence, rejecting missing required events, detecting active
+step counts that violate the Phase 1 policy and summing finished and failed
+started-step durations.
+
+Task-runtime tests verify that suite task runtimes are summed from measured
+step durations, and that a shared step contributes to the runtime of every
+task that references it while still running only once.
+
+### Testing and Validation: Cross-Machine Phase-1 Functionality
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Unit tests use fake launchers, fake clients and fake parallel systems to cover
+local backend selection, automatic allocation-backend selection, local
+fallback, worker launch command construction and scheduler/worker/client
+cleanup on success and failure. These tests do not require a real Slurm or
+PBS allocation.
+
+Dry-run job-script tests cover Slurm and PBS rendering for default
+`polaris serial` behavior and explicit `--run_command run` behavior.
+
+Recorded system validation status is:
+
+- Chrysalis: real-task custom icosahedral/topography validation has passed.
+  The full `omega_pr` suite has passed with the serial run as a baseline,
+  including Dask runtime startup, subprocess-client reuse, dedicated Dask
+  logging and graceful Dask shutdown. The run
+  `omega-pr-parallel2/polaris_omega_pr.o1221657` is the current recorded
+  `omega_pr` validation artifact.
 - Perlmutter: required target for later phases, but no Phase 1 system
   validation result is recorded in this branch yet.
 - Aurora: required target for later phases, but no Phase 1 system validation
   result is recorded in this branch yet.
 - Frontier: desired target. No Phase 1 validation result is recorded in this
   branch yet.
+
+`omega_nightly` and `mpaso_pr` validation are still in progress. Once those
+runs complete, their machine, suite or subset name, model build, selected task
+list, final task-runtime table and schedule-event validation summary should be
+recorded here.
+
+### Testing and Validation: Frontier Support
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+No Frontier-specific validation is required for Phase 1. If Frontier
+validation is performed, it should use the same checks as the cross-machine
+Phase 1 validation: successful `polaris run`, matching serial baseline where
+available, Dask runtime metadata, schedule-event validation and
+single-active-step evidence.
+
+### Testing and Validation: Task-Serial Summary
+
+Date last modified: 2026/05/23
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+No task-serial schedule-summary validation is required for Phase 1. Existing
+`polaris serial` tests and regression suites continue to validate the
+unchanged serial path.
+
+## Phase 2 Handoff
+
+Phase 2 should be able to inherit the Phase 1 command path, graph builder,
+resource feasibility model, Dask runtime, subprocess-client propagation and
+structured event stream. The main Phase 2 scheduling change should be
+replacing the single-active-step policy with conservative packing of eligible
+ready non-MPI steps.
 
 The following work is explicitly handed to Phase 2 or later:
 
@@ -1148,12 +1140,5 @@ The following work is explicitly handed to Phase 2 or later:
   Phases 3 and 4;
 - memory-aware scheduling and prevention of memory oversubscription, which
   belongs to Phase 4;
-- broader platform validation on Perlmutter, Aurora and Frontier;
-- final hardening of suite-level timing summaries so task runtime reports the
-  sum of executed step runtimes while suite runtime reports suite wall time.
-
-Phase 2 should be able to inherit the Phase 1 command path, graph builder,
-resource feasibility model, Dask runtime, subprocess-client propagation and
-structured event stream. The main Phase 2 scheduling change should be replacing
-the single-active-step policy with conservative packing of eligible ready
-non-MPI steps.
+- broader platform validation on Perlmutter, Aurora and Frontier; and
+- completion of `omega_nightly` and `mpaso_pr` Phase 1 system validation.
