@@ -932,9 +932,10 @@ def test_scheduler_run_suite_runs_shared_step_once(tmp_path, monkeypatch):
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
     monkeypatch.setattr(run_scheduler.time, 'time', lambda: clock.current)
 
+    stdout_logger = DummyLogger()
     results = run_suite(
         suite={'tasks': {'task_a': task_a, 'task_b': task_b}},
-        stdout_logger=DummyLogger(),
+        stdout_logger=stdout_logger,
         quiet=False,
         log_dir=str(log_dir),
         available_resources=_available_resources(),
@@ -950,6 +951,21 @@ def test_scheduler_run_suite_runs_shared_step_once(tmp_path, monkeypatch):
         'ocean/task_a': 5.0,
         'ocean/task_b': 7.0,
     }
+    selected_order_messages = [
+        message for level, message in stdout_logger.messages if level == 'info'
+    ]
+    assert (
+        '    1. ocean/task_a/shared [pending; wait: no_dependencies]'
+        in selected_order_messages
+    )
+    assert (
+        '    2. ocean/task_a/first '
+        '[pending; wait: waiting_for_dependencies]' in selected_order_messages
+    )
+    assert (
+        '    1. ocean/task_b/second '
+        '[pending; wait: waiting_for_dependencies]' in selected_order_messages
+    )
 
     task_a_events = _read_events(tmp_path / 'task_a' / 'schedule_events.jsonl')
     task_b_events = _read_events(tmp_path / 'task_b' / 'schedule_events.jsonl')
