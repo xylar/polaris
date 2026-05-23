@@ -45,6 +45,7 @@ class Init(Step):
         )
         self.resolution = resolution
         for filename in [
+            'base_mesh.nc',
             'culled_mesh.nc',
             'initial_state.nc',
             'culled_graph.info',

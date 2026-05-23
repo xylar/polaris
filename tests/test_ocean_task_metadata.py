@@ -1,11 +1,16 @@
 from types import SimpleNamespace
 
 from polaris.tasks.ocean.ice_shelf_2d.forward import Forward
-from polaris.tasks.ocean.manufactured_solution.init import Init
+from polaris.tasks.ocean.inertial_gravity_wave.init import (
+    Init as InertialGravityWaveInit,
+)
+from polaris.tasks.ocean.manufactured_solution.init import (
+    Init as ManufacturedSolutionInit,
+)
 
 
 def test_manufactured_solution_init_declares_base_mesh_output():
-    init = Init(
+    init = ManufacturedSolutionInit(
         component=SimpleNamespace(name='ocean'),
         resolution=200.0,
         subdir='planar/manufactured_solution/init/200km',
@@ -18,6 +23,19 @@ def test_manufactured_solution_init_declares_base_mesh_output():
     assert 'base_mesh.nc' in init.outputs
     assert 'culled_mesh.nc' in init.outputs
     assert 'initial_state.nc' in init.outputs
+
+
+def test_inertial_gravity_wave_init_declares_base_mesh_output():
+    init = InertialGravityWaveInit(
+        component=SimpleNamespace(name='ocean'),
+        resolution=200.0,
+        subdir='planar/inertial_gravity_wave/init/200km',
+    )
+
+    assert 'base_mesh.nc' in init.outputs
+    assert 'culled_mesh.nc' in init.outputs
+    assert 'initial_state.nc' in init.outputs
+    assert 'culled_graph.info' in init.outputs
 
 
 def test_ice_shelf_2d_forward_declares_validation_outputs():
