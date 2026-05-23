@@ -291,10 +291,21 @@ class AllocationDaskRuntimeBackend:
 
         client = None
         processes = []
-        with TemporaryDirectory(
-            prefix='.polaris-dask-', dir=os.getcwd()
-        ) as runtime_dir:
+        dask_log_filename = os.path.abspath('dask_runtime.log')
+        if self.logger is not None:
+            self.logger.info(f'Writing Dask runtime log: {dask_log_filename}')
+        with (
+            TemporaryDirectory(
+                prefix='.polaris-dask-', dir=os.getcwd()
+            ) as runtime_dir,
+            open(dask_log_filename, 'w') as dask_log,
+        ):
             scheduler_file = os.path.join(runtime_dir, 'scheduler.json')
+            dask_log.write(
+                f'Dask Distributed backend={self.name} '
+                f'workers={self.launch_plan.worker_count}\n'
+            )
+            self.process_launcher.output_file = dask_log
             try:
                 scheduler_process = self._launch_scheduler(scheduler_file)
                 processes.append(scheduler_process)
@@ -319,6 +330,7 @@ class AllocationDaskRuntimeBackend:
                 if client is not None:
                     client.close()
                 _stop_processes(processes)
+                self.process_launcher.output_file = None
                 if self.logger is not None:
                     self.logger.info('Stopped Dask Distributed')
 
@@ -354,6 +366,12 @@ class SubprocessDaskProcessLauncher:
     Launch Dask scheduler and worker processes with ``subprocess.Popen``.
     """
 
+    def __init__(self):
+        """
+        Create a launcher.
+        """
+        self.output_file = None
+
     def launch_scheduler(self, command, logger=None):
         """
         Launch the Dask scheduler command.
@@ -372,11 +390,15 @@ class SubprocessDaskProcessLauncher:
         ]
         return self._launch(command, label='workers', logger=logger)
 
-    @staticmethod
-    def _launch(command, label, logger=None):
+    def _launch(self, command, label, logger=None):
         if logger is not None:
             logger.info(f'Starting Dask {label}: {" ".join(command)}')
-        return subprocess.Popen(command)
+        output_file = getattr(self, 'output_file', None)
+        if output_file is None:
+            return subprocess.Popen(command)
+        return subprocess.Popen(
+            command, stdout=output_file, stderr=subprocess.STDOUT
+        )
 
 
 class ParallelSystemDaskProcessLauncher(SubprocessDaskProcessLauncher):
@@ -393,6 +415,7 @@ class ParallelSystemDaskProcessLauncher(SubprocessDaskProcessLauncher):
         parallel_system : mache.parallel.ParallelSystem
             The active Polaris parallel system.
         """
+        super().__init__()
         self.parallel_system = parallel_system
 
     def launch_workers(self, command, launch_plan, logger=None):
