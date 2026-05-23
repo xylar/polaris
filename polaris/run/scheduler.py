@@ -746,6 +746,7 @@ def _run_scheduler_node(
                 step,
                 task.new_step_log_file,
                 subprocess_command=subprocess_command,
+                dask_client=dask_client,
             )
         else:
             run_step(

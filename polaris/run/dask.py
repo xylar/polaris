@@ -10,6 +10,8 @@ from distributed import Client, LocalCluster
 
 from polaris.run.resources import get_local_worker_count
 
+EXISTING_DASK_SCHEDULER_ADDRESS = 'POLARIS_DASK_SCHEDULER_ADDRESS'
+
 
 @dataclass(frozen=True)
 class DaskRuntimeInfo:
@@ -325,6 +327,8 @@ class AllocationDaskRuntimeBackend:
             'dask',
             'scheduler',
             '--no-dashboard',
+            '--port',
+            '0',
             '--scheduler-file',
             scheduler_file,
         ]
@@ -581,6 +585,28 @@ def get_dask_runtime_info(client):
     return getattr(client, 'polaris_dask_runtime_info', None)
 
 
+def get_dask_scheduler_address(client):
+    """
+    Get the scheduler address for an active Dask client.
+
+    Parameters
+    ----------
+    client : distributed.Client or object
+        The Dask client for the run.
+
+    Returns
+    -------
+    scheduler_address : str or None
+        The scheduler address, if one can be determined.
+    """
+    runtime_info = get_dask_runtime_info(client)
+    if runtime_info is not None and runtime_info.scheduler_address is not None:
+        return runtime_info.scheduler_address
+
+    scheduler = getattr(client, 'scheduler', None)
+    return getattr(scheduler, 'address', None)
+
+
 @contextmanager
 def dask_client_context(
     available_resources,
@@ -623,6 +649,36 @@ def dask_client_context(
     )
     with backend.client_context() as client:
         yield client
+
+
+@contextmanager
+def existing_dask_client_context(scheduler_address):
+    """
+    Connect to an existing Dask scheduler without owning its lifecycle.
+
+    Parameters
+    ----------
+    scheduler_address : str
+        Address of the existing Dask scheduler.
+
+    Yields
+    ------
+    client : distributed.Client
+        A client connected to the existing scheduler.
+    """
+    client = Client(scheduler_address)
+    try:
+        _attach_runtime_info(
+            client,
+            DaskRuntimeInfo(
+                backend='existing',
+                workers=0,
+                scheduler_address=scheduler_address,
+            ),
+        )
+        yield client
+    finally:
+        client.close()
 
 
 def _attach_runtime_info(client, runtime_info):
