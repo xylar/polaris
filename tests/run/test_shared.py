@@ -8,6 +8,7 @@ from polaris.run.shared import (
     accumulate_statuses,
     read_baseline_status_from_logs,
     read_property_status_from_logs,
+    run_step_as_subprocess,
     update_steps_to_run,
 )
 from polaris.step import Step
@@ -214,3 +215,47 @@ def test_run_step_uses_dask_hook(tmp_path, monkeypatch):
     assert client == 'client'
     assert resources.cores == 3
     assert resources.workers == 3
+
+
+def test_run_step_as_subprocess_passes_dask_scheduler_address(
+    tmp_path, monkeypatch
+):
+    captured = {}
+
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+        def error(self, message):
+            pass
+
+    class DummyScheduler:
+        address = 'tcp://scheduler:8786'
+
+    class DummyClient:
+        scheduler = DummyScheduler()
+
+    def _check_call(args, logger=None, **kwargs):
+        captured['args'] = args
+        captured['env'] = kwargs['env']
+
+    step = SimpleNamespace(
+        path='ocean/task/init',
+        work_dir=str(tmp_path),
+        log_filename=None,
+    )
+    monkeypatch.setattr(run_shared, 'check_call', _check_call)
+
+    run_step_as_subprocess(
+        DummyLogger(),
+        step,
+        new_log_file=False,
+        subprocess_command='run',
+        dask_client=DummyClient(),
+    )
+
+    assert captured['args'] == ['polaris', 'run', '--step_is_subprocess']
+    assert (
+        captured['env']['POLARIS_DASK_SCHEDULER_ADDRESS']
+        == 'tcp://scheduler:8786'
+    )

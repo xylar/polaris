@@ -11,6 +11,10 @@ from mpas_tools.logging import LoggingContext, check_call
 from polaris.build.omega import detect_omega_build_type
 from polaris.config import PolarisConfigParser
 from polaris.logging import log_function_call, log_method_call
+from polaris.run.dask import (
+    EXISTING_DASK_SCHEDULER_ADDRESS,
+    get_dask_scheduler_address,
+)
 from polaris.run.resources import get_step_resource_lease
 
 # ANSI fail text: https://stackoverflow.com/a/287944/7728169
@@ -608,6 +612,7 @@ def run_task(
                     step,
                     task.new_step_log_file,
                     subprocess_command=subprocess_command,
+                    dask_client=dask_client,
                 )
             else:
                 run_step(
@@ -804,7 +809,11 @@ def run_step(
 
 
 def run_step_as_subprocess(
-    logger, step, new_log_file, subprocess_command='serial'
+    logger,
+    step,
+    new_log_file,
+    subprocess_command='serial',
+    dask_client=None,
 ):
     """
     Run one step by invoking ``polaris serial`` in a subprocess.
@@ -822,6 +831,9 @@ def run_step_as_subprocess(
 
     subprocess_command : str, optional
         Polaris subcommand to use for the subprocess.
+
+    dask_client : distributed.Client, optional
+        Dask client for the active ``polaris run`` lifecycle.
     """
     cwd = os.getcwd()
     logger_name = step.path.replace('/', '_')
@@ -839,7 +851,21 @@ def run_step_as_subprocess(
     ) as step_logger:
         os.chdir(step.work_dir)
         step_args = ['polaris', subprocess_command, '--step_is_subprocess']
-        check_call(step_args, step_logger)
+        env = _subprocess_env_with_dask_client(subprocess_command, dask_client)
+        check_call(step_args, step_logger, env=env)
+
+
+def _subprocess_env_with_dask_client(subprocess_command, dask_client):
+    if subprocess_command != 'run' or dask_client is None:
+        return None
+
+    scheduler_address = get_dask_scheduler_address(dask_client)
+    if scheduler_address is None:
+        return None
+
+    env = os.environ.copy()
+    env[EXISTING_DASK_SCHEDULER_ADDRESS] = scheduler_address
+    return env
 
 
 def write_output_for_pull_request(

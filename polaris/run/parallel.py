@@ -12,7 +12,11 @@ from mpas_tools.logging import LoggingContext
 from polaris import Task
 from polaris.logging import log_function_call
 from polaris.parallel import set_parallel_systems
-from polaris.run.dask import dask_client_context
+from polaris.run.dask import (
+    EXISTING_DASK_SCHEDULER_ADDRESS,
+    dask_client_context,
+    existing_dask_client_context,
+)
 from polaris.run.scheduler import (
     run_suite as run_suite_with_scheduler,
 )
@@ -199,15 +203,34 @@ def run_single_step(step_is_subprocess=False, quiet=False):
             log_function_call(function=run_task, logger=stdout_logger)
             stdout_logger.info('')
             stdout_logger.info(f'Running step: {step.name}')
-        with dask_client_context(
-            available_resources, logger=stdout_logger
-        ) as dask_client:
-            run_task(
-                task,
-                available_resources,
-                subprocess_command='run',
-                dask_client=dask_client,
-            )
+        if step_is_subprocess:
+            scheduler_address = os.environ.get(EXISTING_DASK_SCHEDULER_ADDRESS)
+            if scheduler_address is None:
+                run_task(
+                    task,
+                    available_resources,
+                    subprocess_command='run',
+                )
+            else:
+                with existing_dask_client_context(
+                    scheduler_address
+                ) as dask_client:
+                    run_task(
+                        task,
+                        available_resources,
+                        subprocess_command='run',
+                        dask_client=dask_client,
+                    )
+        else:
+            with dask_client_context(
+                available_resources, logger=stdout_logger
+            ) as dask_client:
+                run_task(
+                    task,
+                    available_resources,
+                    subprocess_command='run',
+                    dask_client=dask_client,
+                )
 
 
 def main():

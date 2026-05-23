@@ -389,6 +389,8 @@ def test_run_task_scope_uses_scheduler_runner(tmp_path, monkeypatch):
         called['is_task'] = is_task
         called['task_runner'] = task_runner
         called['log_filename'] = log_filename
+        called['subprocess_command'] = subprocess_command
+        called['dask_client'] = dask_client
         return 'PASS', True, 0.0, False, False
 
     component = DummyComponent()
@@ -425,4 +427,220 @@ def test_run_task_scope_uses_scheduler_runner(tmp_path, monkeypatch):
         'is_task': True,
         'task_runner': run_command.run_task_with_scheduler,
         'log_filename': None,
+        'subprocess_command': 'run',
+        'dask_client': 'client',
     }
+
+
+def test_run_subprocess_step_does_not_start_dask(tmp_path, monkeypatch):
+    called = {}
+
+    class DummyConfig:
+        filepath = 'config.cfg'
+
+        @staticmethod
+        def get(section, option):
+            if section == 'io':
+                return 'netcdf4'
+            return ''
+
+    class DummyComponent:
+        name = 'ocean'
+
+        @staticmethod
+        def get_available_resources():
+            return {'cores': 2}
+
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+        def error(self, message):
+            pass
+
+    class DummyLoggingContext:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return DummyLogger()
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+    class DummyTask:
+        def __init__(self, component, name):
+            self.component = component
+            self.name = name
+            self.path = f'{component.name}/{name}'
+            self.steps = {}
+
+        def add_step(self, step):
+            self.steps[step.name] = step
+
+    def _dask_client_context(*args, **kwargs):
+        raise AssertionError('subprocess step should not start Dask')
+
+    def _run_task(
+        task,
+        available_resources,
+        subprocess_command='serial',
+        dask_client=None,
+    ):
+        called['task'] = task
+        called['available_resources'] = available_resources
+        called['subprocess_command'] = subprocess_command
+        called['dask_client'] = dask_client
+
+    step = SimpleNamespace(
+        component=DummyComponent(),
+        name='init',
+        path='ocean/task/init',
+        base_work_dir=str(tmp_path),
+        config=SimpleNamespace(filepath='ocean.cfg'),
+        run_as_subprocess=True,
+    )
+
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / 'step.pickle').write_text('')
+    monkeypatch.setattr(run_command.pickle, 'load', lambda handle: step)
+    monkeypatch.setattr(run_command, 'Task', DummyTask)
+    monkeypatch.setattr(
+        run_command, 'setup_config', lambda *args: DummyConfig()
+    )
+    monkeypatch.setattr(
+        run_command, 'set_parallel_systems', lambda *args: None
+    )
+    monkeypatch.setattr(run_command, 'LoggingContext', DummyLoggingContext)
+    monkeypatch.setattr(
+        run_command, 'dask_client_context', _dask_client_context
+    )
+    monkeypatch.setattr(run_command, 'run_task', _run_task)
+    monkeypatch.setattr(
+        run_command, 'log_function_call', lambda *args, **kwargs: None
+    )
+
+    run_command.run_single_step(step_is_subprocess=True)
+
+    assert called['task'].steps == {'init': step}
+    assert called['available_resources'] == {'cores': 2}
+    assert called['subprocess_command'] == 'run'
+    assert called['dask_client'] is None
+    assert not step.run_as_subprocess
+
+
+def test_run_subprocess_step_uses_existing_dask_client(tmp_path, monkeypatch):
+    called = {}
+    events = []
+
+    class DummyConfig:
+        filepath = 'config.cfg'
+
+        @staticmethod
+        def get(section, option):
+            if section == 'io':
+                return 'netcdf4'
+            return ''
+
+    class DummyComponent:
+        name = 'ocean'
+
+        @staticmethod
+        def get_available_resources():
+            return {'cores': 2}
+
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+        def error(self, message):
+            pass
+
+    class DummyLoggingContext:
+        def __init__(self, *args, **kwargs):
+            pass
+
+        def __enter__(self):
+            return DummyLogger()
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+    class DummyTask:
+        def __init__(self, component, name):
+            self.component = component
+            self.name = name
+            self.path = f'{component.name}/{name}'
+            self.steps = {}
+
+        def add_step(self, step):
+            self.steps[step.name] = step
+
+    def _dask_client_context(*args, **kwargs):
+        raise AssertionError('subprocess step should not start Dask')
+
+    @contextmanager
+    def _existing_dask_client_context(scheduler_address):
+        events.append(('connect', scheduler_address))
+        yield 'child-client'
+        events.append(('close', scheduler_address))
+
+    def _run_task(
+        task,
+        available_resources,
+        subprocess_command='serial',
+        dask_client=None,
+    ):
+        called['task'] = task
+        called['available_resources'] = available_resources
+        called['subprocess_command'] = subprocess_command
+        called['dask_client'] = dask_client
+
+    step = SimpleNamespace(
+        component=DummyComponent(),
+        name='init',
+        path='ocean/task/init',
+        base_work_dir=str(tmp_path),
+        config=SimpleNamespace(filepath='ocean.cfg'),
+        run_as_subprocess=True,
+    )
+    scheduler_address = 'tcp://scheduler:8786'
+
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv(
+        run_command.EXISTING_DASK_SCHEDULER_ADDRESS, scheduler_address
+    )
+    (tmp_path / 'step.pickle').write_text('')
+    monkeypatch.setattr(run_command.pickle, 'load', lambda handle: step)
+    monkeypatch.setattr(run_command, 'Task', DummyTask)
+    monkeypatch.setattr(
+        run_command, 'setup_config', lambda *args: DummyConfig()
+    )
+    monkeypatch.setattr(
+        run_command, 'set_parallel_systems', lambda *args: None
+    )
+    monkeypatch.setattr(run_command, 'LoggingContext', DummyLoggingContext)
+    monkeypatch.setattr(
+        run_command, 'dask_client_context', _dask_client_context
+    )
+    monkeypatch.setattr(
+        run_command,
+        'existing_dask_client_context',
+        _existing_dask_client_context,
+    )
+    monkeypatch.setattr(run_command, 'run_task', _run_task)
+    monkeypatch.setattr(
+        run_command, 'log_function_call', lambda *args, **kwargs: None
+    )
+
+    run_command.run_single_step(step_is_subprocess=True)
+
+    assert called['task'].steps == {'init': step}
+    assert called['available_resources'] == {'cores': 2}
+    assert called['subprocess_command'] == 'run'
+    assert called['dask_client'] == 'child-client'
+    assert events == [
+        ('connect', scheduler_address),
+        ('close', scheduler_address),
+    ]
+    assert not step.run_as_subprocess

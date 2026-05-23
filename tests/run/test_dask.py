@@ -5,7 +5,9 @@ from polaris.run.dask import (
     LocalDaskRuntimeBackend,
     ParallelSystemDaskProcessLauncher,
     dask_client_context,
+    existing_dask_client_context,
     get_dask_runtime_info,
+    get_dask_scheduler_address,
     get_dask_worker_count,
     plan_dask_launch,
     select_dask_runtime_backend,
@@ -72,6 +74,38 @@ def test_select_dask_runtime_backend_defaults_to_local():
 def test_select_dask_runtime_backend_rejects_unknown():
     with pytest.raises(ValueError, match='Unsupported Dask runtime backend'):
         select_dask_runtime_backend({}, backend_name='unknown')
+
+
+def test_get_dask_scheduler_address_from_client():
+    client = type(
+        'DummyClient',
+        (),
+        {'scheduler': type('Scheduler', (), {'address': 'tcp://x'})()},
+    )()
+
+    assert get_dask_scheduler_address(client) == 'tcp://x'
+
+
+def test_existing_dask_client_context(monkeypatch):
+    events = []
+
+    class RecordingClient(FakeClient):
+        def __init__(self, scheduler_address):
+            super().__init__(scheduler_address)
+            events.append(('connect', scheduler_address))
+
+        def close(self):
+            events.append(('close', self.scheduler_file))
+            super().close()
+
+    monkeypatch.setattr('polaris.run.dask.Client', RecordingClient)
+
+    with existing_dask_client_context('tcp://x') as client:
+        runtime_info = get_dask_runtime_info(client)
+        assert runtime_info.backend == 'existing'
+        assert runtime_info.scheduler_address == 'tcp://x'
+
+    assert events == [('connect', 'tcp://x'), ('close', 'tcp://x')]
 
 
 def test_select_dask_runtime_backend_auto_allocation_with_launcher():
@@ -343,6 +377,13 @@ def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
         'scheduler',
         '--no-dashboard',
     ]
+    assert '--port' in launched_commands['scheduler']
+    assert (
+        launched_commands['scheduler'][
+            launched_commands['scheduler'].index('--port') + 1
+        ]
+        == '0'
+    )
     assert launched_commands['workers'][:2] == ['dask', 'worker']
     assert launched_commands['worker_count'] == 64
     assert events == [
