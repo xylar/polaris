@@ -426,11 +426,18 @@ class ParallelSystemDaskProcessLauncher(SubprocessDaskProcessLauncher):
 
     def launch_workers(self, command, launch_plan, logger=None):
         """
-        Launch one Dask worker process per planned worker.
+        Launch one MPI task per node; each task forks ``workers_per_node``
+        Dask worker processes via ``--nworkers``. This keeps
+        ``ntasks_per_node`` at 1, which respects ``max_mpi_tasks_per_node``
+        on GPU allocations where that limit equals ``gpus_per_node`` rather
+        than ``cores_per_node``.
         """
+        workers_per_node = max(
+            (group.workers for group in launch_plan.worker_groups), default=1
+        )
         command = self.parallel_system.get_parallel_command(
-            args=command,
-            ntasks=launch_plan.worker_count,
+            args=command + ['--nworkers', str(workers_per_node)],
+            ntasks=self.parallel_system.nodes,
             cpus_per_task=1,
             gpus_per_task=0,
         )
