@@ -426,18 +426,32 @@ class ParallelSystemDaskProcessLauncher(SubprocessDaskProcessLauncher):
 
     def launch_workers(self, command, launch_plan, logger=None):
         """
-        Launch one MPI task per node; each task forks ``workers_per_node``
-        Dask worker processes via ``--nworkers``. This keeps
-        ``ntasks_per_node`` at 1, which respects ``max_mpi_tasks_per_node``
-        on GPU allocations where that limit equals ``gpus_per_node`` rather
-        than ``cores_per_node``.
+        Launch MPI tasks for Dask workers, respecting both the per-node MPI
+        task limit and CPU affinity binding.
+
+        Uses ``max_mpi_tasks_per_node`` MPI tasks per node so the MPI runtime
+        distributes CPU affinity correctly across the node. Each MPI task then
+        forks ``cores_per_node // max_mpi_tasks_per_node`` Dask worker
+        processes via ``--nworkers``, so each worker inherits affinity for
+        exactly the cores it should use.
+
+        On CPU allocations (``max_mpi_tasks_per_node == cores_per_node``) this
+        degenerates to one MPI task per worker. On GPU allocations
+        (``max_mpi_tasks_per_node == gpus_per_node < cores_per_node``) this
+        avoids the per-node task limit while preserving correct CPU affinity.
         """
-        workers_per_node = max(
-            (group.workers for group in launch_plan.worker_groups), default=1
+        cores_per_node = self.parallel_system.cores_per_node or 1
+        max_mpi_per_node = self.parallel_system.get_config_int(
+            'max_mpi_tasks_per_node'
         )
+        if not max_mpi_per_node:
+            max_mpi_per_node = cores_per_node
+        mpi_tasks_per_node = min(max_mpi_per_node, cores_per_node)
+        workers_per_mpi_task = max(1, cores_per_node // mpi_tasks_per_node)
+        ntasks = self.parallel_system.nodes * mpi_tasks_per_node
         command = self.parallel_system.get_parallel_command(
-            args=command + ['--nworkers', str(workers_per_node)],
-            ntasks=self.parallel_system.nodes,
+            args=command + ['--nworkers', str(workers_per_mpi_task)],
+            ntasks=ntasks,
             cpus_per_task=1,
             gpus_per_task=0,
         )
