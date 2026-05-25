@@ -1084,15 +1084,14 @@ Recorded system validation status is:
   `omega_pr` validation artifact.
 - Perlmutter: required target for later phases, but no Phase 1 system
   validation result is recorded in this branch yet.
-- Aurora: required target for later phases, but no Phase 1 system validation
-  result is recorded in this branch yet.
+- Aurora: the full `omega_pr` suite has passed on both the CPU
+  (`oneapi-ifx`) and GPU (`oneapi-ifxgpu`) compiler configurations.  The
+  recorded validation artifacts are
+  `omega-pr-parallel-onapi-ifx3/polaris_omega_pr.o8506919` (CPU) and
+  `omega-pr-parallel-onapi-ifxgpu2/polaris_omega_pr.o8506917` (GPU).
+  `omega_nightly` and `mpaso_pr` are not planned for Aurora validation.
 - Frontier: desired target. No Phase 1 validation result is recorded in this
   branch yet.
-
-`omega_nightly` and `mpaso_pr` validation are still in progress. Once those
-runs complete, their machine, suite or subset name, model build, selected task
-list, final task-runtime table and schedule-event validation summary should be
-recorded here.
 
 ### Testing and Validation: Frontier Support
 
