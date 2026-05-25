@@ -274,11 +274,21 @@ def test_plan_dask_launch_falls_back_without_mpi():
 
 
 def _make_fake_parallel_system_launcher(
-    captured: dict, nodes: int
+    captured: dict,
+    nodes: int,
+    cores_per_node: int,
+    max_mpi_tasks_per_node: int,
 ) -> ParallelSystemDaskProcessLauncher:
     class FakeParallelSystem:
-        def __init__(self, n: int) -> None:
+        def __init__(self, n: int, cpn: int, max_mpi: int) -> None:
             self.nodes = n
+            self.cores_per_node = cpn
+            self._max_mpi = max_mpi
+
+        def get_config_int(self, key: str, default: int = 0) -> int:
+            if key == 'max_mpi_tasks_per_node':
+                return self._max_mpi
+            return default
 
         def get_parallel_command(
             self, args, ntasks, cpus_per_task, gpus_per_task
@@ -296,12 +306,18 @@ def _make_fake_parallel_system_launcher(
             captured['label'] = label
             return 'process'
 
-    return FakeLauncher(FakeParallelSystem(nodes))
+    return FakeLauncher(
+        FakeParallelSystem(nodes, cores_per_node, max_mpi_tasks_per_node)
+    )
 
 
 def test_parallel_system_process_launcher_builds_worker_command():
+    # CPU allocation: max_mpi_tasks_per_node == cores_per_node, so one MPI
+    # task per worker (same as the original pre-GPU-fix behaviour).
     captured: dict = {}
-    launcher = _make_fake_parallel_system_launcher(captured, nodes=2)
+    launcher = _make_fake_parallel_system_launcher(
+        captured, nodes=2, cores_per_node=32, max_mpi_tasks_per_node=32
+    )
     launch_plan = plan_dask_launch(
         {
             'cores': 64,
@@ -323,31 +339,33 @@ def test_parallel_system_process_launcher_builds_worker_command():
         '--scheduler-file',
         'scheduler.json',
         '--nworkers',
-        '32',
+        '1',
     ]
-    assert captured['ntasks'] == 2
+    assert captured['ntasks'] == 64
     assert captured['cpus_per_task'] == 1
     assert captured['gpus_per_task'] == 0
     assert captured['command'] == [
         'mpiexec',
         '-n',
-        '2',
+        '64',
         'dask',
         'worker',
         '--scheduler-file',
         'scheduler.json',
         '--nworkers',
-        '32',
+        '1',
     ]
     assert captured['label'] == 'workers'
 
 
 def test_parallel_system_process_launcher_respects_gpu_task_limit():
-    # On GPU allocations max_mpi_tasks_per_node == gpus_per_node (e.g. 12 on
-    # Aurora). Launching one MPI task per node with --nworkers cores_per_node
-    # keeps ntasks_per_node=1, well within that limit.
+    # GPU allocation: max_mpi_tasks_per_node == gpus_per_node (12 on Aurora).
+    # Launch 12 MPI tasks per node; each forks cores_per_node//12 = 8 workers
+    # so inherited CPU affinity covers exactly the bound cores.
     captured: dict = {}
-    launcher = _make_fake_parallel_system_launcher(captured, nodes=1)
+    launcher = _make_fake_parallel_system_launcher(
+        captured, nodes=1, cores_per_node=96, max_mpi_tasks_per_node=12
+    )
     launch_plan = plan_dask_launch(
         {
             'cores': 96,
@@ -363,9 +381,9 @@ def test_parallel_system_process_launcher_respects_gpu_task_limit():
         launch_plan,
     )
 
-    assert captured['ntasks'] == 1
+    assert captured['ntasks'] == 12
     assert '--nworkers' in captured['args']
-    assert captured['args'][captured['args'].index('--nworkers') + 1] == '96'
+    assert captured['args'][captured['args'].index('--nworkers') + 1] == '8'
 
 
 def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
