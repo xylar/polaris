@@ -9,7 +9,7 @@ import mpas_tools.io
 from mpas_tools.logging import LoggingContext
 
 from polaris.logging import log_function_call
-from polaris.run.dask import get_dask_runtime_info
+from polaris.run.dask import dask_client_context, get_dask_runtime_info
 from polaris.run.resources import (
     ResourcePool,
     get_resource_views,
@@ -146,6 +146,53 @@ class _ScheduleRecorder:
         payload = dict(event=event, time=time.time(), **kwargs)
         with open(self.event_filename, 'a') as event_file:
             event_file.write(f'{json.dumps(payload, sort_keys=True)}\n')
+
+
+class _DaskPhaseManager:
+    """
+    Own Dask client lifetime for scheduler-managed non-MPI phases.
+    """
+
+    def __init__(self, available_resources, logger=None, dask_client=None):
+        self.available_resources = available_resources
+        self.logger = logger
+        self.external_client = dask_client
+        self.client = dask_client
+        self._context = None
+
+    def client_for_node(self, node, recorders):
+        """
+        Return an active Dask client when the node belongs to a Dask phase.
+        """
+        if self.external_client is not None:
+            return self.external_client
+        if _node_needs_dask_phase(node):
+            return self._start(recorders)
+        self.close()
+        return None
+
+    def close(self):
+        """
+        Stop the owned Dask phase, if one is active.
+        """
+        if self.external_client is not None or self._context is None:
+            return
+        self._context.__exit__(None, None, None)
+        self._context = None
+        self.client = None
+
+    def _start(self, recorders):
+        if self.client is not None:
+            return self.client
+        self._context = dask_client_context(
+            self.available_resources, logger=self.logger
+        )
+        self.client = self._context.__enter__()
+        runtime_info = get_dask_runtime_info(self.client)
+        if runtime_info is not None:
+            for recorder in recorders:
+                _emit_dask_runtime(recorder, runtime_info)
+        return self.client
 
 
 @dataclass
@@ -359,74 +406,97 @@ def run_suite(
     blocked_keys: set[str] = set()
     failed_keys: set[str] = set()
     step_runtimes: dict[str, float] = {}
-    for node in ordered_nodes:
-        if not node.selected:
-            continue
+    dask_phase = _DaskPhaseManager(
+        available_resources=data_plane_resources,
+        logger=stdout_logger,
+        dask_client=dask_client,
+    )
+    try:
+        for node in ordered_nodes:
+            if not node.selected:
+                continue
 
-        task_name = node.task_name
-        assert task_name is not None
-        state = states[task_name]
-        task = state.task
-        if task_name != current_task_name:
-            stdout_logger.info(f'{task_name}')
-            current_task_name = task_name
+            task_name = node.task_name
+            assert task_name is not None
+            state = states[task_name]
+            task = state.task
+            if task_name != current_task_name:
+                stdout_logger.info(f'{task_name}')
+                current_task_name = task_name
 
-        blocked_dependencies = sorted(
-            graph.predecessors[node.key] & (blocked_keys | failed_keys)
-        )
-        if len(blocked_dependencies) > 0:
-            state.task_pass = False
-            state.exec_failed = True
-            blocked_keys.add(node.key)
-            with LoggingContext(
-                task_name.replace('/', '_'), log_filename=state.log_filename
-            ) as task_logger:
-                _configure_task_loggers(
-                    task, task_logger, stdout_logger, quiet, state.log_filename
-                )
-                _block_scheduler_node(
-                    node=node,
-                    task=task,
-                    recorder=recorders[task_name],
-                    blocked_dependencies=blocked_dependencies,
-                    active_counter=active_counter,
-                )
-            continue
+            blocked_dependencies = sorted(
+                graph.predecessors[node.key] & (blocked_keys | failed_keys)
+            )
+            if len(blocked_dependencies) > 0:
+                dask_phase.close()
+                state.task_pass = False
+                state.exec_failed = True
+                blocked_keys.add(node.key)
+                with LoggingContext(
+                    task_name.replace('/', '_'),
+                    log_filename=state.log_filename,
+                ) as task_logger:
+                    _configure_task_loggers(
+                        task,
+                        task_logger,
+                        stdout_logger,
+                        quiet,
+                        state.log_filename,
+                    )
+                    _block_scheduler_node(
+                        node=node,
+                        task=task,
+                        recorder=recorders[task_name],
+                        blocked_dependencies=blocked_dependencies,
+                        active_counter=active_counter,
+                    )
+                continue
 
-        try:
-            with LoggingContext(
-                task_name.replace('/', '_'), log_filename=state.log_filename
-            ) as task_logger:
-                _configure_task_loggers(
-                    task, task_logger, stdout_logger, quiet, state.log_filename
+            try:
+                active_dask_client = dask_phase.client_for_node(
+                    node, recorders.values()
                 )
-                baseline_status, _ = _run_scheduler_node(
-                    node=node,
-                    task=task,
-                    available_resources=data_plane_resources,
-                    resource_pool=resource_pool,
-                    recorder=recorders[task_name],
-                    cwd=cwd,
-                    subprocess_command=subprocess_command,
-                    dask_client=dask_client,
-                    predecessor_keys=graph.predecessors[node.key],
-                    active_counter=active_counter,
-                    step_runtimes=step_runtimes,
-                )
-            if baseline_status is not None:
-                state.baselines_passed = accumulate_statuses(
-                    state.baselines_passed, baseline_status
-                )
-        except Exception:
-            state.task_pass = False
-            state.exec_failed = True
-            failed_keys.add(node.key)
-            with LoggingContext(
-                task_name.replace('/', '_'), log_filename=state.log_filename
-            ) as task_logger:
-                task_logger.exception(
-                    'Exception raised while running the steps of the task'
-                )
+                with LoggingContext(
+                    task_name.replace('/', '_'),
+                    log_filename=state.log_filename,
+                ) as task_logger:
+                    _configure_task_loggers(
+                        task,
+                        task_logger,
+                        stdout_logger,
+                        quiet,
+                        state.log_filename,
+                    )
+                    baseline_status, _ = _run_scheduler_node(
+                        node=node,
+                        task=task,
+                        available_resources=data_plane_resources,
+                        resource_pool=resource_pool,
+                        recorder=recorders[task_name],
+                        cwd=cwd,
+                        subprocess_command=subprocess_command,
+                        dask_client=active_dask_client,
+                        predecessor_keys=graph.predecessors[node.key],
+                        active_counter=active_counter,
+                        step_runtimes=step_runtimes,
+                    )
+                if baseline_status is not None:
+                    state.baselines_passed = accumulate_statuses(
+                        state.baselines_passed, baseline_status
+                    )
+            except Exception:
+                state.task_pass = False
+                state.exec_failed = True
+                failed_keys.add(node.key)
+                with LoggingContext(
+                    task_name.replace('/', '_'),
+                    log_filename=state.log_filename,
+                ) as task_logger:
+                    task_logger.exception(
+                        'Exception raised while running the steps of the task'
+                    )
+    finally:
+        dask_phase.close()
 
     _finalize_suite_task_states(states, stdout_logger, step_runtimes)
     return _suite_results(states)
@@ -482,50 +552,62 @@ def run_task(
     blocked_keys: set[str] = set()
     failed_keys: set[str] = set()
     first_exception = None
-    for node in ordered_nodes:
-        if not node.selected:
-            continue
+    dask_phase = _DaskPhaseManager(
+        available_resources=data_plane_resources,
+        logger=getattr(task, 'stdout_logger', None),
+        dask_client=dask_client,
+    )
+    try:
+        for node in ordered_nodes:
+            if not node.selected:
+                continue
 
-        blocked_dependencies = sorted(
-            graph.predecessors[node.key] & (blocked_keys | failed_keys)
-        )
-        if len(blocked_dependencies) > 0:
-            blocked_keys.add(node.key)
-            _block_scheduler_node(
-                node=node,
-                task=task,
-                recorder=recorder,
-                blocked_dependencies=blocked_dependencies,
-                active_counter=None,
+            blocked_dependencies = sorted(
+                graph.predecessors[node.key] & (blocked_keys | failed_keys)
             )
-            continue
+            if len(blocked_dependencies) > 0:
+                dask_phase.close()
+                blocked_keys.add(node.key)
+                _block_scheduler_node(
+                    node=node,
+                    task=task,
+                    recorder=recorder,
+                    blocked_dependencies=blocked_dependencies,
+                    active_counter=None,
+                )
+                continue
 
-        try:
-            baseline_status, property_status = _run_scheduler_node(
-                node=node,
-                task=task,
-                available_resources=data_plane_resources,
-                resource_pool=resource_pool,
-                recorder=recorder,
-                cwd=cwd,
-                subprocess_command=subprocess_command,
-                dask_client=dask_client,
-                predecessor_keys=graph.predecessors[node.key],
-            )
-        except Exception as exception:
-            failed_keys.add(node.key)
-            if first_exception is None:
-                first_exception = exception
-            continue
+            try:
+                active_dask_client = dask_phase.client_for_node(
+                    node, [recorder]
+                )
+                baseline_status, property_status = _run_scheduler_node(
+                    node=node,
+                    task=task,
+                    available_resources=data_plane_resources,
+                    resource_pool=resource_pool,
+                    recorder=recorder,
+                    cwd=cwd,
+                    subprocess_command=subprocess_command,
+                    dask_client=active_dask_client,
+                    predecessor_keys=graph.predecessors[node.key],
+                )
+            except Exception as exception:
+                failed_keys.add(node.key)
+                if first_exception is None:
+                    first_exception = exception
+                continue
 
-        if baseline_status is not None:
-            baselines_passed = accumulate_statuses(
-                baselines_passed, baseline_status
-            )
-        if property_status is not None:
-            property_passed = accumulate_statuses(
-                property_passed, property_status
-            )
+            if baseline_status is not None:
+                baselines_passed = accumulate_statuses(
+                    baselines_passed, baseline_status
+                )
+            if property_status is not None:
+                property_passed = accumulate_statuses(
+                    property_passed, property_status
+                )
+    finally:
+        dask_phase.close()
 
     if first_exception is not None:
         raise first_exception
@@ -991,6 +1073,12 @@ def _node_status(node: SchedulerNode) -> str:
     if node.cached:
         return 'cached'
     return 'ready'
+
+
+def _node_needs_dask_phase(node: SchedulerNode) -> bool:
+    if node.completed or node.cached:
+        return False
+    return bool(getattr(node.step, 'can_run_concurrently', False))
 
 
 def _wait_reason(predecessor_keys) -> str:
