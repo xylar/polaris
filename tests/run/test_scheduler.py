@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -38,6 +39,7 @@ class DummyStep:
         self.args = None
         self.openmp_threads = 1
         self.is_dependency = False
+        self.can_run_concurrently = False
         self.component = SimpleNamespace(name='component')
         self.subdir = name
         self.logger = None
@@ -793,6 +795,77 @@ def test_scheduler_records_dask_runtime_info(tmp_path, monkeypatch):
             'worker_groups': [],
             'workers': 4,
         }
+    ]
+
+
+def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
+    tmp_path, monkeypatch
+):
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    prep = DummyStep(tmp_path, 'prep')
+    forward = DummyStep(tmp_path, 'forward')
+    analysis = DummyStep(tmp_path, 'analysis')
+    prep.can_run_concurrently = True
+    forward.can_run_concurrently = False
+    analysis.can_run_concurrently = True
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['prep', 'forward', 'analysis'],
+        steps={'prep': prep, 'forward': forward, 'analysis': analysis},
+    )
+    lifecycle: list[tuple[object, ...]] = []
+
+    @contextmanager
+    def _dask_client_context(available_resources, logger=None):
+        lifecycle.append(('dask_start', available_resources['cores']))
+        try:
+            yield 'phase-client'
+        finally:
+            lifecycle.append(('dask_stop', None))
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+    ):
+        lifecycle.append(('step', step.name, dask_client))
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'dask_client_context', _dask_client_context
+    )
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 4,
+            'nodes': 1,
+            'cores_per_node': 4,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    assert lifecycle == [
+        ('dask_start', 3),
+        ('step', 'prep', 'phase-client'),
+        ('dask_stop', None),
+        ('step', 'forward', None),
+        ('dask_start', 3),
+        ('step', 'analysis', 'phase-client'),
+        ('dask_stop', None),
     ]
 
 
