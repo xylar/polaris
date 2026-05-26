@@ -159,6 +159,7 @@ class _DaskPhaseManager:
         self.external_client = dask_client
         self.client = dask_client
         self._context = None
+        self._active_recorders = ()
 
     def client_for_node(self, node, recorders):
         """
@@ -168,18 +169,40 @@ class _DaskPhaseManager:
             return self.external_client
         if _node_needs_dask_phase(node):
             return self._start(recorders)
-        self.close()
+        if self._context is not None:
+            for recorder in recorders:
+                recorder.emit(
+                    'serialized_step_barrier',
+                    task=node.task_name,
+                    step=node.step_name,
+                    reason='serialized_step',
+                    result='barrier',
+                )
+        self.close(recorders=recorders, reason='serialized_step', node=node)
         return None
 
-    def close(self):
+    def close(self, recorders=None, reason='phase_complete', node=None):
         """
         Stop the owned Dask phase, if one is active.
         """
         if self.external_client is not None or self._context is None:
             return
-        self._context.__exit__(None, None, None)
-        self._context = None
-        self.client = None
+        if recorders is None:
+            recorders = self._active_recorders
+        try:
+            self._context.__exit__(None, None, None)
+        finally:
+            self._context = None
+            self.client = None
+            for recorder in recorders:
+                recorder.emit(
+                    'dask_phase_stop',
+                    task=getattr(node, 'task_name', None),
+                    step=getattr(node, 'step_name', None),
+                    reason=reason,
+                    result='stopped',
+                )
+            self._active_recorders = ()
 
     def _start(self, recorders):
         if self.client is not None:
@@ -188,7 +211,18 @@ class _DaskPhaseManager:
             self.available_resources, logger=self.logger
         )
         self.client = self._context.__enter__()
+        self._active_recorders = tuple(recorders)
         runtime_info = get_dask_runtime_info(self.client)
+        for recorder in recorders:
+            recorder.emit(
+                'dask_phase_start',
+                backend=getattr(runtime_info, 'backend', None),
+                data_plane_cores=self.available_resources.get('cores'),
+                data_plane_gpus=self.available_resources.get('gpus'),
+                data_plane_nodes=self.available_resources.get('nodes'),
+                result='started',
+                workers=getattr(runtime_info, 'workers', None),
+            )
         if runtime_info is not None:
             for recorder in recorders:
                 _emit_dask_runtime(recorder, runtime_info)
@@ -386,6 +420,7 @@ def run_suite(
         recorder.emit(
             'graph_constructed', nodes=len(graph.nodes), edges=edge_count
         )
+        _emit_control_plane_reserved(recorder, resource_views)
         if runtime_info is not None:
             _emit_dask_runtime(recorder, runtime_info)
         with LoggingContext(
@@ -428,7 +463,11 @@ def run_suite(
                 graph.predecessors[node.key] & (blocked_keys | failed_keys)
             )
             if len(blocked_dependencies) > 0:
-                dask_phase.close()
+                dask_phase.close(
+                    recorders=recorders.values(),
+                    reason='blocked_dependency',
+                    node=node,
+                )
                 state.task_pass = False
                 state.exec_failed = True
                 blocked_keys.add(node.key)
@@ -542,6 +581,7 @@ def run_task(
     recorder.emit(
         'graph_constructed', nodes=len(graph.nodes), edges=edge_count
     )
+    _emit_control_plane_reserved(recorder, resource_views)
     runtime_info = get_dask_runtime_info(dask_client)
     if runtime_info is not None:
         _emit_dask_runtime(recorder, runtime_info)
@@ -566,7 +606,11 @@ def run_task(
                 graph.predecessors[node.key] & (blocked_keys | failed_keys)
             )
             if len(blocked_dependencies) > 0:
-                dask_phase.close()
+                dask_phase.close(
+                    recorders=[recorder],
+                    reason='blocked_dependency',
+                    node=node,
+                )
                 blocked_keys.add(node.key)
                 _block_scheduler_node(
                     node=node,
@@ -1095,6 +1139,25 @@ def _emit_dask_runtime(recorder, runtime_info) -> None:
     }
     payload['state'] = 'active'
     recorder.emit('dask_runtime', **payload)
+
+
+def _emit_control_plane_reserved(recorder, resource_views) -> None:
+    allocated = resource_views.allocated
+    control_plane = resource_views.control_plane
+    data_plane = resource_views.data_plane
+    recorder.emit(
+        'control_plane_reserved',
+        allocated_cores=allocated.get('cores'),
+        allocated_gpus=allocated.get('gpus'),
+        allocated_nodes=allocated.get('nodes'),
+        control_plane_cores=control_plane.get('cores'),
+        control_plane_gpus=control_plane.get('gpus'),
+        control_plane_nodes=control_plane.get('nodes'),
+        data_plane_cores=data_plane.get('cores'),
+        data_plane_gpus=data_plane.get('gpus'),
+        data_plane_nodes=data_plane.get('nodes'),
+        result='reserved',
+    )
 
 
 def _emit_resource_feasibility(

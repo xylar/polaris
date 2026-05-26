@@ -448,7 +448,11 @@ class ParallelSystemDaskProcessLauncher(SubprocessDaskProcessLauncher):
             max_mpi_per_node = cores_per_node
         mpi_tasks_per_node = min(max_mpi_per_node, cores_per_node)
         workers_per_mpi_task = max(1, cores_per_node // mpi_tasks_per_node)
-        ntasks = self.parallel_system.nodes * mpi_tasks_per_node
+        ntasks = _get_parallel_worker_task_count(
+            launch_plan=launch_plan,
+            mpi_tasks_per_node=mpi_tasks_per_node,
+            workers_per_mpi_task=workers_per_mpi_task,
+        )
         command = self.parallel_system.get_parallel_command(
             args=command + ['--nworkers', str(workers_per_mpi_task)],
             ntasks=ntasks,
@@ -574,10 +578,26 @@ def plan_dask_launch(available_resources):
     fallback_reason = _get_launch_fallback_reason(nodes, mpi_allowed)
     local_fallback = fallback_reason is not None
 
-    total_cores = _get_total_cores(available_resources, nodes)
-    cores_per_node = _get_cores_per_node(available_resources, total_cores)
+    node_core_counts = _node_counts_from_resources(
+        available_resources.get('node_core_counts')
+    )
+    total_cores = _get_total_cores(
+        available_resources=available_resources,
+        nodes=nodes,
+        node_counts=node_core_counts,
+    )
+    cores_per_node = _get_cores_per_node(
+        available_resources=available_resources,
+        total_cores=total_cores,
+        node_counts=node_core_counts,
+    )
 
-    total_gpus = _resource_count(available_resources.get('gpus'), default=0)
+    node_gpu_counts = _node_counts_from_resources(
+        available_resources.get('node_gpu_counts')
+    )
+    total_gpus = _get_total_gpus(
+        available_resources=available_resources, node_counts=node_gpu_counts
+    )
     gpus_per_node = available_resources.get('gpus_per_node')
     if gpus_per_node is not None:
         gpus_per_node = _resource_count(gpus_per_node, default=0)
@@ -603,6 +623,8 @@ def plan_dask_launch(available_resources):
             cores_per_node=cores_per_node,
             total_gpus=total_gpus,
             gpus_per_node=gpus_per_node,
+            node_core_counts=node_core_counts,
+            node_gpu_counts=node_gpu_counts,
         )
         backend = 'allocation'
 
@@ -855,8 +877,32 @@ def _plan_worker_groups(
     cores_per_node,
     total_gpus,
     gpus_per_node,
+    node_core_counts=None,
+    node_gpu_counts=None,
 ):
     worker_groups = []
+    if node_core_counts is not None:
+        for node_index, workers in enumerate(node_core_counts):
+            if workers <= 0:
+                continue
+            worker_groups.append(
+                DaskWorkerGroup(
+                    node_index=node_index,
+                    workers=workers,
+                    gpus=_get_node_count(
+                        node_counts=node_gpu_counts,
+                        node_index=node_index,
+                        default=_get_node_gpus(
+                            node_index=node_index,
+                            total_gpus=total_gpus,
+                            gpus_per_node=gpus_per_node,
+                        ),
+                    ),
+                )
+            )
+        if len(worker_groups) > 0:
+            return tuple(worker_groups)
+
     remaining_cores = total_cores
     for node_index in range(nodes):
         workers = min(cores_per_node, remaining_cores)
@@ -881,7 +927,9 @@ def _plan_worker_groups(
     return tuple(worker_groups)
 
 
-def _get_total_cores(available_resources, nodes):
+def _get_total_cores(available_resources, nodes, node_counts=None):
+    if node_counts is not None:
+        return max(1, sum(node_counts))
     cores = available_resources.get('cores')
     if cores is not None:
         return max(1, int(cores))
@@ -893,11 +941,48 @@ def _get_total_cores(available_resources, nodes):
     return 1
 
 
-def _get_cores_per_node(available_resources, total_cores):
+def _get_cores_per_node(available_resources, total_cores, node_counts=None):
+    if node_counts is not None and len(node_counts) > 0:
+        return max(1, max(node_counts))
     cores_per_node = available_resources.get('cores_per_node')
     if cores_per_node is not None:
         return max(1, int(cores_per_node))
     return max(1, total_cores)
+
+
+def _get_total_gpus(available_resources, node_counts=None):
+    if node_counts is not None:
+        return max(0, sum(node_counts))
+    return _resource_count(available_resources.get('gpus'), default=0)
+
+
+def _node_counts_from_resources(node_counts):
+    if node_counts is None:
+        return None
+    counts = tuple(max(0, int(count)) for count in node_counts)
+    if len(counts) == 0:
+        return None
+    return counts
+
+
+def _get_node_count(node_counts, node_index, default):
+    if node_counts is None or node_index >= len(node_counts):
+        return default
+    return node_counts[node_index]
+
+
+def _get_parallel_worker_task_count(
+    launch_plan,
+    mpi_tasks_per_node,
+    workers_per_mpi_task,
+):
+    ntasks = 0
+    for group in launch_plan.worker_groups:
+        group_tasks = (
+            group.workers + workers_per_mpi_task - 1
+        ) // workers_per_mpi_task
+        ntasks += min(mpi_tasks_per_node, group_tasks)
+    return max(1, ntasks)
 
 
 def _get_node_gpus(node_index, total_gpus, gpus_per_node):
