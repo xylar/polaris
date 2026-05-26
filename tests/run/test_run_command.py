@@ -150,7 +150,9 @@ def test_run_auto_suite_requires_unique_pickle(tmp_path, monkeypatch):
         run_command.main()
 
 
-def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
+def test_run_tasks_delegates_dask_lifecycle_to_scheduler(
+    tmp_path, monkeypatch
+):
     events = []
 
     class DummyComponent:
@@ -177,13 +179,6 @@ def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
         def __exit__(self, exc_type, exc_value, traceback):
             return False
 
-    @contextmanager
-    def _dask_client_context(available_resources, logger=None):
-        assert available_resources == {'cores': 2}
-        events.append(('dask', 'start'))
-        yield 'client'
-        events.append(('dask', 'stop'))
-
     def _run_suite_with_scheduler(
         suite,
         stdout_logger,
@@ -193,7 +188,7 @@ def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
         subprocess_command='serial',
         dask_client=None,
     ):
-        assert dask_client == 'client'
+        assert dask_client is None
         assert subprocess_command == 'run'
         assert available_resources == {'cores': 2}
         assert log_dir == f'{tmp_path}/case_outputs'
@@ -232,9 +227,6 @@ def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
     )
     monkeypatch.setattr(run_command, 'LoggingContext', DummyLoggingContext)
     monkeypatch.setattr(
-        run_command, 'dask_client_context', _dask_client_context
-    )
-    monkeypatch.setattr(
         run_command, 'run_suite_with_scheduler', _run_suite_with_scheduler
     )
     monkeypatch.setattr(
@@ -248,17 +240,11 @@ def test_run_tasks_uses_one_dask_lifecycle(tmp_path, monkeypatch):
 
     run_command.run_tasks('suite')
 
-    assert events.count(('dask', 'start')) == 1
-    assert events.count(('dask', 'stop')) == 1
-    assert events.index(('dask', 'start')) < events.index(
-        ('task', 'component/task_a')
-    )
-    assert events.index(('task', 'component/task_b')) < events.index(
-        ('dask', 'stop')
-    )
+    assert ('task', 'component/task_a') in events
+    assert ('task', 'component/task_b') in events
 
 
-def test_run_tasks_closes_dask_lifecycle_after_scheduler_failure(
+def test_run_tasks_does_not_own_dask_lifecycle_after_scheduler_failure(
     tmp_path, monkeypatch
 ):
     events = []
@@ -287,14 +273,6 @@ def test_run_tasks_closes_dask_lifecycle_after_scheduler_failure(
         def __exit__(self, exc_type, exc_value, traceback):
             return False
 
-    @contextmanager
-    def _dask_client_context(available_resources, logger=None):
-        events.append(('dask', 'start'))
-        try:
-            yield 'client'
-        finally:
-            events.append(('dask', 'stop'))
-
     def _run_suite_with_scheduler(
         suite,
         stdout_logger,
@@ -304,7 +282,7 @@ def test_run_tasks_closes_dask_lifecycle_after_scheduler_failure(
         subprocess_command='serial',
         dask_client=None,
     ):
-        assert dask_client == 'client'
+        assert dask_client is None
         events.append(('scheduler', 'failure'))
         raise RuntimeError('expected scheduler failure')
 
@@ -324,21 +302,13 @@ def test_run_tasks_closes_dask_lifecycle_after_scheduler_failure(
     )
     monkeypatch.setattr(run_command, 'LoggingContext', DummyLoggingContext)
     monkeypatch.setattr(
-        run_command, 'dask_client_context', _dask_client_context
-    )
-    monkeypatch.setattr(
         run_command, 'run_suite_with_scheduler', _run_suite_with_scheduler
     )
 
     with pytest.raises(RuntimeError, match='expected scheduler failure'):
         run_command.run_tasks('suite')
 
-    assert ('dask', 'start') in events
     assert ('scheduler', 'failure') in events
-    assert ('dask', 'stop') in events
-    assert events.index(('scheduler', 'failure')) < events.index(
-        ('dask', 'stop')
-    )
 
 
 def test_run_task_scope_uses_scheduler_runner(tmp_path, monkeypatch):
@@ -367,10 +337,6 @@ def test_run_task_scope_uses_scheduler_runner(tmp_path, monkeypatch):
 
         def __exit__(self, exc_type, exc_value, traceback):
             return False
-
-    @contextmanager
-    def _dask_client_context(available_resources, logger=None):
-        yield 'client'
 
     def _log_and_run_task(
         task,
@@ -408,9 +374,6 @@ def test_run_task_scope_uses_scheduler_runner(tmp_path, monkeypatch):
         run_command, 'set_parallel_systems', lambda *args: None
     )
     monkeypatch.setattr(run_command, 'LoggingContext', DummyLoggingContext)
-    monkeypatch.setattr(
-        run_command, 'dask_client_context', _dask_client_context
-    )
     monkeypatch.setattr(run_command, 'log_and_run_task', _log_and_run_task)
     monkeypatch.setattr(
         run_command,
@@ -428,7 +391,7 @@ def test_run_task_scope_uses_scheduler_runner(tmp_path, monkeypatch):
         'task_runner': run_command.run_task_with_scheduler,
         'log_filename': None,
         'subprocess_command': 'run',
-        'dask_client': 'client',
+        'dask_client': None,
     }
 
 
@@ -478,9 +441,6 @@ def test_run_subprocess_step_does_not_start_dask(tmp_path, monkeypatch):
         def add_step(self, step):
             self.steps[step.name] = step
 
-    def _dask_client_context(*args, **kwargs):
-        raise AssertionError('subprocess step should not start Dask')
-
     def _run_task(
         task,
         available_resources,
@@ -512,9 +472,6 @@ def test_run_subprocess_step_does_not_start_dask(tmp_path, monkeypatch):
         run_command, 'set_parallel_systems', lambda *args: None
     )
     monkeypatch.setattr(run_command, 'LoggingContext', DummyLoggingContext)
-    monkeypatch.setattr(
-        run_command, 'dask_client_context', _dask_client_context
-    )
     monkeypatch.setattr(run_command, 'run_task', _run_task)
     monkeypatch.setattr(
         run_command, 'log_function_call', lambda *args, **kwargs: None
@@ -576,9 +533,6 @@ def test_run_subprocess_step_uses_existing_dask_client(tmp_path, monkeypatch):
         def add_step(self, step):
             self.steps[step.name] = step
 
-    def _dask_client_context(*args, **kwargs):
-        raise AssertionError('subprocess step should not start Dask')
-
     @contextmanager
     def _existing_dask_client_context(scheduler_address):
         events.append(('connect', scheduler_address))
@@ -620,9 +574,6 @@ def test_run_subprocess_step_uses_existing_dask_client(tmp_path, monkeypatch):
         run_command, 'set_parallel_systems', lambda *args: None
     )
     monkeypatch.setattr(run_command, 'LoggingContext', DummyLoggingContext)
-    monkeypatch.setattr(
-        run_command, 'dask_client_context', _dask_client_context
-    )
     monkeypatch.setattr(
         run_command,
         'existing_dask_client_context',
