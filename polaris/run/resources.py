@@ -104,6 +104,30 @@ class StepResourceLease:
     memory: Optional[int] = None
 
 
+@dataclass(frozen=True)
+class ResourceViews:
+    """
+    Resource views for task-parallel orchestration.
+
+    Attributes
+    ----------
+    allocated : dict
+        Full resources reported by the active machine allocation.
+
+    control_plane : dict
+        Resources reserved for the parent ``polaris run`` process and any
+        scheduler processes it owns.
+
+    data_plane : dict
+        Resources available to Dask workers and Polaris steps after the
+        control-plane reservation has been subtracted.
+    """
+
+    allocated: dict
+    control_plane: dict
+    data_plane: dict
+
+
 class ResourcePool:
     """
     Reusable scheduler resource pool.
@@ -245,6 +269,107 @@ def get_local_worker_count(available_resources):
     if cores_per_node is not None:
         cores = min(cores, cores_per_node)
     return max(1, int(cores))
+
+
+def get_resource_views(
+    available_resources,
+    control_plane_cores=1,
+    control_plane_gpus=0,
+    control_plane_nodes=0,
+):
+    """
+    Split allocation resources into control-plane and data-plane views.
+
+    Parameters
+    ----------
+    available_resources : dict
+        Full allocation resources from the active machine.
+
+    control_plane_cores : int, optional
+        CPU cores to reserve for the parent ``polaris run`` process and any
+        scheduler processes.
+
+    control_plane_gpus : int, optional
+        GPUs to reserve for the control plane.
+
+    control_plane_nodes : int, optional
+        Whole nodes to reserve for the control plane. A value of zero uses
+        core-level control-plane reservation.
+
+    Returns
+    -------
+    views : ResourceViews
+        Full allocation, control-plane reservation and data-plane resources.
+    """
+    allocated = dict(available_resources)
+    total_cores = _resource_count(allocated.get('cores'), default=1)
+    total_nodes = _resource_count(allocated.get('nodes'), default=1)
+    cores_per_node = _resource_count(
+        allocated.get('cores_per_node'), default=total_cores
+    )
+    total_gpus = _resource_count(allocated.get('gpus'), default=0)
+    gpus_per_node = allocated.get('gpus_per_node')
+    if gpus_per_node is not None:
+        gpus_per_node = _resource_count(gpus_per_node, default=0)
+
+    node_cores = _node_resource_counts(
+        total=total_cores, nodes=total_nodes, per_node=cores_per_node
+    )
+    node_gpus = _node_resource_counts(
+        total=total_gpus, nodes=total_nodes, per_node=gpus_per_node
+    )
+
+    reserved_nodes = min(
+        _resource_count(control_plane_nodes, default=0),
+        max(0, total_nodes - 1),
+    )
+    if reserved_nodes > 0:
+        reserved_cores, reserved_gpus = _reserve_control_plane_nodes(
+            reserved_nodes, node_cores, node_gpus
+        )
+    else:
+        reserved_cores, reserved_gpus = _reserve_control_plane_cores(
+            total_cores=total_cores,
+            total_gpus=total_gpus,
+            control_plane_cores=control_plane_cores,
+            control_plane_gpus=control_plane_gpus,
+            node_cores=node_cores,
+            node_gpus=node_gpus,
+        )
+
+    data_cores = max(1, total_cores - reserved_cores)
+    data_gpus = max(0, total_gpus - reserved_gpus)
+    data_nodes = max(1, total_nodes - reserved_nodes)
+    max_node_cores = max(node_cores) if len(node_cores) > 0 else data_cores
+    data_cores_per_node = max(1, min(cores_per_node, max_node_cores))
+
+    control_plane = dict(
+        cores=reserved_cores,
+        nodes=reserved_nodes,
+        cores_per_node=cores_per_node,
+        gpus=reserved_gpus,
+        gpus_per_node=gpus_per_node,
+        mpi_allowed=False,
+    )
+
+    data_plane = dict(allocated)
+    data_plane.update(
+        cores=data_cores,
+        nodes=data_nodes,
+        cores_per_node=data_cores_per_node,
+        gpus=data_gpus,
+        node_core_counts=tuple(node_cores),
+        node_gpu_counts=tuple(node_gpus),
+        control_plane_cores=reserved_cores,
+        control_plane_gpus=reserved_gpus,
+        control_plane_nodes=reserved_nodes,
+    )
+
+    return ResourceViews(
+        allocated=allocated,
+        control_plane=control_plane,
+        data_plane=data_plane,
+    )
 
 
 def get_step_resource_request(step, available_resources):
@@ -412,6 +537,51 @@ def _get_min_gpus(step, min_tasks):
 def _estimate_nodes(cores, cores_per_node, total_nodes):
     nodes = (cores + cores_per_node - 1) // cores_per_node
     return max(1, min(nodes, total_nodes))
+
+
+def _reserve_control_plane_nodes(reserved_nodes, node_cores, node_gpus):
+    reserved_cores = 0
+    reserved_gpus = 0
+    for node_index in range(reserved_nodes):
+        reserved_cores += node_cores[node_index]
+        reserved_gpus += node_gpus[node_index]
+        node_cores[node_index] = 0
+        node_gpus[node_index] = 0
+    return reserved_cores, reserved_gpus
+
+
+def _reserve_control_plane_cores(
+    total_cores,
+    total_gpus,
+    control_plane_cores,
+    control_plane_gpus,
+    node_cores,
+    node_gpus,
+):
+    reserved_cores = min(
+        _resource_count(control_plane_cores, default=0),
+        max(0, total_cores - 1),
+    )
+    reserved_gpus = min(
+        _resource_count(control_plane_gpus, default=0), total_gpus
+    )
+    node_cores[0] = max(0, node_cores[0] - reserved_cores)
+    node_gpus[0] = max(0, node_gpus[0] - reserved_gpus)
+    return reserved_cores, reserved_gpus
+
+
+def _node_resource_counts(total, nodes, per_node):
+    if nodes <= 0:
+        return []
+    if per_node is None or per_node <= 0:
+        per_node = total
+    counts = []
+    remaining = total
+    for _ in range(nodes):
+        count = min(per_node, remaining)
+        counts.append(max(0, count))
+        remaining -= count
+    return counts
 
 
 def _resource_count(value, default):
