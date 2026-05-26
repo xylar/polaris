@@ -803,8 +803,11 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
     tmp_path, monkeypatch
 ):
     class DummyLogger:
+        def __init__(self):
+            self.messages = []
+
         def info(self, message):
-            pass
+            self.messages.append(message)
 
     prep = DummyStep(tmp_path, 'prep')
     forward = DummyStep(tmp_path, 'forward')
@@ -812,11 +815,12 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
     prep.can_run_concurrently = True
     forward.can_run_concurrently = False
     analysis.can_run_concurrently = True
+    stdout_logger = DummyLogger()
     task = SimpleNamespace(
         path='ocean/task',
         work_dir=str(tmp_path),
         logger=DummyLogger(),
-        stdout_logger=DummyLogger(),
+        stdout_logger=stdout_logger,
         log_filename=None,
         new_step_log_file=False,
         steps_to_run=['prep', 'forward', 'analysis'],
@@ -862,11 +866,9 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
     assert lifecycle == [
         ('dask_start', 3),
         ('step', 'prep', 'phase-client'),
-        ('dask_stop', None),
-        ('step', 'forward', None),
-        ('dask_start', 3),
         ('step', 'analysis', 'phase-client'),
         ('dask_stop', None),
+        ('step', 'forward', None),
     ]
     events = _read_events(tmp_path / 'schedule_events.jsonl')
     control_events = [
@@ -887,9 +889,20 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
         ('dask_phase_start', None, None),
         ('serialized_step_barrier', 'forward', 'serialized_step'),
         ('dask_phase_stop', 'forward', 'serialized_step'),
-        ('dask_phase_start', None, None),
-        ('dask_phase_stop', None, 'phase_complete'),
     ]
+    assert [
+        event['event']
+        for event in events
+        if event['event']
+        in {
+            'dask_phase_launch_requested',
+            'dask_phase_shutdown_requested',
+        }
+    ] == ['dask_phase_launch_requested', 'dask_phase_shutdown_requested']
+    assert any(
+        'worker-pool phases: 1' in message
+        for message in stdout_logger.messages
+    )
 
 
 def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):

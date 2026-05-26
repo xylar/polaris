@@ -109,6 +109,33 @@ class SchedulerGraph:
         return _topological_order(self)
 
 
+@dataclass
+class _SchedulerSelection:
+    """
+    The next scheduler node and current execution mode.
+    """
+
+    node: SchedulerNode | None
+    mode: str | None
+
+
+@dataclass
+class _LifecycleTiming:
+    """
+    Accumulated worker-pool lifecycle timings.
+    """
+
+    startup_durations: list[float]
+    shutdown_durations: list[float]
+
+    @property
+    def phase_count(self) -> int:
+        """
+        Number of worker-pool phases that started.
+        """
+        return len(self.startup_durations)
+
+
 class _ScheduleRecorder:
     """
     Record human-readable and structured scheduler events for one task.
@@ -160,6 +187,9 @@ class _DaskPhaseManager:
         self.client = dask_client
         self._context = None
         self._active_recorders = ()
+        self.timing = _LifecycleTiming(
+            startup_durations=[], shutdown_durations=[]
+        )
 
     def client_for_node(self, node, recorders):
         """
@@ -167,8 +197,11 @@ class _DaskPhaseManager:
         """
         if self.external_client is not None:
             return self.external_client
-        if _node_needs_dask_phase(node):
+        mode = _node_execution_mode(node)
+        if mode == 'worker_pool':
             return self._start(recorders)
+        if mode == 'neutral':
+            return self.client
         if self._context is not None:
             for recorder in recorders:
                 recorder.emit(
@@ -189,14 +222,26 @@ class _DaskPhaseManager:
             return
         if recorders is None:
             recorders = self._active_recorders
+        start_time = time.time()
+        for recorder in recorders:
+            recorder.emit(
+                'dask_phase_shutdown_requested',
+                reason=reason,
+                result='stopping',
+                task=getattr(node, 'task_name', None),
+                step=getattr(node, 'step_name', None),
+            )
         try:
             self._context.__exit__(None, None, None)
         finally:
+            shutdown_duration = time.time() - start_time
+            self.timing.shutdown_durations.append(shutdown_duration)
             self._context = None
             self.client = None
             for recorder in recorders:
                 recorder.emit(
                     'dask_phase_stop',
+                    duration=shutdown_duration,
                     task=getattr(node, 'task_name', None),
                     step=getattr(node, 'step_name', None),
                     reason=reason,
@@ -207,10 +252,21 @@ class _DaskPhaseManager:
     def _start(self, recorders):
         if self.client is not None:
             return self.client
+        start_time = time.time()
+        for recorder in recorders:
+            recorder.emit(
+                'dask_phase_launch_requested',
+                data_plane_cores=self.available_resources.get('cores'),
+                data_plane_gpus=self.available_resources.get('gpus'),
+                data_plane_nodes=self.available_resources.get('nodes'),
+                result='starting',
+            )
         self._context = dask_client_context(
             self.available_resources, logger=self.logger
         )
         self.client = self._context.__enter__()
+        startup_duration = time.time() - start_time
+        self.timing.startup_durations.append(startup_duration)
         self._active_recorders = tuple(recorders)
         runtime_info = get_dask_runtime_info(self.client)
         for recorder in recorders:
@@ -220,6 +276,7 @@ class _DaskPhaseManager:
                 data_plane_cores=self.available_resources.get('cores'),
                 data_plane_gpus=self.available_resources.get('gpus'),
                 data_plane_nodes=self.available_resources.get('nodes'),
+                duration=startup_duration,
                 result='started',
                 workers=getattr(runtime_info, 'workers', None),
             )
@@ -441,15 +498,28 @@ def run_suite(
     blocked_keys: set[str] = set()
     failed_keys: set[str] = set()
     step_runtimes: dict[str, float] = {}
+    suite_start_time = min(state.start_time for state in states.values())
     dask_phase = _DaskPhaseManager(
         available_resources=data_plane_resources,
         logger=stdout_logger,
         dask_client=dask_client,
     )
+    pending_keys = _selected_pending_keys(ordered_nodes)
+    current_mode = None
     try:
-        for node in ordered_nodes:
-            if not node.selected:
-                continue
+        while len(pending_keys) > 0:
+            selection = _select_next_node(
+                ordered_nodes=ordered_nodes,
+                graph=graph,
+                pending_keys=pending_keys,
+                blocked_keys=blocked_keys,
+                failed_keys=failed_keys,
+                current_mode=current_mode,
+            )
+            node = selection.node
+            current_mode = selection.mode
+            if node is None:
+                raise RuntimeError('No ready scheduler node was available.')
 
             task_name = node.task_name
             assert task_name is not None
@@ -489,6 +559,7 @@ def run_suite(
                         blocked_dependencies=blocked_dependencies,
                         active_counter=active_counter,
                     )
+                pending_keys.remove(node.key)
                 continue
 
             try:
@@ -523,10 +594,12 @@ def run_suite(
                     state.baselines_passed = accumulate_statuses(
                         state.baselines_passed, baseline_status
                     )
+                pending_keys.remove(node.key)
             except Exception:
                 state.task_pass = False
                 state.exec_failed = True
                 failed_keys.add(node.key)
+                pending_keys.remove(node.key)
                 with LoggingContext(
                     task_name.replace('/', '_'),
                     log_filename=state.log_filename,
@@ -538,6 +611,10 @@ def run_suite(
         dask_phase.close()
 
     _finalize_suite_task_states(states, stdout_logger, step_runtimes)
+    suite_wall_time = time.time() - suite_start_time
+    _log_lifecycle_timing_summary(
+        stdout_logger, dask_phase.timing, suite_wall_time
+    )
     return _suite_results(states)
 
 
@@ -592,15 +669,28 @@ def run_task(
     blocked_keys: set[str] = set()
     failed_keys: set[str] = set()
     first_exception = None
+    task_start_time = time.time()
     dask_phase = _DaskPhaseManager(
         available_resources=data_plane_resources,
         logger=getattr(task, 'stdout_logger', None),
         dask_client=dask_client,
     )
+    pending_keys = _selected_pending_keys(ordered_nodes)
+    current_mode = None
     try:
-        for node in ordered_nodes:
-            if not node.selected:
-                continue
+        while len(pending_keys) > 0:
+            selection = _select_next_node(
+                ordered_nodes=ordered_nodes,
+                graph=graph,
+                pending_keys=pending_keys,
+                blocked_keys=blocked_keys,
+                failed_keys=failed_keys,
+                current_mode=current_mode,
+            )
+            node = selection.node
+            current_mode = selection.mode
+            if node is None:
+                raise RuntimeError('No ready scheduler node was available.')
 
             blocked_dependencies = sorted(
                 graph.predecessors[node.key] & (blocked_keys | failed_keys)
@@ -619,6 +709,7 @@ def run_task(
                     blocked_dependencies=blocked_dependencies,
                     active_counter=None,
                 )
+                pending_keys.remove(node.key)
                 continue
 
             try:
@@ -638,6 +729,7 @@ def run_task(
                 )
             except Exception as exception:
                 failed_keys.add(node.key)
+                pending_keys.remove(node.key)
                 if first_exception is None:
                     first_exception = exception
                 continue
@@ -650,8 +742,15 @@ def run_task(
                 property_passed = accumulate_statuses(
                     property_passed, property_status
                 )
+            pending_keys.remove(node.key)
     finally:
         dask_phase.close()
+        task_wall_time = time.time() - task_start_time
+        _log_lifecycle_timing_summary(
+            getattr(task, 'stdout_logger', None),
+            dask_phase.timing,
+            task_wall_time,
+        )
 
     if first_exception is not None:
         raise first_exception
@@ -702,6 +801,50 @@ def _configure_task_loggers(
     task.logger = task_logger
     task.log_filename = log_filename
     task.new_step_log_file = False
+
+
+def _selected_pending_keys(ordered_nodes):
+    return {node.key for node in ordered_nodes if node.selected}
+
+
+def _select_next_node(
+    ordered_nodes,
+    graph,
+    pending_keys,
+    blocked_keys,
+    failed_keys,
+    current_mode,
+):
+    mode = current_mode
+    pending_nodes = [
+        node
+        for node in ordered_nodes
+        if node.selected and node.key in pending_keys
+    ]
+    failed_or_blocked = failed_keys | blocked_keys
+    for node in pending_nodes:
+        if graph.predecessors[node.key] & failed_or_blocked:
+            return _SchedulerSelection(node=node, mode=mode)
+
+    ready_nodes = [
+        node
+        for node in pending_nodes
+        if len(graph.predecessors[node.key] & pending_keys) == 0
+    ]
+    if len(ready_nodes) == 0:
+        return _SchedulerSelection(node=None, mode=mode)
+
+    if mode is not None:
+        for node in ready_nodes:
+            node_mode = _node_execution_mode(node)
+            if node_mode in {'neutral', mode}:
+                return _SchedulerSelection(node=node, mode=mode)
+
+    node = ready_nodes[0]
+    node_mode = _node_execution_mode(node)
+    if node_mode != 'neutral':
+        mode = node_mode
+    return _SchedulerSelection(node=node, mode=mode)
 
 
 def _add_selected_scheduler_nodes(
@@ -1079,6 +1222,45 @@ def _suite_results(states):
     )
 
 
+def _log_lifecycle_timing_summary(logger, timing, wall_time=None) -> None:
+    if logger is None or timing.phase_count == 0:
+        return
+
+    startup_total = sum(timing.startup_durations)
+    shutdown_total = sum(timing.shutdown_durations)
+    startup_mean = startup_total / len(timing.startup_durations)
+    shutdown_mean = shutdown_total / len(timing.shutdown_durations)
+    startup_max = max(timing.startup_durations)
+    shutdown_max = max(timing.shutdown_durations)
+    lifecycle_total = startup_total + shutdown_total
+    if wall_time is None or wall_time <= 0:
+        lifecycle_fraction = 'unknown'
+    else:
+        lifecycle_fraction = f'{100.0 * lifecycle_total / wall_time:.1f}%'
+
+    logger.info(
+        '  worker-pool phases: '
+        f'{timing.phase_count}, lifecycle wall time: '
+        f'{_format_duration(lifecycle_total)} ({lifecycle_fraction})'
+    )
+    logger.info(
+        '  worker-pool startup: '
+        f'total={_format_duration(startup_total)}, '
+        f'mean={_format_duration(startup_mean)}, '
+        f'max={_format_duration(startup_max)}'
+    )
+    logger.info(
+        '  worker-pool shutdown: '
+        f'total={_format_duration(shutdown_total)}, '
+        f'mean={_format_duration(shutdown_mean)}, '
+        f'max={_format_duration(shutdown_max)}'
+    )
+
+
+def _format_duration(seconds) -> str:
+    return str(timedelta(seconds=round(seconds)))
+
+
 def _log_schedule_summary(
     task, ordered_nodes: list[SchedulerNode], graph: SchedulerGraph
 ) -> None:
@@ -1123,6 +1305,14 @@ def _node_needs_dask_phase(node: SchedulerNode) -> bool:
     if node.completed or node.cached:
         return False
     return bool(getattr(node.step, 'can_run_concurrently', False))
+
+
+def _node_execution_mode(node: SchedulerNode) -> str:
+    if node.completed or node.cached:
+        return 'neutral'
+    if _node_needs_dask_phase(node):
+        return 'worker_pool'
+    return 'serialized'
 
 
 def _wait_reason(predecessor_keys) -> str:
