@@ -15,6 +15,12 @@ Phase 1. The eligibility mechanism, dependency graph, resource model,
 restart behavior and run summaries developed in Phase 1 become the foundation
 for actually running independent work concurrently.
 
+Phase 2 should be a small policy change on top of the Phase 1 runtime model:
+raise the eligible non-MPI concurrency cap from one active step to
+resource-limited concurrent execution. The scheduler, control-plane
+reservation, phase-scoped Dask lifecycle and mixed-workflow barriers should
+already have been implemented and validated in Phase 1.
+
 The central new capability in Phase 2 is that independent non-MPI steps may
 run at the same time by default, subject to dependency, explicit ineligibility
 and resource constraints. MPI steps and non-MPI steps marked unsafe or
@@ -23,6 +29,11 @@ required because many Polaris suites contain both MPI and non-MPI work, but
 Phase 2 uses a conservative barriered model: at any given time, Polaris runs
 either eligible non-MPI work in task-parallel mode or non-eligible work in
 task-serial mode.
+
+Perlmutter validation showed that this barrier is also a launch requirement,
+not just a scheduling preference. Dask worker job steps must be stopped before
+MPI or otherwise serialized `srun` work begins, because some Slurm
+configurations do not allow overlapping job steps within an allocation.
 
 Phase 2 is expected to reveal testing and debugging issues that were not
 visible in Phase 1, even though the enabling software change may be small.
@@ -349,7 +360,7 @@ are not required in Phase 2.
 
 ### Algorithm Design: Eligible Non-MPI Step Parallelism
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -360,6 +371,11 @@ Phase 2 should enable concurrency by changing only the scheduling policy on
 top of the Phase 1 command path. The dependency graph, Dask scheduler, worker
 pool, resource pool, execution-kind metadata and structured event stream
 should all be inherited from Phase 1.
+
+The Phase 1 scheduler should already own Dask phase lifetimes and control
+plane resource reservations. Phase 2 should not introduce a new Dask
+lifecycle model; it should only allow more than one eligible non-MPI step to
+hold data-plane resources during an active non-MPI phase.
 
 Non-MPI steps should be eligible for concurrent execution by default. Step
 authors should explicitly mark steps unsafe or ineligible when they rely on
@@ -588,7 +604,7 @@ policy.
 
 ### Algorithm Design: Cross-Machine Phase-2 Functionality
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -596,10 +612,12 @@ Contributors:
 - Codex
 
 The algorithm should avoid per-step scheduler launches for non-MPI work.
-Instead, Polaris should acquire a batch allocation, start an allocation-scoped
-Dask environment, and schedule Python work internally. This design is meant to
-reduce launch pressure on systems such as Perlmutter and keep Slurm/PBS
-differences isolated from normal non-MPI step scheduling.
+Instead, Polaris should acquire a batch allocation, reserve control-plane
+resources, start allocation-scoped Dask environments only for eligible
+non-MPI phases, and schedule Python work internally while that phase is
+active. This design is meant to reduce launch pressure on systems such as
+Perlmutter and keep Slurm/PBS differences isolated from normal non-MPI step
+scheduling.
 
 Machine-specific configuration should provide physical core counts, node
 counts, GPU counts where relevant and worker-launch details. The scheduling

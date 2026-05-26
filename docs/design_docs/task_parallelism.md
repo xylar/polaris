@@ -29,6 +29,16 @@ allocation. Polaris should also support realistic mixed workflows containing
 both non-MPI and MPI steps. In the initial mixed-workflow capability, MPI steps
 will run one at a time and will not overlap with non-MPI steps.
 
+Validation on Perlmutter showed that Polaris must not assume a Slurm
+allocation permits overlapping job steps. A long-lived allocation-wide Dask
+worker launch can make later model `srun` calls wait indefinitely with
+``Requested nodes are busy``. Early task parallelism must therefore separate
+the Polaris control plane from data-plane work and must avoid keeping Dask
+worker job steps alive while MPI or otherwise serialized steps are launched.
+The control plane is the parent `polaris run` process and any Dask scheduler
+process it owns. The data plane is the set of Dask workers, MPI model
+processes and other step work scheduled into the remaining resources.
+
 Task parallelism should be introduced as an opt-in capability. Existing
 `polaris serial` behavior remains the compatibility baseline until task
 parallelism is mature enough to consider broader use. A successful design will
@@ -46,9 +56,13 @@ selected architecture.
 The intended development phases are:
 
 1. Add a parallel-ready framework that still runs task-serial and proves no
-   regression relative to existing behavior.
+   regression relative to existing behavior. This framework should already
+   use the Phase 2 scheduler and executor model, with eligible non-MPI
+   concurrency capped at one active step.
 2. Enable parallel execution of explicitly safe non-MPI steps, with mixed
-   workflows supported by barriered, one-at-a-time MPI execution.
+   workflows supported by barriered, one-at-a-time MPI execution. This phase
+   should primarily raise the eligible non-MPI concurrency cap and validate
+   the resulting overlap, not introduce a second scheduler architecture.
 3. Enable concurrent execution of independent MPI steps when dependencies and
    resources allow.
 4. Enable concurrent execution of non-MPI and MPI steps within the same
