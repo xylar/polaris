@@ -1131,12 +1131,24 @@ Recorded system validation status is:
   overlapping `srun` calls within the allocation. Post-remodel CPU and GPU
   `omega_pr` runs completed successfully with phase-scoped, data-plane Dask
   launches, but showed unacceptable worker-pool lifecycle overhead. The CPU
-  run `omega-pr-parallel-gnu3/polaris_omega_pr.o53434041` took `0:13:51`
-  compared with the serial baseline `0:05:58`, and the GPU run
-  `omega-pr-parallel-gnugpu3/polaris_omega_pr.o53433884` took `0:14:04`
-  compared with the serial baseline `0:09:35`. Both task-parallel runs
-  created 13 worker-pool phases, motivating the mode-batching policy and
-  worker-pool lifecycle timing report.
+  run
+  `/pscratch/sd/x/xylar/polaris_1.0/pm-cpu/test_20260526/omega-pr-parallel-gnu3/polaris_omega_pr.o53434041`
+  took `0:13:51` compared with the serial baseline
+  `/pscratch/sd/x/xylar/polaris_1.0/pm-cpu/test_20260526/omega-pr-baseline-gnu/polaris_omega_pr.o53428117`
+  at `0:05:58`, and the GPU run
+  `/pscratch/sd/x/xylar/polaris_1.0/pm-cpu/test_20260526/omega-pr-parallel-gnugpu3/polaris_omega_pr.o53433884`
+  took `0:14:04` compared with the serial baseline
+  `/pscratch/sd/x/xylar/polaris_1.0/pm-cpu/test_20260526/omega-pr-baseline-gnugpu/polaris_omega_pr.o53428342`
+  at `0:09:35`. Both task-parallel runs created 13 worker-pool phases,
+  motivating the mode-batching policy and worker-pool lifecycle timing
+  report. After mode batching, the CPU run
+  `/pscratch/sd/x/xylar/polaris_1.0/pm-cpu/test_20260526/omega-pr-parallel-gnu4/polaris_omega_pr.o53442097`
+  completed in `0:10:19` with two worker-pool phases. Its recorded
+  worker-pool lifecycle time was `0:00:55`, or 8.9% of suite wall time,
+  suggesting that the remaining overhead is much smaller and that the
+  previous CPU validation may also have been affected by normal run-to-run
+  variability. Perlmutter `omega_nightly` and `mpaso_pr` validation are
+  deferred until final validation because queue times are long.
 - Aurora: the full `omega_pr` suite has passed on both the CPU
   (`oneapi-ifx`) and GPU (`oneapi-ifxgpu`) compiler configurations.  The
   recorded validation artifacts are
