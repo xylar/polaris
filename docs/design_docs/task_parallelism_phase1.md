@@ -1052,7 +1052,7 @@ future node, GPU and memory accounting.
 
 ### Testing and Validation: Observable Execution and Schedule Summaries
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -1060,9 +1060,10 @@ Contributors:
 - Codex
 
 Scheduler tests verify that `schedule_events.jsonl` files are written and
-that they include graph construction, Dask runtime metadata, ready selection,
-wait reasons, resource feasibility, reservation, start, finish, failure,
-skip, block and release events.
+that they include graph construction, control-plane reservation, Dask runtime
+metadata, scheduler-owned Dask phase start/stop, serialized-step barriers,
+ready selection, wait reasons, resource feasibility, reservation, start,
+finish, failure, skip, block and release events.
 
 Validation-helper tests cover parsing scheduler event files, summarizing
 scheduler/Dask evidence, rejecting missing required events, detecting active
@@ -1075,7 +1076,7 @@ task that references it while still running only once.
 
 ### Testing and Validation: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -1084,9 +1085,9 @@ Contributors:
 
 Unit tests use fake launchers, fake clients and fake parallel systems to cover
 local backend selection, automatic allocation-backend selection, local
-fallback, worker launch command construction and scheduler/worker/client
-cleanup on success and failure. These tests do not require a real Slurm or
-PBS allocation.
+fallback, data-plane worker launch planning, worker launch command
+construction and scheduler/worker/client cleanup on success and failure.
+These tests do not require a real Slurm or PBS allocation.
 
 Dry-run job-script tests cover Slurm and PBS rendering for default
 `polaris serial` behavior and explicit `--run_command run` behavior.
@@ -1099,8 +1100,12 @@ Recorded system validation status is:
   logging and graceful Dask shutdown. The run
   `omega-pr-parallel2/polaris_omega_pr.o1221657` is the current recorded
   `omega_pr` validation artifact.
-- Perlmutter: required target for later phases, but no Phase 1 system
-  validation result is recorded in this branch yet.
+- Perlmutter: serial CPU and GPU `omega_pr` baselines have passed. Earlier
+  task-parallel CPU and GPU `omega_pr` attempts stalled before completing
+  the first test, consistent with a Slurm configuration that does not permit
+  overlapping `srun` calls within the allocation. Post-remodel Perlmutter
+  validation must rerun CPU and GPU `omega_pr` with phase-scoped Dask and
+  confirm that Dask workers are launched only on the data plane.
 - Aurora: the full `omega_pr` suite has passed on both the CPU
   (`oneapi-ifx`) and GPU (`oneapi-ifxgpu`) compiler configurations.  The
   recorded validation artifacts are
