@@ -543,6 +543,7 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
     )
     assert all(event['insufficient'] == [] for event in resource_events)
     assert [event['result'] for event in events if 'result' in event] == [
+        'reserved',
         'feasible',
         'reserved',
         'running',
@@ -866,6 +867,28 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
         ('dask_start', 3),
         ('step', 'analysis', 'phase-client'),
         ('dask_stop', None),
+    ]
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+    control_events = [
+        event for event in events if event['event'] == 'control_plane_reserved'
+    ]
+    assert control_events[0]['control_plane_cores'] == 1
+    assert control_events[0]['data_plane_cores'] == 3
+    assert [
+        (event['event'], event.get('step'), event.get('reason'))
+        for event in events
+        if event['event']
+        in {
+            'dask_phase_start',
+            'dask_phase_stop',
+            'serialized_step_barrier',
+        }
+    ] == [
+        ('dask_phase_start', None, None),
+        ('serialized_step_barrier', 'forward', 'serialized_step'),
+        ('dask_phase_stop', 'forward', 'serialized_step'),
+        ('dask_phase_start', None, None),
+        ('dask_phase_stop', None, 'phase_complete'),
     ]
 
 

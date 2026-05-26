@@ -238,6 +238,43 @@ def test_plan_dask_launch_distributes_partial_node_cpu_allocation():
     assert [group.workers for group in plan.worker_groups] == [8, 8, 4]
 
 
+def test_plan_dask_launch_uses_data_plane_node_counts():
+    plan = plan_dask_launch(
+        {
+            'cores': 63,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+            'node_core_counts': (31, 32),
+        }
+    )
+
+    assert plan.backend == 'allocation'
+    assert plan.worker_count == 63
+    assert plan.total_cores == 63
+    assert [group.node_index for group in plan.worker_groups] == [0, 1]
+    assert [group.workers for group in plan.worker_groups] == [31, 32]
+
+
+def test_plan_dask_launch_skips_control_plane_node_counts():
+    plan = plan_dask_launch(
+        {
+            'cores': 64,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+            'node_core_counts': (0, 32, 32),
+        }
+    )
+
+    assert plan.backend == 'allocation'
+    assert plan.worker_count == 64
+    assert [group.node_index for group in plan.worker_groups] == [1, 2]
+    assert [group.workers for group in plan.worker_groups] == [32, 32]
+
+
 def test_plan_dask_launch_gpu_node_metadata():
     plan = plan_dask_launch(
         {
@@ -356,6 +393,30 @@ def test_parallel_system_process_launcher_builds_worker_command():
         '1',
     ]
     assert captured['label'] == 'workers'
+
+
+def test_parallel_system_process_launcher_uses_data_plane_worker_count():
+    captured: dict = {}
+    launcher = _make_fake_parallel_system_launcher(
+        captured, nodes=2, cores_per_node=32, max_mpi_tasks_per_node=32
+    )
+    launch_plan = plan_dask_launch(
+        {
+            'cores': 63,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+            'node_core_counts': (31, 32),
+        }
+    )
+    launcher.launch_workers(
+        ['dask', 'worker', '--scheduler-file', 'scheduler.json'],
+        launch_plan,
+    )
+
+    assert captured['ntasks'] == 63
+    assert captured['args'][-2:] == ['--nworkers', '1']
 
 
 def test_parallel_system_process_launcher_respects_gpu_task_limit():
