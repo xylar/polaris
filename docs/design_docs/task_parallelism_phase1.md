@@ -476,7 +476,7 @@ treating MPI task counts as non-MPI worker counts.
 
 ### Algorithm Design: Single-Step Execution in Phase 1
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -487,8 +487,9 @@ The Phase 1 scheduling policy should be a single-active-step policy layered on
 top of the future task-parallel scheduler. The scheduler should repeatedly:
 
 - identify ready graph nodes,
-- filter them by completion, cached status and resource feasibility,
-- choose the first ready step in deterministic order,
+- filter them by completion, cached status, resource feasibility and execution
+  mode,
+- choose the next step from the current execution-mode batch when possible,
 - reserve resources for that step,
 - execute it through the `polaris run` orchestration path, and
 - release resources after the step succeeds or fails.
@@ -496,7 +497,18 @@ top of the future task-parallel scheduler. The scheduler should repeatedly:
 No second step should be started while another step is active, even if it is
 independent and enough resources remain idle. This intentionally leaves
 parallel speedup for Phase 2 while proving that the scheduler, resource pool
-and Dask execution path are already real.
+and task-parallel runtime path are already real.
+
+Within that single-active-step constraint, Phase 1 should already use the
+same mode-batching policy expected in Phase 2. If a task-parallel worker pool
+is active, the scheduler should continue running ready eligible non-MPI steps
+that can use the active worker-pool phase before stopping it for serialized
+work. If no worker pool is active, the scheduler should run a batch of ready
+MPI or ineligible serialized steps before starting the worker-pool mode again,
+unless no serialized work is ready and an eligible non-MPI step can make
+progress. Stable deterministic step order remains the tie-breaker within a
+mode, but independent steps may be reordered across modes to avoid
+unnecessary worker-pool start/stop cycles.
 
 ### Algorithm Design: Future Parallel-Eligibility Metadata
 
@@ -525,7 +537,7 @@ system.
 
 ### Algorithm Design: Observable Execution and Schedule Summaries
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -539,11 +551,24 @@ structured output should record schedule/resource events so Phase 2 and later
 debugging can reconstruct what happened without scraping free-form logs.
 
 Structured events should include at least graph construction, ready-step
-selection, resource feasibility, resource reservation, Dask runtime state,
-step start, step finish, step failure, skipped or blocked steps and resource
-release. These events should be sufficient to verify that Phase 1 did not
-accidentally run steps concurrently and that Phase 2 does run eligible steps
-concurrently.
+selection, resource feasibility, resource reservation, task-parallel runtime
+state, mode-batch start/stop decisions, worker-pool launch requested,
+worker-pool ready, worker-pool shutdown requested, worker-pool stopped,
+serialized-step barriers, step start, step finish, step failure, skipped or
+blocked steps and resource release. These events should be sufficient to
+verify that Phase 1 did not accidentally run steps concurrently, that Phase 2
+does run eligible steps concurrently and that Polaris is not paying avoidable
+task-parallel runtime lifecycle overhead.
+
+The scheduler should also summarize task-parallel runtime lifecycle overhead
+in human-readable output. At minimum, a task-parallel run should report the
+number of worker-pool phases, total worker-pool startup wall time, total
+worker-pool shutdown wall time, mean and maximum startup time, mean and
+maximum shutdown time and the fraction of suite wall time spent in
+worker-pool lifecycle management. For the current Dask-backed implementation,
+this report should name Dask startup and shutdown explicitly. This report is
+required because Perlmutter validation showed that lifecycle overhead can be
+large enough to dominate small `omega_pr` steps.
 
 Task and suite timing should be distinct. Suite runtime should be wall-clock
 time for the whole run. A task runtime reported by `polaris run` should be the
@@ -1103,9 +1128,15 @@ Recorded system validation status is:
 - Perlmutter: serial CPU and GPU `omega_pr` baselines have passed. Earlier
   task-parallel CPU and GPU `omega_pr` attempts stalled before completing
   the first test, consistent with a Slurm configuration that does not permit
-  overlapping `srun` calls within the allocation. Post-remodel Perlmutter
-  validation must rerun CPU and GPU `omega_pr` with phase-scoped Dask and
-  confirm that Dask workers are launched only on the data plane.
+  overlapping `srun` calls within the allocation. Post-remodel CPU and GPU
+  `omega_pr` runs completed successfully with phase-scoped, data-plane Dask
+  launches, but showed unacceptable worker-pool lifecycle overhead. The CPU
+  run `omega-pr-parallel-gnu3/polaris_omega_pr.o53434041` took `0:13:51`
+  compared with the serial baseline `0:05:58`, and the GPU run
+  `omega-pr-parallel-gnugpu3/polaris_omega_pr.o53433884` took `0:14:04`
+  compared with the serial baseline `0:09:35`. Both task-parallel runs
+  created 13 worker-pool phases, motivating the mode-batching policy and
+  worker-pool lifecycle timing report.
 - Aurora: the full `omega_pr` suite has passed on both the CPU
   (`oneapi-ifx`) and GPU (`oneapi-ifxgpu`) compiler configurations.  The
   recorded validation artifacts are

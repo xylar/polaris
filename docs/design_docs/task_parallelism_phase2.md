@@ -18,8 +18,8 @@ for actually running independent work concurrently.
 Phase 2 should be a small policy change on top of the Phase 1 runtime model:
 raise the eligible non-MPI concurrency cap from one active step to
 resource-limited concurrent execution. The scheduler, control-plane
-reservation, phase-scoped Dask lifecycle and mixed-workflow barriers should
-already have been implemented and validated in Phase 1.
+reservation, phase-scoped worker-pool lifecycle and mixed-workflow barriers
+should already have been implemented and validated in Phase 1.
 
 The central new capability in Phase 2 is that independent non-MPI steps may
 run at the same time by default, subject to dependency, explicit ineligibility
@@ -31,9 +31,17 @@ either eligible non-MPI work in task-parallel mode or non-eligible work in
 task-serial mode.
 
 Perlmutter validation showed that this barrier is also a launch requirement,
-not just a scheduling preference. Dask worker job steps must be stopped before
-MPI or otherwise serialized `srun` work begins, because some Slurm
-configurations do not allow overlapping job steps within an allocation.
+not just a scheduling preference. Worker-pool job steps used by the
+task-parallel non-MPI runtime must be stopped before MPI or otherwise
+serialized `srun` work begins, because some Slurm configurations do not allow
+overlapping job steps within an allocation.
+
+Perlmutter validation also showed that a correct barriered implementation can
+still be inefficient if it switches between worker-pool mode and serialized
+launch mode at every ready-step boundary. Phase 2 should batch work by
+execution mode: run as much eligible non-MPI work as dependencies and
+resources allow while worker-pool mode is active, then run as much serialized
+MPI or ineligible work as possible before switching back.
 
 Phase 2 is expected to reveal testing and debugging issues that were not
 visible in Phase 1, even though the enabling software change may be small.
@@ -80,7 +88,7 @@ algorithm design and implementation.
 
 ### Requirement: Mixed MPI and Non-MPI Workflow Support
 
-Date last modified: 2026/04/28
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -95,6 +103,13 @@ task-parallel mode or non-eligible steps in task-serial mode. These two
 execution modes shall not overlap in Phase 2. This support is required because
 many Polaris workflows mix MPI and non-MPI work, and Phase 2 cannot be tested
 effectively on realistic workflows without mixed-workflow support.
+
+Within dependency and resource constraints, Phase 2 shall minimize transitions
+between task-parallel worker-pool mode and task-serial launch mode. This is a
+runtime-efficiency requirement, not a requirement to use a particular
+worker-pool implementation. If the implementation uses Dask, Dask startup and
+shutdown are the current costs being minimized; another implementation would
+need to minimize the analogous worker-pool lifecycle cost.
 
 ### Requirement: Dependency-Correct Parallel Execution
 
@@ -389,7 +404,7 @@ hook and use an assigned Dask client and worker resources for internal work.
 
 ### Algorithm Design: Mixed MPI and Non-MPI Workflow Support
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -398,14 +413,18 @@ Contributors:
 
 Phase 2 should use a barriered mixed-workflow policy. When eligible non-MPI
 steps are active, no MPI or ineligible step should start. When an MPI or
-ineligible step is selected, the Dask worker pool should be drained and
-stopped before that serialized step runs, then restarted before the next
-eligible non-MPI phase.
+ineligible step is selected, the task-parallel worker pool should be drained
+and stopped before that serialized step runs. Worker-pool mode should restart
+only when the next eligible non-MPI batch is ready to make progress.
 
-If MPI or ineligible work and eligible non-MPI work are both ready, the
-scheduler should choose the MPI or ineligible work first. This conservative
-priority matches the later Phase 4 direction in which MPI work is expected to
-be on the critical path under resource contention.
+The scheduler should avoid a strict ready-order policy that alternates between
+worker-pool and serialized modes for every independent step. Instead, it
+should maintain a current execution mode and continue selecting ready work
+from that mode until no such work can make progress. Then it may switch modes,
+paying the worker-pool startup or shutdown cost once for the next batch. This
+batching policy may reorder independent ready steps across modes, but it must
+not violate dependency order, resource feasibility or deterministic
+tie-breaking within a mode.
 
 ### Algorithm Design: Dependency-Correct Parallel Execution
 
@@ -523,7 +542,7 @@ markers as in task-serial execution.
 
 ### Algorithm Design: Human-Readable Parallel Progress
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -532,18 +551,25 @@ Contributors:
 
 Human-readable progress should show which steps are running, completed,
 failed, blocked, waiting for dependencies, waiting for resources, or
-serialized by policy. It should also summarize Dask worker-pool state at the
-start and end of non-MPI phases and before/after serialized MPI or ineligible
+serialized by policy. It should also summarize worker-pool state at the start
+and end of non-MPI phases and before/after serialized MPI or ineligible
 steps.
 
 Structured events should remain the authoritative diagnostic record. They
 should include enough timing and resource information to prove that eligible
 steps overlapped and that MPI/ineligible work did not overlap with non-MPI
-work in Phase 2.
+work in Phase 2. They should also make worker-pool lifecycle overhead visible:
+launch requested, client/runtime ready, shutdown requested, stopped and
+duration fields should be sufficient to estimate the cost of each mode
+transition. Human-readable summaries should report the number of worker-pool
+phases, total startup and shutdown time, mean and maximum startup and
+shutdown time and the fraction of suite wall time spent managing the
+task-parallel runtime. If the implementation uses Dask, the report should
+label these as Dask lifecycle timings.
 
 ### Algorithm Design: Suite, Task and Step Scope
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -555,9 +581,9 @@ step execution should still use the `polaris run` command path for
 compatibility, but it may avoid unnecessary graph complexity because there is
 only one selected node.
 
-The same execution-kind metadata, resource checks, Dask lifecycle and
-structured event output should apply at all scopes so behavior remains
-consistent and debuggable.
+The same execution-kind metadata, resource checks, task-parallel runtime
+lifecycle and structured event output should apply at all scopes so behavior
+remains consistent and debuggable.
 
 ### Algorithm Design: Conservative Scheduling Behavior
 
@@ -728,7 +754,7 @@ real suites.
 
 ### Testing and Validation: Cross-Machine Phase-2 Functionality
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/26
 
 Contributors:
 
@@ -738,5 +764,8 @@ Contributors:
 HPC validation should target Chrysalis, Perlmutter and Aurora using synthetic
 parallel workflows and representative suites including `omega_pr`,
 `omega_nightly` and `mpaso_pr`. Validation should record step overlap,
-worker-pool transitions, resource reservations, failures, resume behavior and
-serial-vs-parallel wall time when meaningful.
+worker-pool transitions, worker-pool lifecycle timing, resource reservations,
+failures, resume behavior and serial-vs-parallel wall time when meaningful.
+On systems where worker-pool startup and shutdown are expensive, validation
+should include the number of execution-mode switches and an estimate of how
+much task-parallel speedup is needed to amortize that overhead.
