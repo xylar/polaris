@@ -8,7 +8,7 @@ from mache.permissions import update_permissions
 
 from polaris.config import PolarisConfigParser
 from polaris.io import download, symlink
-from polaris.validate import compare_variables
+from polaris.validate import compare_variables, validate_output_files
 
 
 class Step:
@@ -554,8 +554,9 @@ class Step:
         available as an input to steps, perhaps in other tasks.  This file
         must exist after the task has run or an exception will be raised.
 
-        Optionally, a list of variables can be provided for validation against
-        a baseline (if one is provided), once the step has been run.
+        Optionally, a list of variables can be provided for validation of
+        the output and against a baseline (if one is provided), once the step
+        has been run.
 
         Parameters
         ----------
@@ -564,8 +565,8 @@ class Step:
             directory
 
         validate_vars : list, optional
-            A list of variable names to compare with a baseline (if one is
-            provided)
+            A list of variable names to check for NaN/Inf values and compare
+            with a baseline (if one is provided)
         """
         self.outputs.append(filename)
         if validate_vars is not None:
@@ -615,6 +616,36 @@ class Step:
         success = True
         return checked, success
 
+    def validate_outputs(self):
+        """
+        Check variables in step outputs for NaN/Inf values.
+
+        Writes out either an ``output_validation_passed.log`` or
+        ``output_validation_failed.log`` file in the work directory when any
+        variables were checked.
+
+        Returns
+        -------
+        checked : bool
+            Whether output validation was performed
+
+        success : bool
+            Whether the outputs passed NaN/Inf validation
+        """
+        if self.work_dir is None:
+            raise ValueError(
+                'The work directory must be set before the step outputs can '
+                'be validated.'
+            )
+
+        return validate_output_files(
+            component=self.component,
+            variables_by_file=self.validate_vars,
+            work_dir=self.work_dir,
+            logger=self.logger,
+            config=self.config,
+        )
+
     def validate_baselines(self):
         """
         Compare variables between output files in this step and in the same
@@ -654,6 +685,7 @@ class Step:
                     baseline_filename,
                     logger=logger,
                     config=self.config,
+                    check_finite=True,
                 )
                 success = success and result
                 compared = True

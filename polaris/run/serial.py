@@ -390,9 +390,9 @@ def _log_and_run_task(
         task_list = ', '.join(task.steps_to_run)
         task_logger.info(f'Running steps: {task_list}')
         # Default in case execution fails before setting this
-        baselines_passed = None
+        validation_statuses = _default_validation_statuses()
         try:
-            baselines_passed = _run_task(task, available_resources)
+            validation_statuses = _run_task(task, available_resources)
             run_status = success_str
             task_pass = True
         except Exception:
@@ -406,24 +406,11 @@ def _log_and_run_task(
         task_logger.info(f'POLARIS TASK: {"PASS" if task_pass else "FAIL"}')
         if task_pass:
             stdout_logger.info(status)
-            if baselines_passed is None:
-                result_str = pass_str
-                success = True
-            else:
-                if baselines_passed:
-                    baseline_str = pass_str
-                    result_str = pass_str
-                    success = True
-                else:
-                    baseline_str = fail_str
-                    result_str = fail_str
-                    success = False
-                status = f'  baseline comp.:   {baseline_str}'
-                stdout_logger.info(status)
-                task_logger.info(
-                    f'POLARIS BASELINE: '
-                    f'{"PASS" if baselines_passed else "FAIL"}'
-                )
+            success = not _validation_status_failed(validation_statuses)
+            result_str = pass_str if success else fail_str
+            _log_task_validation_statuses(
+                stdout_logger, task_logger, validation_statuses
+            )
 
         else:
             stdout_logger.error(status)
@@ -440,8 +427,43 @@ def _log_and_run_task(
         )
 
     exec_failed = not task_pass
-    diff_failed = baselines_passed is False
+    diff_failed = _validation_status_failed(validation_statuses)
     return result_str, success, task_time, exec_failed, diff_failed
+
+
+def _default_validation_statuses() -> Dict[str, Optional[bool]]:
+    """Default aggregate status for post-step validation stages."""
+    return dict(output_validation=None, property=None, baseline=None)
+
+
+def _validation_status_failed(statuses: Dict[str, Optional[bool]]) -> bool:
+    """Whether any validation stage failed."""
+    return any(status is False for status in statuses.values())
+
+
+def _log_task_validation_statuses(
+    stdout_logger, task_logger, statuses: Dict[str, Optional[bool]]
+):
+    """Log aggregate post-step validation statuses for a task."""
+    labels = dict(
+        output_validation='output valid.:    ',
+        property='property checks: ',
+        baseline='baseline comp.:  ',
+    )
+    polar_labels = dict(
+        output_validation='OUTPUT VALIDATION',
+        property='PROPERTY',
+        baseline='BASELINE',
+    )
+    for name in ['output_validation', 'property', 'baseline']:
+        status = statuses[name]
+        if status is None:
+            continue
+        status_str = pass_str if status else fail_str
+        stdout_logger.info(f'  {labels[name]} {status_str}')
+        task_logger.info(
+            f'POLARIS {polar_labels[name]}: {"PASS" if status else "FAIL"}'
+        )
 
 
 def _read_baseline_status_from_logs(step_work_dir: str) -> Optional[bool]:
@@ -459,6 +481,27 @@ def _read_baseline_status_from_logs(step_work_dir: str) -> Optional[bool]:
     if os.path.exists(baseline_pass_filename):
         return True
     if os.path.exists(baseline_fail_filename):
+        return False
+    return None
+
+
+def _read_output_validation_status_from_logs(
+    step_work_dir: str,
+) -> Optional[bool]:
+    """Get output validation status from existing log markers.
+
+    Returns
+    -------
+    Optional[bool]
+        True if ``output_validation_passed.log`` exists, False if
+        ``output_validation_failed.log`` exists, otherwise None.
+    """
+    pass_filename = os.path.join(step_work_dir, 'output_validation_passed.log')
+    fail_filename = os.path.join(step_work_dir, 'output_validation_failed.log')
+
+    if os.path.exists(pass_filename):
+        return True
+    if os.path.exists(fail_filename):
         return False
     return None
 
@@ -486,17 +529,17 @@ def _read_property_status_from_logs(step_work_dir: str) -> Optional[bool]:
     return None
 
 
-def _accumulate_baselines(
-    baselines_passed: Optional[bool], status: bool
+def _accumulate_status(
+    aggregate_status: Optional[bool], status: bool
 ) -> Optional[bool]:
-    """Aggregate baseline results across steps.
+    """Aggregate validation results across steps.
 
-    None means no baseline comparisons were performed. If any comparison fails,
-    the aggregate becomes False.
+    None means no validation was performed. If any validation fails, the
+    aggregate becomes False.
     """
-    if baselines_passed is None:
+    if aggregate_status is None:
         return status
-    return baselines_passed and status
+    return aggregate_status and status
 
 
 def _run_task(task, available_resources):
@@ -505,8 +548,7 @@ def _run_task(task, available_resources):
     """
     logger = task.logger
     cwd = os.getcwd()
-    baselines_passed = None
-    property_passed = None
+    validation_statuses = _default_validation_statuses()
     for step_name in task.steps_to_run:
         step = task.steps[step_name]
         complete_filename = os.path.join(
@@ -517,6 +559,19 @@ def _run_task(task, available_resources):
 
         if os.path.exists(complete_filename):
             _print_to_stdout(task, '          already completed')
+            output_status = _read_output_validation_status_from_logs(
+                step.work_dir
+            )
+            if output_status is not None:
+                output_str = pass_str if output_status else fail_str
+                _print_to_stdout(
+                    task, f'          output valid.:    {output_str}'
+                )
+                validation_statuses['output_validation'] = _accumulate_status(
+                    validation_statuses['output_validation'],
+                    output_status,
+                )
+
             # print results of baseline comparison if it was done
             baseline_status = _read_baseline_status_from_logs(step.work_dir)
             if baseline_status is not None:
@@ -524,8 +579,8 @@ def _run_task(task, available_resources):
                 _print_to_stdout(
                     task, f'          baseline comp.:   {baseline_str}'
                 )
-                baselines_passed = _accumulate_baselines(
-                    baselines_passed, baseline_status
+                validation_statuses['baseline'] = _accumulate_status(
+                    validation_statuses['baseline'], baseline_status
                 )
             property_status = None
             property_status = _read_property_status_from_logs(step.work_dir)
@@ -534,14 +589,14 @@ def _run_task(task, available_resources):
                 _print_to_stdout(
                     task, f'          property comp.:   {property_str}'
                 )
-                property_passed = _accumulate_baselines(
-                    property_passed, property_status
+                validation_statuses['property'] = _accumulate_status(
+                    validation_statuses['property'], property_status
                 )
             continue
         if step.cached:
             _print_to_stdout(task, '          cached')
             # cached steps never perform baseline comparisons; leave
-            # baselines_passed unchanged
+            # validation_statuses unchanged
             continue
 
         step_start = time.time()
@@ -574,6 +629,14 @@ def _run_task(task, available_resources):
         step_time = time.time() - step_start
         step_time_str = str(timedelta(seconds=round(step_time)))
 
+        compared, status = step.validate_outputs()
+        if compared:
+            output_str = pass_str if status else fail_str
+            _print_to_stdout(task, f'          output valid.:    {output_str}')
+            validation_statuses['output_validation'] = _accumulate_status(
+                validation_statuses['output_validation'], status
+            )
+
         compared, status = step.check_properties()
         if compared:
             if status:
@@ -583,7 +646,9 @@ def _run_task(task, available_resources):
             _print_to_stdout(
                 task, f'          property checks:   {property_str}'
             )
-            property_passed = _accumulate_baselines(property_passed, status)
+            validation_statuses['property'] = _accumulate_status(
+                validation_statuses['property'], status
+            )
 
         compared, status = step.validate_baselines()
         if compared:
@@ -594,7 +659,9 @@ def _run_task(task, available_resources):
             _print_to_stdout(
                 task, f'          baseline comp.:   {baseline_str}'
             )
-            baselines_passed = _accumulate_baselines(baselines_passed, status)
+            validation_statuses['baseline'] = _accumulate_status(
+                validation_statuses['baseline'], status
+            )
 
         _print_to_stdout(
             task,
@@ -602,7 +669,7 @@ def _run_task(task, available_resources):
             f'{start_time_color}{step_time_str}{end_color}',
         )
 
-    return baselines_passed
+    return validation_statuses
 
 
 def _run_step(

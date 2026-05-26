@@ -449,9 +449,13 @@ not used here, the `options` parameter can be used to pass model config options
 as a python dictionary so that they are added to with
 {py:meth}`polaris.ModelStep.add_model_config_options()`. The
 `output_filename` is an output file that will have fields to validate and
-analyze.  The `validate_vars` are a list of variables to compare against a
-baseline (if one is provided), and can be `None` if baseline validation should
-not be performed.
+analyze.  The `validate_vars` are a list of variables to check for NaN and Inf
+values and to compare against a baseline (if one is provided), and can be
+`None` if output and baseline validation should not be performed.  For
+cell-centered 3D variables with both `nCells` and `nVertLevels` dimensions,
+validation is limited to cells and vertical levels between `minLevelCell` and
+`maxLevelCell` from the vertical-coordinate dataset supplied to the model
+(`vert_coord.nc` for Omega and the initial-condition dataset for MPAS-Ocean).
 
 The `mesh` step should be created with the function described in
 {ref}`dev-ocean-spherical-meshes`, and the `init` step should produce a file

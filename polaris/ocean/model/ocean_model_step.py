@@ -12,6 +12,10 @@ from polaris.ocean.conservation import (
     compute_total_salt,
     compute_total_tracer,
 )
+from polaris.ocean.validation import (
+    validate_ocean_baselines,
+    validate_ocean_outputs,
+)
 
 if TYPE_CHECKING:
     # Keep Ocean as a type-only import. Importing it at runtime pulls
@@ -631,6 +635,18 @@ class OceanModelStep(ModelStep):
                 )
 
         return checked, success
+
+    def validate_outputs(self):
+        """
+        Check ocean output variables for NaN/Inf values.
+        """
+        return validate_ocean_outputs(self)
+
+    def validate_baselines(self):
+        """
+        Compare ocean output variables to a baseline.
+        """
+        return validate_ocean_baselines(self)
 
     def _update_ntasks(self) -> None:
         """

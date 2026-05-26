@@ -6,13 +6,16 @@ Tasks should typically include validation of variables and/or timers.
 This validation is a critical part of running suites and comparing them
 to baselines.
 
-## Validating variables against a baseline
+## Validating output variables and baselines
 
-The easiest type of validation you can add is against a baseline if one is
-provided during setup (see {ref}`dev-polaris-setup` or
-{ref}`dev-polaris-suite`).  To do this, simply add a list of variables in
-the keyword argument `validate_vars` to the
-:py:meth:`polaris.Step.add_output_file()` method.  As an example:
+The easiest type of validation you can add is local output validation, and
+optionally validation against a baseline if one is provided during setup (see
+{ref}`dev-polaris-setup` or {ref}`dev-polaris-suite`).  To do this, simply add
+a list of variables in the keyword argument `validate_vars` to the
+:py:meth:`polaris.Step.add_output_file()` method.  Polaris checks these
+variables for NaN and Inf values after the step runs.  If a baseline is
+available, Polaris also compares these variables against the corresponding
+baseline file.  As an example:
 
 ```python
 from polaris import Step
@@ -29,7 +32,16 @@ class Init(Step):
 
 Here, we add `initial_state.nc` as an output of the `init` step, and indicated
 that the variables `temperature`, `salinity`, and `layerThickness` should
-be compared against a baseline, if one is provided, after the step as run.
+be checked for NaN and Inf values, and compared against a baseline if one is
+provided, after the step has run.
+
+For ocean cell-centered 3D variables, meaning variables with both `nCells` and
+`nVertLevels` dimensions, Polaris checks only cells and vertical levels between
+`minLevelCell` and `maxLevelCell`.  The ocean framework supplies these
+topography bounds from the step's vertical-coordinate dataset (`vert_coord.nc`
+for Omega model steps and the initial-condition dataset for MPAS-Ocean model
+steps).  Other variables, including edge-centered variables, are checked over
+their full extent.
 
 ## Validating variables
 
@@ -218,8 +230,8 @@ For some output files, you may wish to run checks of certain properties such as
 conservation of mass or energy. Currently, only conservation checks for the
 ocean are available.
 
-To run property checks, add a list of properties
-the keyword argument `verify_properties` to the
+To run property checks, add a list of properties with
+the keyword argument `check_properties` to the
 :py:meth:`polaris.Step.add_output_file()` method.  As an example:
 
 ```python
@@ -234,8 +246,15 @@ class Forward(OceanModelStep):
             filename='mesh.nc', target='../init/culled_mesh.nc'
         )
         self.add_output_file('output.nc',
-                             verify_properties=['mass conservation'])
+                             check_properties=['mass conservation'])
 ```
+
+For ocean outputs, property checks also contribute their required variables to
+the NaN/Inf output-validation stage.  For example, mass conservation checks
+`layerThickness`; salt conservation checks `layerThickness` and `salinity`;
+energy conservation checks `layerThickness` and `temperature`; and tracer
+conservation checks `layerThickness` plus tracer variables present in the
+output file.
 
 ## Conservation checks
 

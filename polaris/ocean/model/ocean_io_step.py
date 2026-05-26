@@ -1,6 +1,10 @@
 from typing import TYPE_CHECKING
 
 from polaris import Step
+from polaris.ocean.validation import (
+    validate_ocean_baselines,
+    validate_ocean_outputs,
+)
 
 if TYPE_CHECKING:
     # Keep Ocean as a type-only import. Importing it at runtime pulls
@@ -136,3 +140,15 @@ class OceanIOStep(Step):
         return self.component.open_model_dataset(
             filename, config=config, **kwargs
         )
+
+    def validate_outputs(self):
+        """
+        Check ocean output variables for NaN/Inf values.
+        """
+        return validate_ocean_outputs(self)
+
+    def validate_baselines(self):
+        """
+        Compare ocean output variables to a baseline.
+        """
+        return validate_ocean_baselines(self)

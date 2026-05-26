@@ -17,6 +17,9 @@ def compare_variables(
     quiet=True,
     ds1=None,
     ds2=None,
+    check_finite=False,
+    mask_callback1=None,
+    mask_callback2=None,
 ):
     """
     compare variables in the two files
@@ -76,6 +79,16 @@ def compare_variables(
         already loaded and allows for calculations to be performed or variables
         to be renamed if necessary.
 
+    check_finite : bool, optional
+        Whether to fail if variables contain NaN or Inf values before
+        computing norms.
+
+    mask_callback1, mask_callback2 : callable, optional
+        Functions that return a mask for a variable in ``filename1`` or
+        ``filename2``.  Each callback is called with
+        ``(variable, da, ds, filename, logger)`` and may return ``None``, a
+        mask ``DataArray``, or ``(mask, success)``.
+
     Returns
     -------
     all_pass : bool
@@ -103,6 +116,29 @@ def compare_variables(
 
         da1 = ds1[variable]
         da2 = ds2[variable]
+
+        da1, result1 = _validate_and_mask_variable(
+            da=da1,
+            variable=variable,
+            filename=filename1,
+            ds=ds1,
+            logger=logger,
+            check_finite=check_finite,
+            mask_callback=mask_callback1,
+        )
+        all_pass = all_pass and result1
+        da2, result2 = _validate_and_mask_variable(
+            da=da2,
+            variable=variable,
+            filename=filename2,
+            ds=ds2,
+            logger=logger,
+            check_finite=check_finite,
+            mask_callback=mask_callback2,
+        )
+        all_pass = all_pass and result2
+        if not (result1 and result2):
+            continue
 
         if not np.all(da1.dims == da2.dims):
             logger.error(
@@ -169,6 +205,164 @@ def compare_variables(
     return all_pass
 
 
+def validate_output_files(
+    component,
+    variables_by_file,
+    work_dir,
+    logger,
+    config,
+    mask_callback_builder=None,
+):
+    """
+    Check output variables for NaN and Inf values.
+
+    Parameters
+    ----------
+    component : polaris.Component
+        The component this step belongs to
+
+    variables_by_file : dict
+        Variables requested for validation by output filename
+
+    work_dir : str
+        The step work directory
+
+    logger: logging.Logger
+        The logger to log validation output to
+
+    config : polaris.config.PolarisConfigParser
+        Configuration for the task; forwarded to
+        ``component.open_model_dataset()``.
+
+    mask_callback_builder : callable, optional
+        Function called with ``(filename, ds, output_filename)`` to build a
+        mask callback for variables in that output file.
+
+    Returns
+    -------
+    checked : bool
+        Whether any variables were checked
+
+    success : bool
+        Whether all variables passed the validation checks
+    """
+    checked = False
+    success = True
+    failed_vars = []
+    passed_vars = []
+    for filename, variables in variables_by_file.items():
+        filename = str(filename)
+        output_filename = os.path.join(work_dir, filename)
+        if not os.path.exists(output_filename):
+            logger.error(f'File {output_filename} does not exist.')
+            success = False
+            continue
+
+        if len(variables) == 0:
+            continue
+
+        ds = component.open_model_dataset(output_filename, config)
+        try:
+            if mask_callback_builder is None:
+                mask_callback = None
+            else:
+                mask_callback = mask_callback_builder(
+                    filename, ds, output_filename
+                )
+            checked = True
+            result = check_variables_finite(
+                variables=variables,
+                filename=output_filename,
+                ds=ds,
+                logger=logger,
+                mask_callback=mask_callback,
+            )
+            success = success and result
+            if result:
+                passed_vars.extend(
+                    [f'{filename}: {variable}' for variable in variables]
+                )
+            else:
+                failed_vars.extend(
+                    [f'{filename}: {variable}' for variable in variables]
+                )
+        finally:
+            ds.close()
+
+    write_output_validation_log(
+        work_dir=work_dir,
+        checked=checked,
+        success=success,
+        passed_vars=passed_vars,
+        failed_vars=failed_vars,
+    )
+    return checked, success
+
+
+def check_variables_finite(
+    variables,
+    filename,
+    ds,
+    logger,
+    mask_callback=None,
+):
+    """
+    Check variables in a dataset for NaN and Inf values.
+
+    Returns
+    -------
+    all_pass : bool
+        Whether all variables passed the validation checks
+    """
+    all_pass = True
+    for variable in variables:
+        if variable not in ds:
+            logger.error(f'Variable {variable} not in {filename}.')
+            all_pass = False
+            continue
+
+        _, result = _validate_and_mask_variable(
+            da=ds[variable],
+            variable=variable,
+            filename=filename,
+            ds=ds,
+            logger=logger,
+            check_finite=True,
+            mask_callback=mask_callback,
+        )
+        all_pass = all_pass and result
+
+    return all_pass
+
+
+def write_output_validation_log(
+    work_dir, checked, success, passed_vars, failed_vars
+):
+    """Write output-validation pass/fail marker logs."""
+    pass_filename = os.path.join(work_dir, 'output_validation_passed.log')
+    fail_filename = os.path.join(work_dir, 'output_validation_failed.log')
+    for filename in [pass_filename, fail_filename]:
+        if os.path.exists(filename):
+            os.remove(filename)
+
+    if not checked:
+        return
+
+    if success:
+        passed_vars_str = '\n  '.join(passed_vars)
+        with open(pass_filename, 'w') as result_log_file:
+            result_log_file.write(
+                'All variables passed NaN/Inf output validation.\n'
+                f'{passed_vars_str}\n'
+            )
+    else:
+        failed_vars_str = '\n  '.join(failed_vars)
+        with open(fail_filename, 'w') as result_log_file:
+            result_log_file.write(
+                f'NaN/Inf output validation failed for:\n {failed_vars_str}\n'
+            )
+
+
 def _all_found(ds1, filename1, ds2, filename2, variable, logger):
     """Is the variable found in both datasets?"""
     all_found = True
@@ -205,9 +399,14 @@ def _compute_norms(
     # skip entries where one field or both are a fill value
     diff = diff[np.isfinite(diff)]
 
-    l1_norm = np.linalg.norm(diff, ord=1)
-    l2_norm = np.linalg.norm(diff, ord=2)
-    linf_norm = np.linalg.norm(diff, ord=np.inf)
+    if diff.size == 0:
+        l1_norm = 0.0
+        l2_norm = 0.0
+        linf_norm = 0.0
+    else:
+        l1_norm = np.linalg.norm(diff, ord=1)
+        l2_norm = np.linalg.norm(diff, ord=2)
+        linf_norm = np.linalg.norm(diff, ord=np.inf)
 
     if time_index is None:
         diff_str = ''
@@ -253,3 +452,76 @@ def _rename_duplicate_dims(da):
 
     da = xr.DataArray(data=da.values, dims=new_dims)
     return da
+
+
+def _validate_and_mask_variable(
+    da,
+    variable,
+    filename,
+    ds,
+    logger,
+    check_finite,
+    mask_callback,
+):
+    """Validate one variable and return the DataArray used for comparison."""
+    mask, mask_success = _get_variable_mask(
+        mask_callback, variable, da, ds, filename, logger
+    )
+    if not mask_success:
+        return da, False
+
+    result = True
+    if check_finite:
+        result = _check_finite_values(da, variable, filename, logger, mask)
+
+    if mask is not None:
+        da = da.where(mask)
+
+    return da, result
+
+
+def _get_variable_mask(mask_callback, variable, da, ds, filename, logger):
+    """Get an optional mask from a caller-provided callback."""
+    if mask_callback is None:
+        return None, True
+
+    mask_result = mask_callback(variable, da, ds, filename, logger)
+    if isinstance(mask_result, tuple):
+        return mask_result
+
+    return mask_result, True
+
+
+def _check_finite_values(da, variable, filename, logger, mask):
+    """Check that values are finite in the checked region."""
+    if mask is None:
+        values = da.values.ravel()
+    else:
+        try:
+            broadcast_mask = mask.broadcast_like(da).values.astype(bool)
+        except ValueError:
+            logger.error(
+                f'Could not broadcast validation mask for variable '
+                f'{variable} in {filename}.'
+            )
+            return False
+        values = da.values[broadcast_mask]
+
+    try:
+        finite = np.isfinite(values)
+    except TypeError:
+        logger.error(
+            f'Variable {variable} in {filename} has non-numeric values and '
+            f'cannot be checked for NaN/Inf.'
+        )
+        return False
+
+    invalid_count = np.count_nonzero(~finite)
+    if invalid_count == 0:
+        return True
+
+    logger.error(
+        f'Variable {variable} in {filename} contains {invalid_count} '
+        f'NaN/Inf values in the checked region.'
+    )
+    return False
