@@ -7,6 +7,7 @@ from polaris.run.resources import (
     StepResourceLease,
     StepResourceRequest,
     get_local_worker_count,
+    get_resource_views,
     get_step_resource_lease,
     get_step_resource_request,
 )
@@ -23,6 +24,50 @@ def test_get_local_worker_count_caps_to_one_node():
         )
         == 32
     )
+
+
+def test_get_resource_views_reserves_control_plane_core():
+    views = get_resource_views(
+        {
+            'cores': 64,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+        }
+    )
+
+    assert views.allocated['cores'] == 64
+    assert views.control_plane['cores'] == 1
+    assert views.control_plane['nodes'] == 0
+    assert views.data_plane['cores'] == 63
+    assert views.data_plane['nodes'] == 2
+    assert views.data_plane['cores_per_node'] == 32
+    assert views.data_plane['node_core_counts'] == (31, 32)
+    assert views.data_plane['control_plane_cores'] == 1
+
+
+def test_get_resource_views_can_reserve_whole_control_node():
+    views = get_resource_views(
+        {
+            'cores': 96,
+            'nodes': 3,
+            'cores_per_node': 32,
+            'gpus': 12,
+            'gpus_per_node': 4,
+            'mpi_allowed': True,
+        },
+        control_plane_nodes=1,
+    )
+
+    assert views.control_plane['cores'] == 32
+    assert views.control_plane['nodes'] == 1
+    assert views.control_plane['gpus'] == 4
+    assert views.data_plane['cores'] == 64
+    assert views.data_plane['nodes'] == 2
+    assert views.data_plane['gpus'] == 8
+    assert views.data_plane['node_core_counts'] == (0, 32, 32)
+    assert views.data_plane['node_gpu_counts'] == (0, 4, 4)
 
 
 def test_get_step_resource_lease():

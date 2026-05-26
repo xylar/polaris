@@ -10,7 +10,11 @@ from mpas_tools.logging import LoggingContext
 
 from polaris.logging import log_function_call
 from polaris.run.dask import get_dask_runtime_info
-from polaris.run.resources import ResourcePool, get_step_resource_request
+from polaris.run.resources import (
+    ResourcePool,
+    get_resource_views,
+    get_step_resource_request,
+)
 from polaris.run.shared import (
     accumulate_statuses,
     end_color,
@@ -318,7 +322,9 @@ def run_suite(
     )
     tasks = {state.task.path: state.task for state in states.values()}
     graph = build_scheduler_graph(tasks)
-    resource_pool = ResourcePool(available_resources)
+    resource_views = get_resource_views(available_resources)
+    data_plane_resources = resource_views.data_plane
+    resource_pool = ResourcePool(data_plane_resources)
     recorders = {
         task_name: _ScheduleRecorder(state.task)
         for task_name, state in states.items()
@@ -397,7 +403,7 @@ def run_suite(
                 baseline_status, _ = _run_scheduler_node(
                     node=node,
                     task=task,
-                    available_resources=available_resources,
+                    available_resources=data_plane_resources,
                     resource_pool=resource_pool,
                     recorder=recorders[task_name],
                     cwd=cwd,
@@ -455,7 +461,9 @@ def run_task(
     """
     cwd = os.getcwd()
     graph = build_scheduler_graph({task.path: task})
-    resource_pool = ResourcePool(available_resources)
+    resource_views = get_resource_views(available_resources)
+    data_plane_resources = resource_views.data_plane
+    resource_pool = ResourcePool(data_plane_resources)
     recorder = _ScheduleRecorder(task)
     ordered_nodes = graph.topological_order()
     edge_count = sum(
@@ -496,7 +504,7 @@ def run_task(
             baseline_status, property_status = _run_scheduler_node(
                 node=node,
                 task=task,
-                available_resources=available_resources,
+                available_resources=data_plane_resources,
                 resource_pool=resource_pool,
                 recorder=recorder,
                 cwd=cwd,
