@@ -39,6 +39,14 @@ The control plane is the parent `polaris run` process and any Dask scheduler
 process it owns. The data plane is the set of Dask workers, MPI model
 processes and other step work scheduled into the remaining resources.
 
+Later Perlmutter CPU and GPU validation showed that a correct phase-scoped
+worker-pool model can still be too expensive if Polaris alternates between
+task-parallel worker-pool mode and serialized launch mode at every ready-step
+boundary. Scheduler policy should therefore minimize expensive execution-mode
+transitions: run a batch of eligible non-MPI work while the worker-pool phase
+is active, then switch to a batch of serialized MPI or ineligible work,
+switching modes only when dependencies or ready-work exhaustion require it.
+
 Task parallelism should be introduced as an opt-in capability. Existing
 `polaris serial` behavior remains the compatibility baseline until task
 parallelism is mature enough to consider broader use. A successful design will
