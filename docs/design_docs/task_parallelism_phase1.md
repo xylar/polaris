@@ -945,7 +945,7 @@ and shared steps.
 
 ### Testing and Validation: Task-Parallel Output Equivalence
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/28
 
 Contributors:
 
@@ -971,12 +971,15 @@ first scheduler run verified outputs, task logs, completion markers,
 validation markers, cached steps and Dask-backed scheduler artifacts. Reruns
 verified already-completed and cached-step behavior.
 
-The `omega_pr` suite has also been run successfully on Chrysalis with the
-serial version as a baseline. The run recorded in
-`omega-pr-parallel2/polaris_omega_pr.o1221657` passed all tasks. That run also
-exposed the earlier task-runtime summary issue in which every task displayed
-the suite wall time; the scheduler summary has since been updated to report
-per-task summed step runtime.
+Chrysalis regression testing has also been run from
+`/lcrc/group/e3sm/ac.xylar/polaris_1.0/chrysalis/test_20260528`, with outputs
+in `mpaso-pr-parallel`, `omega-nightly-parallel` and
+`omega-pr-parallel`. These runs show no sign of trouble or unusual runtime
+growth relative to the baselines. The `omega_nightly` run reported baseline
+failures only because the baseline itself timed out and required files were
+missing. Direct wall-time comparison with the baselines is not meaningful
+because those baselines were run incorrectly with hyperthreading enabled,
+whereas the task-parallel runs correctly were not.
 
 ### Testing and Validation: Explicit Dependency-Graph Scheduling
 
@@ -1127,12 +1130,15 @@ Recorded system validation status is:
   available. `omega_nightly` and `mpaso_pr` validation are limited to
   Chrysalis to keep the validation matrix manageable.
 - **Chrysalis**: real-task custom icosahedral/topography validation has passed.
-  The full `omega_pr` suite has passed with the serial run as a baseline,
-  including Dask runtime startup, subprocess-client reuse, dedicated Dask
-  logging and graceful Dask shutdown. The run
-  `omega-pr-parallel2/polaris_omega_pr.o1221657` is the current recorded
-  `omega_pr` validation artifact. Chrysalis is also the planned validation
-  platform for `omega_nightly` and `mpaso_pr`.
+  The latest recorded regression run is
+  `/lcrc/group/e3sm/ac.xylar/polaris_1.0/chrysalis/test_20260528`, with
+  outputs in `mpaso-pr-parallel`, `omega-nightly-parallel` and
+  `omega-pr-parallel`. These runs show no sign of trouble or unusual runtime
+  growth relative to the baselines. The `omega_nightly` run reported baseline
+  failures only because the baseline itself timed out and required files were
+  missing. Direct wall-time comparison with the baselines is not meaningful
+  because those baselines were run incorrectly with hyperthreading enabled,
+  whereas the task-parallel runs correctly were not.
 - **Perlmutter**: serial CPU and GPU `omega_pr` baselines have passed. Earlier
   task-parallel CPU and GPU `omega_pr` attempts stalled before completing
   the first test, consistent with a Slurm configuration that does not permit
@@ -1157,12 +1163,12 @@ Recorded system validation status is:
   previous CPU validation may also have been affected by normal run-to-run
   variability. `omega_nightly` and `mpaso_pr` are not planned for Perlmutter
   validation in Phase 1.
-- **Aurora**: the full `omega_pr` suite has passed on both the CPU
-  (`oneapi-ifx`) and GPU (`oneapi-ifxgpu`) compiler configurations.  The
-  recorded validation artifacts are
-  `omega-pr-parallel-onapi-ifx3/polaris_omega_pr.o8506919` (CPU) and
-  `omega-pr-parallel-onapi-ifxgpu2/polaris_omega_pr.o8506917` (GPU).
-  `omega_nightly` and `mpaso_pr` are not planned for Aurora validation.
+- **Aurora**: earlier CPU (`oneapi-ifx`) and GPU (`oneapi-ifxgpu`) `omega_pr`
+  suite runs completed successfully, but those recorded artifacts predate the
+  Perlmutter-driven scheduler restructure and should not be treated as the
+  current Phase 1 validation record. Updated Aurora validation still needs to
+  be recorded. `omega_nightly` and `mpaso_pr` are not planned for Aurora
+  validation.
 - **Frontier**: Tests of `omega_pr` on CPUs (`craygnu`) and GPUs (`craygnu-mphipcc`)
   have passed against serial baselines.  The CPU results are at:
   ```
