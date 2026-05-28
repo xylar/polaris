@@ -271,7 +271,7 @@ run summaries.
 
 ### Requirement: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/28
 
 Contributors:
 
@@ -279,18 +279,21 @@ Contributors:
 - Codex
 
 Phase 1 shall function correctly on the supported execution environments that
-matter most for later task parallelism, including Chrysalis, Perlmutter and
-Aurora.
+matter most for later task parallelism, including Chrysalis, Perlmutter,
+Aurora and Frontier.
 
 Validation will inevitably focus on representative suites and machines rather
 than exhaustive testing of every suite on every platform. Even so, the Phase 1
 goal is that `polaris run` should work correctly for all existing suites, not
 just for a small pilot subset.
 
-Representative validation and performance comparisons shall include at least
-`omega_pr`, `omega_nightly` and `mpaso_pr`. On these suites, the slowdown of
-`polaris run` relative to `polaris serial` should remain within an acceptable
-budget, on the order of roughly 40-50% and not much more.
+Representative validation and performance comparisons shall include
+`omega_pr` on Chrysalis, Perlmutter, Aurora and Frontier, using both CPU and
+GPU configurations where they are available. To keep Phase 1 validation
+manageable, broader-suite validation with `omega_nightly` and `mpaso_pr`
+shall be limited to Chrysalis. On these suites, the slowdown of `polaris run`
+relative to `polaris serial` should remain within an acceptable budget, on
+the order of roughly 40-50% and not much more.
 
 ### Desired: Frontier Support
 
@@ -301,8 +304,8 @@ Contributors:
 - Xylar Asay-Davis
 - Codex
 
-Frontier support and validation in Phase 1 would be valuable, even if it is
-not required.
+Frontier support and validation in Phase 1 are valuable and have been included
+in the cross-machine `omega_pr` validation scope.
 
 ### Desired: Task-Serial Summary
 
@@ -1101,7 +1104,7 @@ task that references it while still running only once.
 
 ### Testing and Validation: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/28
 
 Contributors:
 
@@ -1119,13 +1122,18 @@ Dry-run job-script tests cover Slurm and PBS rendering for default
 
 Recorded system validation status is:
 
-- Chrysalis: real-task custom icosahedral/topography validation has passed.
+- Phase 1 cross-machine validation targets `omega_pr` on Chrysalis,
+  Perlmutter, Aurora and Frontier, with CPU and GPU configurations where
+  available. `omega_nightly` and `mpaso_pr` validation are limited to
+  Chrysalis to keep the validation matrix manageable.
+- **Chrysalis**: real-task custom icosahedral/topography validation has passed.
   The full `omega_pr` suite has passed with the serial run as a baseline,
   including Dask runtime startup, subprocess-client reuse, dedicated Dask
   logging and graceful Dask shutdown. The run
   `omega-pr-parallel2/polaris_omega_pr.o1221657` is the current recorded
-  `omega_pr` validation artifact.
-- Perlmutter: serial CPU and GPU `omega_pr` baselines have passed. Earlier
+  `omega_pr` validation artifact. Chrysalis is also the planned validation
+  platform for `omega_nightly` and `mpaso_pr`.
+- **Perlmutter**: serial CPU and GPU `omega_pr` baselines have passed. Earlier
   task-parallel CPU and GPU `omega_pr` attempts stalled before completing
   the first test, consistent with a Slurm configuration that does not permit
   overlapping `srun` calls within the allocation. Post-remodel CPU and GPU
@@ -1147,31 +1155,41 @@ Recorded system validation status is:
   worker-pool lifecycle time was `0:00:55`, or 8.9% of suite wall time,
   suggesting that the remaining overhead is much smaller and that the
   previous CPU validation may also have been affected by normal run-to-run
-  variability. Perlmutter `omega_nightly` and `mpaso_pr` validation are
-  deferred until final validation because queue times are long.
-- Aurora: the full `omega_pr` suite has passed on both the CPU
+  variability. `omega_nightly` and `mpaso_pr` are not planned for Perlmutter
+  validation in Phase 1.
+- **Aurora**: the full `omega_pr` suite has passed on both the CPU
   (`oneapi-ifx`) and GPU (`oneapi-ifxgpu`) compiler configurations.  The
   recorded validation artifacts are
   `omega-pr-parallel-onapi-ifx3/polaris_omega_pr.o8506919` (CPU) and
   `omega-pr-parallel-onapi-ifxgpu2/polaris_omega_pr.o8506917` (GPU).
   `omega_nightly` and `mpaso_pr` are not planned for Aurora validation.
-- Frontier: desired target. No Phase 1 validation result is recorded in this
-  branch yet.
+- **Frontier**: Tests of `omega_pr` on CPUs (`craygnu`) and GPUs (`craygnu-mphipcc`)
+  have passed against serial baselines.  The CPU results are at:
+  ```
+  /lustre/orion/cli115/scratch/xylar/polaris_1.0/frontier/test_20260528/omega-pr-parallel-craygnu
+  ```
+  and took `0:05:52`, compared with `0:04:33` for the serial baseline.
+  The GPU results are at:
+  ```
+  /lustre/orion/cli115/scratch/xylar/polaris_1.0/frontier/test_20260528/omega-pr-parallel-craygnu-mphipcc
+  ```
+  and took `0:05:01`, compared with `0:04:05` for the serial baseline.
 
 ### Testing and Validation: Frontier Support
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/28
 
 Contributors:
 
 - Xylar Asay-Davis
 - Codex
 
-No Frontier-specific validation is required for Phase 1. If Frontier
-validation is performed, it should use the same checks as the cross-machine
-Phase 1 validation: successful `polaris run`, matching serial baseline where
-available, Dask runtime metadata, schedule-event validation and
-single-active-step evidence.
+Frontier validation has been performed as part of the cross-machine Phase 1
+`omega_pr` validation. The CPU (`craygnu`) and GPU (`craygnu-mphipcc`) runs
+passed against serial baselines, with successful `polaris run`, matching
+serial baseline comparisons where available, Dask runtime metadata,
+schedule-event validation and single-active-step evidence. `omega_nightly`
+and `mpaso_pr` are not planned for Frontier validation in Phase 1.
 
 ### Testing and Validation: Task-Serial Summary
 
@@ -1204,5 +1222,6 @@ The following work is explicitly handed to Phase 2 or later:
   Phases 3 and 4;
 - memory-aware scheduling and prevention of memory oversubscription, which
   belongs to Phase 4;
-- broader platform validation on Perlmutter, Aurora and Frontier; and
-- completion of `omega_nightly` and `mpaso_pr` Phase 1 system validation.
+- any additional platform validation beyond the Phase 1 `omega_pr` matrix;
+  and
+- broader `omega_nightly` and `mpaso_pr` system validation beyond Chrysalis.
