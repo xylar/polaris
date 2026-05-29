@@ -495,6 +495,7 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
         available_resources,
         step_log_filename,
         dask_client=None,
+        timing_breakdown=None,
     ):
         nonlocal active_steps, max_active_steps
         assert dask_client == 'client'
@@ -555,6 +556,12 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
         'released',
         'success',
     ]
+    timing_events = [
+        event for event in events if event['event'] == 'step_timing'
+    ]
+    assert [event['step'] for event in timing_events] == ['init', 'forward']
+    assert all(event['step_duration'] >= 0.0 for event in timing_events)
+    assert all(event['total_duration'] >= 0.0 for event in timing_events)
     assert (
         max(
             event.get('active_steps', 0)
@@ -645,6 +652,7 @@ def test_scheduler_run_task_blocks_failed_dependents_and_releases_resources(
         available_resources,
         step_log_filename,
         dask_client=None,
+        timing_breakdown=None,
     ):
         run_order.append(step.name)
         if step.name == 'fail':
@@ -688,6 +696,13 @@ def test_scheduler_run_task_blocks_failed_dependents_and_releases_resources(
 
     assert failure_events[0]['step'] == 'fail'
     assert failure_events[0]['result'] == 'failure'
+    timing_events = [
+        event for event in events if event['event'] == 'step_timing'
+    ]
+    assert [event['step'] for event in timing_events] == [
+        'fail',
+        'independent',
+    ]
     assert blocked_events[0]['step'] == 'dependent'
     assert blocked_events[0]['result'] == 'blocked'
     assert release_events[0]['step'] == 'fail'
@@ -843,6 +858,7 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
         available_resources,
         step_log_filename,
         dask_client=None,
+        timing_breakdown=None,
     ):
         lifecycle.append(('step', step.name, dask_client))
 
@@ -962,6 +978,7 @@ def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
         available_resources,
         step_log_filename,
         dask_client=None,
+        timing_breakdown=None,
     ):
         assert dask_client == 'client'
         run_order.append((task.path, step.name))
@@ -1031,6 +1048,7 @@ def test_scheduler_run_suite_runs_shared_step_once(tmp_path, monkeypatch):
         available_resources,
         step_log_filename,
         dask_client=None,
+        timing_breakdown=None,
     ):
         run_order.append((task.path, step.name))
         clock.current += step_durations[step.name]
@@ -1106,6 +1124,7 @@ def test_scheduler_run_suite_blocks_failed_dependents(tmp_path, monkeypatch):
         available_resources,
         step_log_filename,
         dask_client=None,
+        timing_breakdown=None,
     ):
         run_order.append((task.path, step.name))
         if step.name == 'task_a_fail':
@@ -1195,6 +1214,7 @@ def test_scheduler_run_suite_records_completed_and_cached_skips(
         available_resources,
         step_log_filename,
         dask_client=None,
+        timing_breakdown=None,
     ):
         run_order.append(step.name)
 
@@ -1254,6 +1274,7 @@ def test_scheduler_run_suite_records_single_suite_active_step(
         available_resources,
         step_log_filename,
         dask_client=None,
+        timing_breakdown=None,
     ):
         run_order.append((task.path, step.name))
 

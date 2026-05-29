@@ -16,6 +16,7 @@ from polaris.run.resources import (
     get_step_resource_request,
 )
 from polaris.run.shared import (
+    StepTimingBreakdown,
     accumulate_statuses,
     end_color,
     error_str,
@@ -962,6 +963,7 @@ def _run_scheduler_node(
         return None, None
 
     step_start = time.time()
+    step_start_perf = time.perf_counter()
     step.config = setup_config(step.base_work_dir, step.config.filepath)
     if task.log_filename is not None:
         step_log_filename = task.log_filename
@@ -969,6 +971,7 @@ def _run_scheduler_node(
         step_log_filename = None
 
     reservation = None
+    timing_breakdown = StepTimingBreakdown()
     try:
         try:
             request = get_step_resource_request(step, available_resources)
@@ -1027,6 +1030,7 @@ def _run_scheduler_node(
                 task.new_step_log_file,
                 subprocess_command=subprocess_command,
                 dask_client=dask_client,
+                timing_breakdown=timing_breakdown,
             )
         else:
             run_step(
@@ -1036,9 +1040,11 @@ def _run_scheduler_node(
                 available_resources,
                 step_log_filename,
                 dask_client=dask_client,
+                timing_breakdown=timing_breakdown,
             )
     except Exception:
         step_time = time.time() - step_start
+        total_duration = time.perf_counter() - step_start_perf
         _record_step_runtime(step_runtimes, step, step_time)
         recorder.emit(
             'step_failure',
@@ -1048,6 +1054,13 @@ def _run_scheduler_node(
             duration=step_time,
             result='failure',
             suite_active_steps=_active_count(active_counter),
+        )
+        _emit_step_timing(
+            recorder=recorder,
+            node=node,
+            timing_breakdown=timing_breakdown,
+            measured_step_duration=step_time,
+            total_duration=total_duration,
         )
         print_to_stdout(task, f'          execution:        {error_str}')
         raise
@@ -1088,18 +1101,33 @@ def _run_scheduler_node(
     step_time_str = str(timedelta(seconds=round(step_time)))
 
     property_status = None
+    property_start = time.perf_counter()
     compared, status = step.check_properties()
+    property_check_duration = time.perf_counter() - property_start
     if compared:
         property_str = pass_str if status else fail_str
         print_to_stdout(task, f'          property checks:   {property_str}')
         property_status = status
 
     baseline_status = None
+    baseline_start = time.perf_counter()
     compared, status = step.validate_baselines()
+    baseline_check_duration = time.perf_counter() - baseline_start
     if compared:
         baseline_str = pass_str if status else fail_str
         print_to_stdout(task, f'          baseline comp.:   {baseline_str}')
         baseline_status = status
+
+    total_duration = time.perf_counter() - step_start_perf
+    _emit_step_timing(
+        recorder=recorder,
+        node=node,
+        timing_breakdown=timing_breakdown,
+        measured_step_duration=step_time,
+        total_duration=total_duration,
+        property_check_duration=property_check_duration,
+        baseline_check_duration=baseline_check_duration,
+    )
 
     print_to_stdout(
         task,
@@ -1347,6 +1375,35 @@ def _emit_control_plane_reserved(recorder, resource_views) -> None:
         data_plane_gpus=data_plane.get('gpus'),
         data_plane_nodes=data_plane.get('nodes'),
         result='reserved',
+    )
+
+
+def _emit_step_timing(
+    recorder,
+    node,
+    timing_breakdown,
+    measured_step_duration,
+    total_duration,
+    property_check_duration=0.0,
+    baseline_check_duration=0.0,
+) -> None:
+    recorder.emit(
+        'step_timing',
+        task=node.task_name,
+        step=node.step_name,
+        baseline_check_duration=baseline_check_duration,
+        completion_marker_duration=timing_breakdown.completion_marker,
+        constrain_resources_duration=timing_breakdown.constrain_resources,
+        dependency_load_duration=timing_breakdown.dependency_load,
+        execution_duration=timing_breakdown.execution,
+        output_check_duration=timing_breakdown.output_check,
+        property_check_duration=property_check_duration,
+        runtime_setup_duration=timing_breakdown.runtime_setup,
+        step_duration=measured_step_duration,
+        total_duration=total_duration,
+        validation_duration=(
+            property_check_duration + baseline_check_duration
+        ),
     )
 
 
