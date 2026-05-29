@@ -2,6 +2,7 @@ import os
 import pickle
 import sys
 import time
+from dataclasses import dataclass
 from datetime import timedelta
 from typing import Dict, List, Optional
 
@@ -26,6 +27,40 @@ pass_str = f'{start_pass}PASS{end_color}'
 success_str = f'{start_pass}SUCCESS{end_color}'
 fail_str = f'{start_fail}FAIL{end_color}'
 error_str = f'{start_fail}ERROR{end_color}'
+
+
+@dataclass
+class StepTimingBreakdown:
+    """
+    Fine-grained timings for the scheduler-managed step lifecycle.
+
+    Attributes
+    ----------
+    dependency_load : float
+        Time spent reloading dependency pickles.
+
+    constrain_resources : float
+        Time spent constraining step resources at runtime.
+
+    runtime_setup : float
+        Time spent in ``runtime_setup()``.
+
+    execution : float
+        Time spent in the main execution body, including command launches.
+
+    completion_marker : float
+        Time spent writing completion and post-run pickle markers.
+
+    output_check : float
+        Time spent validating declared outputs after execution.
+    """
+
+    dependency_load: float = 0.0
+    constrain_resources: float = 0.0
+    runtime_setup: float = 0.0
+    execution: float = 0.0
+    completion_marker: float = 0.0
+    output_check: float = 0.0
 
 
 def unpickle_suite(suite_name):
@@ -672,6 +707,7 @@ def run_step(
     available_resources,
     step_log_filename,
     dask_client=None,
+    timing_breakdown: Optional[StepTimingBreakdown] = None,
 ):
     """
     Run one step through the standard Polaris step lifecycle.
@@ -708,6 +744,8 @@ def run_step(
     """
     logger = task.logger
     cwd = os.getcwd()
+    if timing_breakdown is None:
+        timing_breakdown = StepTimingBreakdown()
 
     missing_files = list()
     for input_file in step.inputs:
@@ -720,7 +758,9 @@ def run_step(
             f'{step.component.name}/{step.subdir}: {missing_files}'
         )
 
+    phase_start = time.perf_counter()
     load_dependencies(step)
+    timing_breakdown.dependency_load += time.perf_counter() - phase_start
 
     # each logger needs a unique name
     logger_name = step.path.replace('/', '_')
@@ -748,7 +788,11 @@ def run_step(
         step_logger.info('')
         log_method_call(method=step.constrain_resources, logger=step_logger)
         step_logger.info('')
+        phase_start = time.perf_counter()
         step.constrain_resources(available_resources)
+        timing_breakdown.constrain_resources += (
+            time.perf_counter() - phase_start
+        )
 
         # runtime_setup() will perform small tasks that require knowing the
         # resources of the task before the step runs (such as creating
@@ -756,8 +800,11 @@ def run_step(
         step_logger.info('')
         log_method_call(method=step.runtime_setup, logger=step_logger)
         step_logger.info('')
+        phase_start = time.perf_counter()
         step.runtime_setup()
+        timing_breakdown.runtime_setup += time.perf_counter() - phase_start
 
+        phase_start = time.perf_counter()
         if step.args is not None:
             step_logger.info(
                 "\nBypassing step's run() method and running "
@@ -788,13 +835,18 @@ def run_step(
             log_method_call(method=step.run, logger=step_logger)
             step_logger.info('')
             step.run()
+        timing_breakdown.execution += time.perf_counter() - phase_start
 
+    phase_start = time.perf_counter()
     complete_step_run(step)
+    timing_breakdown.completion_marker += time.perf_counter() - phase_start
 
+    phase_start = time.perf_counter()
     missing_files = list()
     for output_file in step.outputs:
         if not os.path.exists(output_file):
             missing_files.append(output_file)
+    timing_breakdown.output_check += time.perf_counter() - phase_start
 
     if len(missing_files) > 0:
         # We want to indicate that the step failed by removing the pickle
@@ -814,6 +866,7 @@ def run_step_as_subprocess(
     new_log_file,
     subprocess_command='serial',
     dask_client=None,
+    timing_breakdown: Optional[StepTimingBreakdown] = None,
 ):
     """
     Run one step by invoking ``polaris serial`` in a subprocess.
@@ -836,6 +889,8 @@ def run_step_as_subprocess(
         Dask client for the active ``polaris run`` lifecycle.
     """
     cwd = os.getcwd()
+    if timing_breakdown is None:
+        timing_breakdown = StepTimingBreakdown()
     logger_name = step.path.replace('/', '_')
     if new_log_file:
         log_filename = f'{cwd}/{step.name}.log'
@@ -852,7 +907,9 @@ def run_step_as_subprocess(
         os.chdir(step.work_dir)
         step_args = ['polaris', subprocess_command, '--step_is_subprocess']
         env = _subprocess_env_with_dask_client(subprocess_command, dask_client)
+        phase_start = time.perf_counter()
         check_call(step_args, step_logger, env=env)
+        timing_breakdown.execution += time.perf_counter() - phase_start
 
 
 def _subprocess_env_with_dask_client(subprocess_command, dask_client):
