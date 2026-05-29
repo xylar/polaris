@@ -324,7 +324,7 @@ Phase 1.
 
 ### Algorithm Design: New Task-Parallel Command Path
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/29
 
 Contributors:
 
@@ -352,7 +352,13 @@ responsible for many small Python tasks, and leaves room for
 scheduler-specific MPI launch behavior to remain isolated in later phases.
 The parent `polaris run` process and any Dask scheduler process are
 control-plane work. Polaris should reserve control-plane resources before
-planning Dask workers or checking step feasibility.
+planning Dask workers or checking step feasibility, and those resources
+should be excluded from both non-MPI and MPI step scheduling. The default
+reservation should be a small CPU-only slice rather than a whole dedicated
+node, for example one orchestration CPU core for the run when that is
+sufficient. The design should also allow reserving one orchestration CPU core
+per node on platforms where worker launch helpers, scheduler communication or
+measured interference make a per-node reservation necessary.
 
 ### Algorithm Design: Backward-Compatible Per-Step Execution Semantics
 
@@ -582,7 +588,7 @@ run in isolation.
 
 ### Algorithm Design: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/29
 
 Contributors:
 
@@ -594,6 +600,15 @@ allocation, while Polaris explicitly separates control-plane resources from
 the data-plane resources available to Dask workers and steps.
 Machine-specific differences should be confined to allocation discovery, job
 script generation, worker launch details and later MPI launch behavior.
+
+The control-plane reservation should remain a first-class part of allocation
+accounting on every machine. Step feasibility checks, MPI launch decisions
+and Dask worker planning should all operate on the remaining data-plane view
+after those orchestration resources have been removed. By default, the goal is
+to reserve only CPU resources for orchestration and to avoid consuming a whole
+node, but the design should permit one reserved orchestration CPU per node if
+that is needed to keep orchestration work from interfering with step
+execution.
 
 On Slurm systems such as Chrysalis and Perlmutter, the design should avoid
 using a scheduler-launched job step for every small Python step and should
@@ -1107,7 +1122,7 @@ task that references it while still running only once.
 
 ### Testing and Validation: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/05/28
+Date last modified: 2026/05/29
 
 Contributors:
 
@@ -1163,12 +1178,29 @@ Recorded system validation status is:
   previous CPU validation may also have been affected by normal run-to-run
   variability. `omega_nightly` and `mpaso_pr` are not planned for Perlmutter
   validation in Phase 1.
-- **Aurora**: earlier CPU (`oneapi-ifx`) and GPU (`oneapi-ifxgpu`) `omega_pr`
-  suite runs completed successfully, but those recorded artifacts predate the
-  Perlmutter-driven scheduler restructure and should not be treated as the
-  current Phase 1 validation record. Updated Aurora validation still needs to
-  be recorded. `omega_nightly` and `mpaso_pr` are not planned for Aurora
-  validation.
+- **Aurora**: updated post-restructure `omega_pr` validation has been run from
+  `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529`.
+  The CPU task-parallel run in
+  `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529/omega-pr-parallel-cpu`
+  completed in `0:10:15`, compared with `0:06:18` for the serial baseline in
+  `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529/omega-pr-baseline-cpu`.
+  The GPU task-parallel run in
+  `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529/omega-pr-parallel-gpu`
+  completed in `0:07:47`, compared with `0:03:45` for the serial baseline in
+  `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529/omega-pr-baseline-gpu`.
+  Both runs passed against their serial baselines and produced scheduler event
+  files that satisfy
+  `polaris.run.validation.validate_phase1_schedule_event_files(..., require_dask_runtime=True)`.
+  The recorded worker-pool lifecycle time was only `0:00:13` (2.1%) for the
+  CPU run and `0:00:12` (2.6%) for the GPU run, so Aurora does not show Dask
+  lifecycle overhead dominating the slowdown. Comparing the per-step timings
+  instead indicates that most of the extra wall time appears inside measured
+  step runtimes spread across many tasks, with only about `0:00:42` of CPU and
+  `0:00:41` of GPU wall time outside measured steps. This supports the Phase 2
+  goal of amortizing the new orchestration path by enabling conservative
+  concurrent execution of eligible independent steps rather than by focusing
+  only on Dask startup and shutdown. `omega_nightly` and `mpaso_pr` are not
+  planned for Aurora validation.
 - **Frontier**: Tests of `omega_pr` on CPUs (`craygnu`) and GPUs (`craygnu-mphipcc`)
   have passed against serial baselines.  The CPU results are at:
   ```
@@ -1217,6 +1249,27 @@ resource feasibility model, Dask runtime, subprocess-client propagation and
 structured event stream. The main Phase 2 scheduling change should be
 replacing the single-active-step policy with conservative packing of eligible
 ready non-MPI steps.
+
+A review of the current code and design on 2026/05/29 did not identify any
+additional missing Phase 1 functional pieces in the command path, dependency
+graph construction, resource model, execution-kind metadata, scheduler
+observability or single-active-step validation beyond the follow-on work
+listed below. The main remaining issue before Phase 2 is performance rather
+than missing Phase 1 functionality: Aurora now shows that Dask lifecycle cost
+is already modest after mode batching, while most of the remaining slowdown is
+distributed across measured step runtimes. That result strengthens the case
+that Phase 2 should focus on overlapping eligible independent work so the
+orchestration cost is amortized, while keeping the existing Phase 1 scheduler
+and observability foundations.
+
+One likely follow-on refinement is making the orchestration reservation more
+explicit and more portable across machines. The intent is that the parent
+`polaris run` process, Dask scheduler and any required launch helpers should
+run on CPU resources that are reserved for orchestration and are never
+offered to MPI or non-MPI steps. This reservation should remain sub-node when
+possible, such as one CPU for the run or one CPU per node when a platform
+requires per-node helpers, rather than consuming a whole node unless platform
+constraints force that outcome.
 
 The following work is explicitly handed to Phase 2 or later:
 
