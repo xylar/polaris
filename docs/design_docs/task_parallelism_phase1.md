@@ -834,7 +834,7 @@ behavior that should remain serialized in Phase 2.
 
 ### Implementation: Observable Execution and Schedule Summaries
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/29
 
 Contributors:
 
@@ -846,6 +846,13 @@ through the scheduler. These JSON-lines files record graph construction, Dask
 runtime metadata, ready selection, wait reasons, resource feasibility,
 resource reservation, step start, step finish, step failure, skipped or
 blocked steps, and resource release.
+
+Each executed step also records a `step_timing` event. This event separates
+dependency reload, runtime resource constraining, `runtime_setup()`, main
+execution, completion-marker writing, output checks, property checks,
+baseline validation, measured step duration and total step duration. The
+extra timing bucket is intended to show whether wall-time differences are
+coming from scheduler bookkeeping or from time spent inside the step body.
 
 Task logs include a human-readable selected-order summary with node status and
 wait reason. The main suite log reports per-step runtime lines, per-task
@@ -1098,7 +1105,7 @@ future node, GPU and memory accounting.
 
 ### Testing and Validation: Observable Execution and Schedule Summaries
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/29
 
 Contributors:
 
@@ -1109,7 +1116,10 @@ Scheduler tests verify that `schedule_events.jsonl` files are written and
 that they include graph construction, control-plane reservation, Dask runtime
 metadata, scheduler-owned Dask phase start/stop, serialized-step barriers,
 ready selection, wait reasons, resource feasibility, reservation, start,
-finish, failure, skip, block and release events.
+finish, failure, skip, block and release events. Focused scheduler tests also
+verify the new `step_timing` event and confirm that the shared step lifecycle
+can accept the optional timing-breakdown plumbing without changing task-serial
+call sites.
 
 Validation-helper tests cover parsing scheduler event files, summarizing
 scheduler/Dask evidence, rejecting missing required events, detecting active
@@ -1180,27 +1190,56 @@ Recorded system validation status is:
   validation in Phase 1.
 - **Aurora**: updated post-restructure `omega_pr` validation has been run from
   `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529`.
-  The CPU task-parallel run in
+  The first task-parallel CPU and GPU runs in
   `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529/omega-pr-parallel-cpu`
-  completed in `0:10:15`, compared with `0:06:18` for the serial baseline in
-  `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529/omega-pr-baseline-cpu`.
-  The GPU task-parallel run in
+  and
   `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529/omega-pr-parallel-gpu`
-  completed in `0:07:47`, compared with `0:03:45` for the serial baseline in
+  completed in `0:10:15` and `0:07:47`, compared with `0:06:18` and `0:03:45`
+  for the serial baselines in
+  `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529/omega-pr-baseline-cpu`
+  and
   `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529/omega-pr-baseline-gpu`.
-  Both runs passed against their serial baselines and produced scheduler event
-  files that satisfy
-  `polaris.run.validation.validate_phase1_schedule_event_files(..., require_dask_runtime=True)`.
-  The recorded worker-pool lifecycle time was only `0:00:13` (2.1%) for the
-  CPU run and `0:00:12` (2.6%) for the GPU run, so Aurora does not show Dask
-  lifecycle overhead dominating the slowdown. Comparing the per-step timings
-  instead indicates that most of the extra wall time appears inside measured
-  step runtimes spread across many tasks, with only about `0:00:42` of CPU and
-  `0:00:41` of GPU wall time outside measured steps. This supports the Phase 2
-  goal of amortizing the new orchestration path by enabling conservative
-  concurrent execution of eligible independent steps rather than by focusing
-  only on Dask startup and shutdown. `omega_nightly` and `mpaso_pr` are not
-  planned for Aurora validation.
+  Repeat task-parallel runs in `omega-pr-parallel-cpu2` and
+  `omega-pr-parallel-gpu2` improved to `0:07:02` and `0:05:43`, showing that
+  Aurora run-to-run variability is large enough that one timing outlier should
+  not be over-interpreted.
+
+  The later observability-only code change added per-step `step_timing` events,
+  which were then exercised on Aurora. The repeat task-parallel CPU run
+  `omega-pr-parallel-cpu2` showed `0:00:08` of worker-pool lifecycle time
+  (1.9%), and the repeat GPU runs `omega-pr-parallel-gpu2` and
+  `omega-pr-parallel-gpu3` showed `0:00:07` of lifecycle time. The summed
+  `step_timing` evidence indicates that the remaining overhead is still mostly
+  inside the step execution body rather than in scheduler bookkeeping or
+  post-step validation: `omega-pr-parallel-cpu2` spent about `401.0 s` in
+  execution out of `412.4 s` total summed step time, and
+  `omega-pr-parallel-gpu3` spent about `250.2 s` in execution out of
+  `260.4 s` total summed step time. In both cases, the total time outside the
+  measured step duration was only about `7 s` across all 49 executed steps.
+
+  Additional Aurora reruns were used to separate likely machine noise from a
+  representative result. A `--run_command serial` GPU rerun in
+  `omega-pr-serial-gpu` completed in `0:04:02`, and a third task-parallel GPU
+  rerun in `omega-pr-parallel-gpu3` completed in `0:04:29`, much closer to the
+  serial rerun and baseline than to `omega-pr-parallel-gpu2`. The `gpu2` run
+  also showed repeated shell stderr messages of the form `error importing
+  function definition for 'module'`, whereas `gpu3` did not, supporting the
+  interpretation that `gpu2` was a bad-run outlier rather than the best
+  estimate of steady-state Phase 1 GPU overhead. The CPU `--run_command serial`
+  rerun in `omega-pr-serial-cpu` completed in `0:07:31`, which was slightly
+  slower than `omega-pr-parallel-cpu2` and therefore more consistent with
+  ordinary Aurora variability than with a large deterministic task-parallel
+  penalty.
+
+  These Aurora results still leave a modest representative GPU overhead and a
+  smaller CPU overhead relative to task-serial execution, but they no longer
+  suggest a large unexplained control-plane cost in Phase 1. Because the most
+  recent code changes are observability-only and do not alter step semantics,
+  they do not justify repeating the full cross-machine validation matrix before
+  Phase 2. Additional multi-machine reruns can be deferred until behavior-
+  changing Phase 2 work lands or until a machine-specific regression is
+  suspected. `omega_nightly` and `mpaso_pr` are not planned for Aurora
+  validation.
 - **Frontier**: Tests of `omega_pr` on CPUs (`craygnu`) and GPUs (`craygnu-mphipcc`)
   have passed against serial baselines.  The CPU results are at:
   ```
