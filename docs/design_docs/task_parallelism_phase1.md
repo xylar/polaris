@@ -825,17 +825,24 @@ events. These events include the execution kind, node indices, cores, GPUs,
 
 ### Implementation: Single-Step Execution in Phase 1
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/30
 
 Contributors:
 
 - Xylar Asay-Davis
 - Codex
+- Claude Sonnet 4.6
 
 The Phase 1 scheduler uses a single-active-step policy in both task-scope and
 suite-scope runs. It never starts a second Polaris step while another step is
 active. The active-step count is maintained in the scheduler and recorded in
 `schedule_events.jsonl` as both per-task and suite-wide active-step metadata.
+
+Steps are executed directly in the scheduler process. `_DaskPhaseManager` and
+the mode-batching selection logic remain in the codebase for future phases but
+are not instantiated or invoked in the Phase 1 execution path. `run_step()` and
+`run_step_as_subprocess()` receive `dask_client=None`; Dask-aware steps fall
+back to their ordinary `run()` implementation.
 
 Failed steps release resources, record failure events and block selected
 dependents. Independent selected steps remain eligible to run if their

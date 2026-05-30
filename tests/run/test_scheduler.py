@@ -1,12 +1,10 @@
 import json
-from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
 import pytest
 
 import polaris.run.scheduler as run_scheduler
-from polaris.run.dask import DaskRuntimeInfo
 from polaris.run.scheduler import build_scheduler_graph, run_suite
 
 
@@ -498,7 +496,7 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
         timing_breakdown=None,
     ):
         nonlocal active_steps, max_active_steps
-        assert dask_client == 'client'
+        assert dask_client is None
         active_steps += 1
         max_active_steps = max(max_active_steps, active_steps)
         run_order.append(step.name)
@@ -516,7 +514,6 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
             'gpus': 0,
             'mpi_allowed': True,
         },
-        dask_client='client',
     )
 
     assert run_order == ['init', 'forward']
@@ -758,13 +755,19 @@ def test_scheduler_records_infeasible_resource_diagnostics(
     assert 'minimum' in resource_events[0]['reason']
 
 
-def test_scheduler_records_dask_runtime_info(tmp_path, monkeypatch):
+def test_scheduler_does_not_start_dask_for_ordinary_steps(
+    tmp_path, monkeypatch
+):
+    # Phase 1 must not instantiate a Dask cluster for ordinary step execution.
     class DummyLogger:
         def info(self, message):
             pass
 
-    init = DummyStep(tmp_path, 'init')
-    (tmp_path / 'init' / 'polaris_step_complete.log').write_text('complete\n')
+    dask_started: list[str] = []
+
+    prep = DummyStep(tmp_path, 'prep')
+    forward = DummyStep(tmp_path, 'forward')
+    analysis = DummyStep(tmp_path, 'analysis')
     task = SimpleNamespace(
         path='ocean/task',
         work_dir=str(tmp_path),
@@ -772,84 +775,9 @@ def test_scheduler_records_dask_runtime_info(tmp_path, monkeypatch):
         stdout_logger=DummyLogger(),
         log_filename=None,
         new_step_log_file=False,
-        steps_to_run=['init'],
-        steps={'init': init},
-    )
-    dask_client = SimpleNamespace(
-        polaris_dask_runtime_info=DaskRuntimeInfo(backend='local', workers=4)
-    )
-
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
-
-    run_scheduler.run_task(
-        task,
-        {
-            'cores': 4,
-            'nodes': 1,
-            'cores_per_node': 4,
-            'gpus': 0,
-            'mpi_allowed': True,
-        },
-        dask_client=dask_client,
-    )
-
-    event_filename = tmp_path / 'schedule_events.jsonl'
-    events = [
-        json.loads(line) for line in event_filename.read_text().splitlines()
-    ]
-    dask_events = [
-        event for event in events if event['event'] == 'dask_runtime'
-    ]
-
-    assert dask_events == [
-        {
-            'backend': 'local',
-            'event': 'dask_runtime',
-            'local_fallback': False,
-            'state': 'active',
-            'time': dask_events[0]['time'],
-            'worker_groups': [],
-            'workers': 4,
-        }
-    ]
-
-
-def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
-    tmp_path, monkeypatch
-):
-    class DummyLogger:
-        def __init__(self):
-            self.messages = []
-
-        def info(self, message):
-            self.messages.append(message)
-
-    prep = DummyStep(tmp_path, 'prep')
-    forward = DummyStep(tmp_path, 'forward')
-    analysis = DummyStep(tmp_path, 'analysis')
-    prep.can_run_concurrently = True
-    forward.can_run_concurrently = False
-    analysis.can_run_concurrently = True
-    stdout_logger = DummyLogger()
-    task = SimpleNamespace(
-        path='ocean/task',
-        work_dir=str(tmp_path),
-        logger=DummyLogger(),
-        stdout_logger=stdout_logger,
-        log_filename=None,
-        new_step_log_file=False,
         steps_to_run=['prep', 'forward', 'analysis'],
         steps={'prep': prep, 'forward': forward, 'analysis': analysis},
     )
-    lifecycle: list[tuple[object, ...]] = []
-
-    @contextmanager
-    def _dask_client_context(available_resources, logger=None):
-        lifecycle.append(('dask_start', available_resources['cores']))
-        try:
-            yield 'phase-client'
-        finally:
-            lifecycle.append(('dask_stop', None))
 
     def _run_step(
         task,
@@ -860,13 +788,17 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
         dask_client=None,
         timing_breakdown=None,
     ):
-        lifecycle.append(('step', step.name, dask_client))
+        assert dask_client is None
 
     monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
-    monkeypatch.setattr(
-        run_scheduler, 'dask_client_context', _dask_client_context
-    )
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    monkeypatch.setattr(
+        run_scheduler,
+        'dask_client_context',
+        lambda *a, **kw: (_ for _ in ()).throw(
+            AssertionError('dask_client_context must not be called in Phase 1')
+        ),
+    )
 
     run_scheduler.run_task(
         task,
@@ -879,46 +811,14 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
         },
     )
 
-    assert lifecycle == [
-        ('dask_start', 3),
-        ('step', 'prep', 'phase-client'),
-        ('step', 'analysis', 'phase-client'),
-        ('dask_stop', None),
-        ('step', 'forward', None),
-    ]
+    assert dask_started == []
     events = _read_events(tmp_path / 'schedule_events.jsonl')
-    control_events = [
-        event for event in events if event['event'] == 'control_plane_reserved'
-    ]
-    assert control_events[0]['control_plane_cores'] == 1
-    assert control_events[0]['data_plane_cores'] == 3
-    assert [
-        (event['event'], event.get('step'), event.get('reason'))
-        for event in events
-        if event['event']
-        in {
-            'dask_phase_start',
-            'dask_phase_stop',
-            'serialized_step_barrier',
-        }
-    ] == [
-        ('dask_phase_start', None, None),
-        ('serialized_step_barrier', 'forward', 'serialized_step'),
-        ('dask_phase_stop', 'forward', 'serialized_step'),
-    ]
-    assert [
+    dask_lifecycle_events = [
         event['event']
         for event in events
-        if event['event']
-        in {
-            'dask_phase_launch_requested',
-            'dask_phase_shutdown_requested',
-        }
-    ] == ['dask_phase_launch_requested', 'dask_phase_shutdown_requested']
-    assert any(
-        'worker-pool phases: 1' in message
-        for message in stdout_logger.messages
-    )
+        if event['event'].startswith('dask_phase')
+    ]
+    assert dask_lifecycle_events == []
 
 
 def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
@@ -980,7 +880,7 @@ def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
         dask_client=None,
         timing_breakdown=None,
     ):
-        assert dask_client == 'client'
+        assert dask_client is None
         run_order.append((task.path, step.name))
         if step.outputs:
             (tmp_path / step.name / step.outputs[0]).write_text('output\n')
@@ -1009,7 +909,6 @@ def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
             'gpus': 0,
             'mpi_allowed': True,
         },
-        dask_client='client',
     )
 
     assert run_order == [
@@ -1141,7 +1040,6 @@ def test_scheduler_run_suite_blocks_failed_dependents(tmp_path, monkeypatch):
         quiet=False,
         log_dir=str(log_dir),
         available_resources=_available_resources(),
-        dask_client='client',
     )
 
     assert run_order == [

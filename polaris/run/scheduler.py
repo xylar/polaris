@@ -472,15 +472,12 @@ def run_suite(
     edge_count = sum(
         len(successors) for successors in graph.successors.values()
     )
-    runtime_info = get_dask_runtime_info(dask_client)
     for task_name, state in states.items():
         recorder = recorders[task_name]
         recorder.emit(
             'graph_constructed', nodes=len(graph.nodes), edges=edge_count
         )
         _emit_control_plane_reserved(recorder, resource_views)
-        if runtime_info is not None:
-            _emit_dask_runtime(recorder, runtime_info)
         with LoggingContext(
             task_name.replace('/', '_'), log_filename=state.log_filename
         ) as task_logger:
@@ -499,14 +496,7 @@ def run_suite(
     blocked_keys: set[str] = set()
     failed_keys: set[str] = set()
     step_runtimes: dict[str, float] = {}
-    suite_start_time = min(state.start_time for state in states.values())
-    dask_phase = _DaskPhaseManager(
-        available_resources=data_plane_resources,
-        logger=stdout_logger,
-        dask_client=dask_client,
-    )
     pending_keys = _selected_pending_keys(ordered_nodes)
-    current_mode = None
     try:
         while len(pending_keys) > 0:
             selection = _select_next_node(
@@ -515,10 +505,8 @@ def run_suite(
                 pending_keys=pending_keys,
                 blocked_keys=blocked_keys,
                 failed_keys=failed_keys,
-                current_mode=current_mode,
             )
             node = selection.node
-            current_mode = selection.mode
             if node is None:
                 raise RuntimeError('No ready scheduler node was available.')
 
@@ -534,11 +522,6 @@ def run_suite(
                 graph.predecessors[node.key] & (blocked_keys | failed_keys)
             )
             if len(blocked_dependencies) > 0:
-                dask_phase.close(
-                    recorders=recorders.values(),
-                    reason='blocked_dependency',
-                    node=node,
-                )
                 state.task_pass = False
                 state.exec_failed = True
                 blocked_keys.add(node.key)
@@ -564,9 +547,6 @@ def run_suite(
                 continue
 
             try:
-                active_dask_client = dask_phase.client_for_node(
-                    node, recorders.values()
-                )
                 with LoggingContext(
                     task_name.replace('/', '_'),
                     log_filename=state.log_filename,
@@ -586,7 +566,6 @@ def run_suite(
                         recorder=recorders[task_name],
                         cwd=cwd,
                         subprocess_command=subprocess_command,
-                        dask_client=active_dask_client,
                         predecessor_keys=graph.predecessors[node.key],
                         active_counter=active_counter,
                         step_runtimes=step_runtimes,
@@ -609,13 +588,9 @@ def run_suite(
                         'Exception raised while running the steps of the task'
                     )
     finally:
-        dask_phase.close()
+        pass
 
     _finalize_suite_task_states(states, stdout_logger, step_runtimes)
-    suite_wall_time = time.time() - suite_start_time
-    _log_lifecycle_timing_summary(
-        stdout_logger, dask_phase.timing, suite_wall_time
-    )
     return _suite_results(states)
 
 
@@ -660,9 +635,6 @@ def run_task(
         'graph_constructed', nodes=len(graph.nodes), edges=edge_count
     )
     _emit_control_plane_reserved(recorder, resource_views)
-    runtime_info = get_dask_runtime_info(dask_client)
-    if runtime_info is not None:
-        _emit_dask_runtime(recorder, runtime_info)
     _log_schedule_summary(task, ordered_nodes, graph)
 
     baselines_passed = None
@@ -670,14 +642,7 @@ def run_task(
     blocked_keys: set[str] = set()
     failed_keys: set[str] = set()
     first_exception = None
-    task_start_time = time.time()
-    dask_phase = _DaskPhaseManager(
-        available_resources=data_plane_resources,
-        logger=getattr(task, 'stdout_logger', None),
-        dask_client=dask_client,
-    )
     pending_keys = _selected_pending_keys(ordered_nodes)
-    current_mode = None
     try:
         while len(pending_keys) > 0:
             selection = _select_next_node(
@@ -686,10 +651,8 @@ def run_task(
                 pending_keys=pending_keys,
                 blocked_keys=blocked_keys,
                 failed_keys=failed_keys,
-                current_mode=current_mode,
             )
             node = selection.node
-            current_mode = selection.mode
             if node is None:
                 raise RuntimeError('No ready scheduler node was available.')
 
@@ -697,11 +660,6 @@ def run_task(
                 graph.predecessors[node.key] & (blocked_keys | failed_keys)
             )
             if len(blocked_dependencies) > 0:
-                dask_phase.close(
-                    recorders=[recorder],
-                    reason='blocked_dependency',
-                    node=node,
-                )
                 blocked_keys.add(node.key)
                 _block_scheduler_node(
                     node=node,
@@ -714,9 +672,6 @@ def run_task(
                 continue
 
             try:
-                active_dask_client = dask_phase.client_for_node(
-                    node, [recorder]
-                )
                 baseline_status, property_status = _run_scheduler_node(
                     node=node,
                     task=task,
@@ -725,7 +680,6 @@ def run_task(
                     recorder=recorder,
                     cwd=cwd,
                     subprocess_command=subprocess_command,
-                    dask_client=active_dask_client,
                     predecessor_keys=graph.predecessors[node.key],
                 )
             except Exception as exception:
@@ -745,13 +699,7 @@ def run_task(
                 )
             pending_keys.remove(node.key)
     finally:
-        dask_phase.close()
-        task_wall_time = time.time() - task_start_time
-        _log_lifecycle_timing_summary(
-            getattr(task, 'stdout_logger', None),
-            dask_phase.timing,
-            task_wall_time,
-        )
+        pass
 
     if first_exception is not None:
         raise first_exception
@@ -814,9 +762,7 @@ def _select_next_node(
     pending_keys,
     blocked_keys,
     failed_keys,
-    current_mode,
 ):
-    mode = current_mode
     pending_nodes = [
         node
         for node in ordered_nodes
@@ -825,7 +771,7 @@ def _select_next_node(
     failed_or_blocked = failed_keys | blocked_keys
     for node in pending_nodes:
         if graph.predecessors[node.key] & failed_or_blocked:
-            return _SchedulerSelection(node=node, mode=mode)
+            return _SchedulerSelection(node=node, mode=None)
 
     ready_nodes = [
         node
@@ -833,19 +779,9 @@ def _select_next_node(
         if len(graph.predecessors[node.key] & pending_keys) == 0
     ]
     if len(ready_nodes) == 0:
-        return _SchedulerSelection(node=None, mode=mode)
+        return _SchedulerSelection(node=None, mode=None)
 
-    if mode is not None:
-        for node in ready_nodes:
-            node_mode = _node_execution_mode(node)
-            if node_mode in {'neutral', mode}:
-                return _SchedulerSelection(node=node, mode=mode)
-
-    node = ready_nodes[0]
-    node_mode = _node_execution_mode(node)
-    if node_mode != 'neutral':
-        mode = node_mode
-    return _SchedulerSelection(node=node, mode=mode)
+    return _SchedulerSelection(node=ready_nodes[0], mode=None)
 
 
 def _add_selected_scheduler_nodes(
@@ -906,7 +842,6 @@ def _run_scheduler_node(
     recorder,
     cwd,
     subprocess_command,
-    dask_client,
     predecessor_keys=None,
     active_counter=None,
     step_runtimes=None,
@@ -1029,7 +964,7 @@ def _run_scheduler_node(
                 step,
                 task.new_step_log_file,
                 subprocess_command=subprocess_command,
-                dask_client=dask_client,
+                dask_client=None,
                 timing_breakdown=timing_breakdown,
             )
         else:
@@ -1039,7 +974,7 @@ def _run_scheduler_node(
                 task.new_step_log_file,
                 available_resources,
                 step_log_filename,
-                dask_client=dask_client,
+                dask_client=None,
                 timing_breakdown=timing_breakdown,
             )
     except Exception:
