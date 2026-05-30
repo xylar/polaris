@@ -160,8 +160,11 @@ def test_get_step_resource_request_caps_like_constrain_resources():
 
 
 def test_resource_pool_reserve_and_release():
-    pool = ResourcePool({'cores': 16, 'nodes': 2, 'gpus': 4})
-    step = SimpleNamespace(name='step')
+    # 2-node pool: 8 cores each, 2 GPUs each
+    pool = ResourcePool(
+        {'cores': 16, 'nodes': 2, 'gpus': 4, 'cores_per_node': 8}
+    )
+    step = SimpleNamespace(name='step', ntasks=1, min_tasks=1, args=None)
     request = StepResourceRequest(
         cores=6,
         min_cores=2,
@@ -174,20 +177,32 @@ def test_resource_pool_reserve_and_release():
     reservation = pool.reserve_step(step, request)
 
     assert reservation.step_name == 'step'
+    assert reservation.placement is not None
+    assert reservation.placement.kind == 'local'
+    assert reservation.placement.node_indices == (0,)
+    assert reservation.placement.cores == 6
+    # Node 0 had 8 cores; 6 reserved → 2 free on node 0, 8 free on node 1
     assert pool.free_cores == 10
-    assert pool.free_nodes == 1
     assert pool.free_gpus == 2
+    # Both nodes still have some free cores, so free_nodes == 2
+    assert pool.free_nodes == 2
+    assert pool.nodes[0].free_cores == 2
+    assert pool.nodes[1].free_cores == 8
 
     pool.release(reservation)
 
     assert pool.free_cores == 16
-    assert pool.free_nodes == 2
     assert pool.free_gpus == 4
+    assert pool.free_nodes == 2
+    assert pool.nodes[0].free_cores == 8
+    assert pool.nodes[1].free_cores == 8
 
 
 def test_resource_pool_rejects_busy_resources():
+    # Reserve 6 of 8 cores on the single node, leaving 2 free.
+    # A subsequent request with min_cores=4 cannot be satisfied.
     pool = ResourcePool({'cores': 8, 'nodes': 1, 'gpus': 0})
-    step = SimpleNamespace(name='step')
+    step = SimpleNamespace(name='step', ntasks=1, min_tasks=1, args=None)
     request = StepResourceRequest(
         cores=6,
         min_cores=2,
@@ -198,8 +213,16 @@ def test_resource_pool_rejects_busy_resources():
     )
     pool.reserve_step(step, request)
 
-    with pytest.raises(ValueError, match='only 2 are free'):
-        pool.reserve_step(step, request)
+    big_request = StepResourceRequest(
+        cores=6,
+        min_cores=4,
+        nodes=1,
+        min_nodes=1,
+        gpus=0,
+        min_gpus=0,
+    )
+    with pytest.raises(ValueError, match='single node'):
+        pool.reserve_step(step, big_request)
 
 
 def test_get_step_resource_request_rejects_min_cpu_failure():
@@ -376,3 +399,133 @@ def test_resource_reservation_placement_defaults_none():
         gpus=0,
     )
     assert reservation.placement is None
+
+
+# --- ResourcePool per-node accounting (R3) ---
+
+
+def test_resource_pool_local_two_reservations_share_node():
+    # Two small local steps can both fit on the same node.
+    pool = ResourcePool(
+        {'cores': 16, 'nodes': 2, 'gpus': 0, 'cores_per_node': 8}
+    )
+    req = StepResourceRequest(
+        cores=1, min_cores=1, nodes=1, min_nodes=1, gpus=0, min_gpus=0
+    )
+
+    r1 = pool.reserve_local_step('a', req)
+    r2 = pool.reserve_local_step('b', req)
+
+    assert r1.placement is not None
+    assert r2.placement is not None
+    assert r1.placement.node_indices == (0,)
+    assert r2.placement.node_indices == (0,)
+    assert pool.nodes[0].free_cores == 6
+    assert pool.free_cores == 14
+
+    pool.release(r1)
+    pool.release(r2)
+
+    assert pool.free_cores == 16
+    assert pool.nodes[0].free_cores == 8
+
+
+def test_resource_pool_local_rejects_when_min_exceeds_node():
+    # min_cores > any single node → ValueError.
+    pool = ResourcePool(
+        {'cores': 16, 'nodes': 2, 'gpus': 0, 'cores_per_node': 8}
+    )
+    req = StepResourceRequest(
+        cores=10, min_cores=10, nodes=1, min_nodes=1, gpus=0, min_gpus=0
+    )
+    with pytest.raises(ValueError, match='single node'):
+        pool.reserve_local_step('step', req)
+
+
+def test_resource_pool_local_caps_cores_to_node_capacity():
+    # cores > node capacity but min_cores fits → reserved amount is capped.
+    pool = ResourcePool(
+        {'cores': 16, 'nodes': 2, 'gpus': 0, 'cores_per_node': 8}
+    )
+    req = StepResourceRequest(
+        cores=12, min_cores=4, nodes=1, min_nodes=1, gpus=0, min_gpus=0
+    )
+    reservation = pool.reserve_local_step('step', req)
+
+    assert reservation.placement is not None
+    assert reservation.placement.cores == 8  # capped to node capacity
+    assert pool.nodes[0].free_cores == 0
+    assert pool.free_cores == 8  # node 1 untouched
+
+
+def test_resource_pool_mpi_spans_all_nodes():
+    # MPI reservation drains all nodes; release restores them.
+    pool = ResourcePool(
+        {'cores': 16, 'nodes': 2, 'gpus': 4, 'cores_per_node': 8}
+    )
+    req = StepResourceRequest(
+        cores=16, min_cores=8, nodes=2, min_nodes=1, gpus=4, min_gpus=0
+    )
+
+    reservation = pool.reserve_mpi_step('mpi_step', req)
+
+    assert reservation.placement is not None
+    assert reservation.placement.kind == 'mpi'
+    assert set(reservation.placement.node_indices) == {0, 1}
+    assert reservation.placement.cores == 16
+    assert pool.free_cores == 0
+    assert pool.free_gpus == 0
+    assert pool.free_nodes == 0
+
+    pool.release(reservation)
+
+    assert pool.free_cores == 16
+    assert pool.free_gpus == 4
+    assert pool.free_nodes == 2
+    assert pool.nodes[0].free_cores == 8
+    assert pool.nodes[1].free_cores == 8
+
+
+def test_resource_pool_sequential_reserve_release_restores_state():
+    # Two sequential local reserve+release pairs leave the pool unchanged.
+    pool = ResourcePool(
+        {'cores': 16, 'nodes': 2, 'gpus': 0, 'cores_per_node': 8}
+    )
+    req = StepResourceRequest(
+        cores=4, min_cores=4, nodes=1, min_nodes=1, gpus=0, min_gpus=0
+    )
+
+    for _ in range(2):
+        r = pool.reserve_local_step('step', req)
+        pool.release(r)
+
+    assert pool.free_cores == 16
+    assert pool.free_nodes == 2
+
+
+def test_resource_pool_reserve_step_dispatches_local():
+    # reserve_step on a plain Python step → LOCAL placement.
+    pool = ResourcePool(
+        {'cores': 16, 'nodes': 2, 'gpus': 0, 'cores_per_node': 8}
+    )
+    step = SimpleNamespace(name='step', ntasks=1, min_tasks=1, args=None)
+    req = StepResourceRequest(
+        cores=4, min_cores=4, nodes=1, min_nodes=1, gpus=0, min_gpus=0
+    )
+
+    reservation = pool.reserve_step(step, req)
+    assert reservation.placement.kind == 'local'
+
+
+def test_resource_pool_reserve_step_dispatches_mpi():
+    # reserve_step on an MPI step (ntasks > 1) → MPI placement.
+    pool = ResourcePool(
+        {'cores': 16, 'nodes': 2, 'gpus': 0, 'cores_per_node': 8}
+    )
+    step = SimpleNamespace(name='step', ntasks=4, min_tasks=1, args=None)
+    req = StepResourceRequest(
+        cores=4, min_cores=4, nodes=1, min_nodes=1, gpus=0, min_gpus=0
+    )
+
+    reservation = pool.reserve_step(step, req)
+    assert reservation.placement.kind == 'mpi'

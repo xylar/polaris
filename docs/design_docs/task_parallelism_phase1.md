@@ -786,6 +786,7 @@ Contributors:
 
 - Xylar Asay-Davis
 - Codex
+- Claude Sonnet 4.6
 
 `polaris.run.resources` provides step classification, resource-request and
 resource-pool helpers.
@@ -799,6 +800,18 @@ resource-pool helpers.
 allocation node. `StepPlacement` records the execution kind, the target node
 indices and the reserved core and GPU counts for one step. These types form
 the foundation of the node-aware resource model used by `ResourcePool`.
+
+`ResourcePool` maintains a list of `NodeResources`, one per allocated node.
+`reserve_local_step()` finds the first node that can satisfy the minimum
+core and GPU requirements and deducts from that node only; it raises if no
+single node can meet the minimum. `reserve_mpi_step()` validates aggregate
+feasibility and drains all nodes for the duration of the step. Both methods
+return a `ResourceReservation` with a populated `StepPlacement`. `release()`
+restores per-node free resources from the placement information. `reserve_step()`
+dispatches to the appropriate method based on `get_step_execution_kind()`.
+
+`free_cores`, `free_gpus` and `free_nodes` are computed properties on
+`ResourcePool`; `free_nodes` counts nodes with any unreserved cores.
 
 The scheduler derives step resource requests from step CPU, node, GPU and MPI
 metadata without mutating the step. It checks minimum feasibility before

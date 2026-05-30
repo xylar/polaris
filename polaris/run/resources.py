@@ -212,7 +212,7 @@ class ResourceViews:
 
 class ResourcePool:
     """
-    Reusable scheduler resource pool.
+    Reusable scheduler resource pool with per-node resource tracking.
 
     The pool tracks logical reservations for nodes, CPU cores and GPUs. It
     does not pin processes or replace ``Step.constrain_resources()``; it
@@ -229,26 +229,87 @@ class ResourcePool:
         available_resources : dict
             Available CPU, GPU and MPI resources for this run.
         """
-        self.total_cores = _resource_count(
+        total_cores = _resource_count(
             available_resources.get('cores'), default=1
         )
-        self.total_nodes = _resource_count(
+        total_nodes = _resource_count(
             available_resources.get('nodes'), default=1
         )
-        self.total_gpus = _resource_count(
+        total_gpus = _resource_count(
             available_resources.get('gpus'), default=0
         )
+        self.total_cores = total_cores
+        self.total_nodes = total_nodes
+        self.total_gpus = total_gpus
 
-        self.free_cores = self.total_cores
-        self.free_nodes = self.total_nodes
-        self.free_gpus = self.total_gpus
+        cores_per_node = _resource_count(
+            available_resources.get('cores_per_node'), default=total_cores
+        )
+        gpus_per_node = available_resources.get('gpus_per_node')
+        if gpus_per_node is not None:
+            gpus_per_node = _resource_count(gpus_per_node, default=0)
+
+        node_core_counts = available_resources.get('node_core_counts')
+        if node_core_counts is not None:
+            node_cores = list(node_core_counts)
+        else:
+            node_cores = _node_resource_counts(
+                total=total_cores, nodes=total_nodes, per_node=cores_per_node
+            )
+
+        node_gpu_counts = available_resources.get('node_gpu_counts')
+        if node_gpu_counts is not None:
+            node_gpus = list(node_gpu_counts)
+        else:
+            node_gpus = _node_resource_counts(
+                total=total_gpus, nodes=total_nodes, per_node=gpus_per_node
+            )
+
+        while len(node_gpus) < len(node_cores):
+            node_gpus.append(0)
+
+        self._nodes: list[NodeResources] = [
+            NodeResources(
+                node_index=i,
+                total_cores=node_cores[i],
+                total_gpus=node_gpus[i],
+                free_cores=node_cores[i],
+                free_gpus=node_gpus[i],
+            )
+            for i in range(total_nodes)
+        ]
 
         self._reservations: dict[int, ResourceReservation] = {}
         self._next_reservation_id = 1
 
+    @property
+    def nodes(self) -> list:
+        """Per-node resource state (read-only snapshot)."""
+        return list(self._nodes)
+
+    @property
+    def free_cores(self) -> int:
+        """Total unreserved CPU cores across all nodes."""
+        return sum(n.free_cores or 0 for n in self._nodes)
+
+    @property
+    def free_gpus(self) -> int:
+        """Total unreserved GPUs across all nodes."""
+        return sum(n.free_gpus or 0 for n in self._nodes)
+
+    @property
+    def free_nodes(self) -> int:
+        """Number of nodes that have at least one unreserved CPU core."""
+        return sum(1 for n in self._nodes if (n.free_cores or 0) > 0)
+
     def reserve_step(self, step, request: StepResourceRequest):
         """
-        Reserve resources for a step.
+        Reserve resources for a step, dispatching to the correct method.
+
+        Classifies the step as LOCAL or MPI and calls
+        ``reserve_local_step`` or ``reserve_mpi_step`` accordingly.
+        This method is kept for backward compatibility with existing call
+        sites; prefer calling the specific reservation methods directly.
 
         Parameters
         ----------
@@ -261,34 +322,182 @@ class ResourcePool:
         Returns
         -------
         reservation : ResourceReservation
-            The active reservation.
+            The active reservation with a populated ``placement`` field.
 
         Raises
         ------
         ValueError
-            If the request exceeds currently free resources.
+            If the request cannot be satisfied.
         """
-        self._validate_available(step.name, request)
+        kind = get_step_execution_kind(step)
+        if kind == ExecutionKind.MPI:
+            return self.reserve_mpi_step(step.name, request)
+        return self.reserve_local_step(step.name, request)
 
-        reservation = ResourceReservation(
-            reservation_id=self._next_reservation_id,
-            step_name=step.name,
-            cores=request.cores,
-            nodes=request.nodes,
-            gpus=request.gpus,
+    def reserve_local_step(
+        self, step_name: str, request: StepResourceRequest
+    ) -> ResourceReservation:
+        """
+        Reserve resources for a non-MPI step on a single node.
+
+        Searches for the first node that can satisfy ``request.min_cores``
+        (and ``request.min_gpus`` when non-zero). Reserves
+        ``min(request.cores, node.free_cores)`` cores from that node only.
+
+        Parameters
+        ----------
+        step_name : str
+            Name of the step requesting resources.
+
+        request : StepResourceRequest
+            The resources requested by the scheduler.
+
+        Returns
+        -------
+        reservation : ResourceReservation
+            The active reservation with ``placement.kind == 'local'``.
+
+        Raises
+        ------
+        ValueError
+            If no single node can satisfy the minimum resource requirements.
+        """
+        target_index = None
+        for node in self._nodes:
+            if (node.free_cores or 0) >= request.min_cores and (
+                node.free_gpus or 0
+            ) >= request.min_gpus:
+                target_index = node.node_index
+                break
+
+        if target_index is None:
+            max_free = (
+                max(n.free_cores or 0 for n in self._nodes)
+                if self._nodes
+                else 0
+            )
+            raise ValueError(
+                f'Step {step_name} requires at least {request.min_cores} '
+                f'cores on a single node, but the most free cores on any '
+                f'node is {max_free}.'
+            )
+
+        node = self._nodes[target_index]
+        reserved_cores = min(request.cores, node.free_cores or 0)
+        reserved_gpus = min(request.gpus, node.free_gpus or 0)
+
+        self._nodes[target_index] = NodeResources(
+            node_index=node.node_index,
+            total_cores=node.total_cores,
+            total_gpus=node.total_gpus,
+            total_memory=node.total_memory,
+            free_cores=(node.free_cores or 0) - reserved_cores,
+            free_gpus=(node.free_gpus or 0) - reserved_gpus,
+            free_memory=node.free_memory,
+        )
+
+        placement = StepPlacement(
+            kind='local',
+            node_indices=(target_index,),
+            cores=reserved_cores,
+            gpus=reserved_gpus,
             memory=request.memory,
         )
+        reservation = ResourceReservation(
+            reservation_id=self._next_reservation_id,
+            step_name=step_name,
+            cores=reserved_cores,
+            nodes=1,
+            gpus=reserved_gpus,
+            memory=request.memory,
+            placement=placement,
+        )
         self._next_reservation_id += 1
+        self._reservations[reservation.reservation_id] = reservation
+        return reservation
 
-        self.free_cores -= reservation.cores
-        self.free_nodes -= reservation.nodes
-        self.free_gpus -= reservation.gpus
+    def reserve_mpi_step(
+        self, step_name: str, request: StepResourceRequest
+    ) -> ResourceReservation:
+        """
+        Reserve resources for an MPI step spanning the full allocation.
+
+        Validates that the aggregate free resources meet ``request.min_cores``
+        and ``request.min_gpus``, then drains all nodes for the duration of
+        the MPI step. Release restores every node to its full capacity.
+
+        Parameters
+        ----------
+        step_name : str
+            Name of the step requesting resources.
+
+        request : StepResourceRequest
+            The resources requested by the scheduler.
+
+        Returns
+        -------
+        reservation : ResourceReservation
+            The active reservation with ``placement.kind == 'mpi'``.
+
+        Raises
+        ------
+        ValueError
+            If aggregate free resources cannot meet the minimum requirements.
+        """
+        total_free_cores = self.free_cores
+        total_free_gpus = self.free_gpus
+
+        if total_free_cores < request.min_cores:
+            raise ValueError(
+                f'Step {step_name} requires at least {request.min_cores} '
+                f'cores but only {total_free_cores} are free.'
+            )
+        if total_free_gpus < request.min_gpus:
+            raise ValueError(
+                f'Step {step_name} requires at least {request.min_gpus} GPUs '
+                f'but only {total_free_gpus} are free.'
+            )
+
+        reserved_cores = min(request.cores, total_free_cores)
+        reserved_gpus = min(request.gpus, total_free_gpus)
+        node_indices = tuple(range(len(self._nodes)))
+
+        self._nodes = [
+            NodeResources(
+                node_index=n.node_index,
+                total_cores=n.total_cores,
+                total_gpus=n.total_gpus,
+                total_memory=n.total_memory,
+                free_cores=0,
+                free_gpus=0,
+                free_memory=n.free_memory,
+            )
+            for n in self._nodes
+        ]
+
+        placement = StepPlacement(
+            kind='mpi',
+            node_indices=node_indices,
+            cores=reserved_cores,
+            gpus=reserved_gpus,
+            memory=request.memory,
+        )
+        reservation = ResourceReservation(
+            reservation_id=self._next_reservation_id,
+            step_name=step_name,
+            cores=reserved_cores,
+            nodes=len(self._nodes),
+            gpus=reserved_gpus,
+            memory=request.memory,
+            placement=placement,
+        )
+        self._next_reservation_id += 1
         self._reservations[reservation.reservation_id] = reservation
         return reservation
 
     def release(self, reservation: ResourceReservation):
         """
-        Release an active reservation.
+        Release an active reservation, restoring per-node resources.
 
         Parameters
         ----------
@@ -308,26 +517,36 @@ class ResourcePool:
             )
 
         self._reservations.pop(reservation.reservation_id)
-        self.free_cores += reservation.cores
-        self.free_nodes += reservation.nodes
-        self.free_gpus += reservation.gpus
 
-    def _validate_available(self, step_name, request):
-        if request.cores > self.free_cores:
-            raise ValueError(
-                f'Step {step_name} requests {request.cores} CPU cores but '
-                f'only {self.free_cores} are free.'
+        placement = reservation.placement
+        if placement is None:
+            return
+
+        if placement.kind == 'local':
+            idx = placement.node_indices[0]
+            node = self._nodes[idx]
+            self._nodes[idx] = NodeResources(
+                node_index=node.node_index,
+                total_cores=node.total_cores,
+                total_gpus=node.total_gpus,
+                total_memory=node.total_memory,
+                free_cores=(node.free_cores or 0) + placement.cores,
+                free_gpus=(node.free_gpus or 0) + placement.gpus,
+                free_memory=node.free_memory,
             )
-        if request.nodes > self.free_nodes:
-            raise ValueError(
-                f'Step {step_name} requests {request.nodes} nodes but only '
-                f'{self.free_nodes} are free.'
-            )
-        if request.gpus > self.free_gpus:
-            raise ValueError(
-                f'Step {step_name} requests {request.gpus} GPUs but only '
-                f'{self.free_gpus} are free.'
-            )
+        else:
+            self._nodes = [
+                NodeResources(
+                    node_index=n.node_index,
+                    total_cores=n.total_cores,
+                    total_gpus=n.total_gpus,
+                    total_memory=n.total_memory,
+                    free_cores=n.total_cores,
+                    free_gpus=n.total_gpus,
+                    free_memory=None,
+                )
+                for n in self._nodes
+            ]
 
 
 def get_step_execution_kind(step) -> ExecutionKind:
