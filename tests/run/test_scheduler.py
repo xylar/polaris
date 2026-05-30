@@ -937,6 +937,115 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
     assert max(active_steps) == 2
 
 
+def test_scheduler_drains_worker_pool_before_serialized_barrier(
+    tmp_path, monkeypatch
+):
+    class DummyLogger:
+        def __init__(self):
+            self.messages = []
+
+        def info(self, message):
+            self.messages.append(message)
+
+    prep = DummyStep(tmp_path, 'prep')
+    forward = DummyStep(tmp_path, 'forward')
+    prep.can_run_concurrently = True
+    forward.can_run_concurrently = False
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['prep', 'forward'],
+        steps={'prep': prep, 'forward': forward},
+    )
+    lifecycle: list[tuple[str, object]] = []
+
+    class DelayedFuture:
+        def __init__(self, function, kwargs):
+            self.function = function
+            self.kwargs = kwargs
+            self.done_calls = 0
+            self.result_value = None
+
+        def done(self):
+            self.done_calls += 1
+            return self.done_calls > 1
+
+        def result(self):
+            lifecycle.append(('future_result', self.kwargs['node'].step_name))
+            if self.result_value is None:
+                self.result_value = self.function(**self.kwargs)
+            return self.result_value
+
+    class FakeDaskClient:
+        @staticmethod
+        def submit(function, pure=None, **kwargs):
+            lifecycle.append(('submit', kwargs['node'].step_name))
+            return DelayedFuture(function, kwargs)
+
+    @contextmanager
+    def _dask_client_context(available_resources, logger=None):
+        lifecycle.append(('dask_start', available_resources['cores']))
+        try:
+            yield FakeDaskClient()
+        finally:
+            lifecycle.append(('dask_stop', None))
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+        timing_breakdown=None,
+    ):
+        lifecycle.append(('step', step.name))
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'dask_client_context', _dask_client_context
+    )
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 4,
+            'nodes': 2,
+            'cores_per_node': 2,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    assert lifecycle == [
+        ('dask_start', 3),
+        ('submit', 'prep'),
+        ('future_result', 'prep'),
+        ('step', 'prep'),
+        ('dask_stop', None),
+        ('step', 'forward'),
+    ]
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+    relevant_events = [
+        event['event']
+        for event in events
+        if event['event']
+        in {'dask_phase_shutdown_requested', 'dask_phase_stop'}
+        or (event['event'] == 'step_finish' and event.get('step') == 'prep')
+    ]
+    assert relevant_events == [
+        'step_finish',
+        'dask_phase_shutdown_requested',
+        'dask_phase_stop',
+    ]
+    assert not any(event['event'] == 'step_failure' for event in events)
+
+
 def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
     run_order = []
 

@@ -631,10 +631,11 @@ def run_suite(
                 continue
 
             try:
-                active_dask_client = dask_phase.client_for_node(
-                    node, recorders.values()
-                )
-                if _node_execution_mode(node) == 'worker_pool':
+                node_mode = _node_execution_mode(node)
+                if node_mode == 'worker_pool':
+                    active_dask_client = dask_phase.client_for_node(
+                        node, recorders.values()
+                    )
                     started = _start_suite_worker_pool_batch(
                         ordered_nodes=ordered_nodes,
                         graph=graph,
@@ -877,10 +878,11 @@ def run_task(
                 continue
 
             try:
-                active_dask_client = dask_phase.client_for_node(
-                    node, [recorder]
-                )
-                if _node_execution_mode(node) == 'worker_pool':
+                node_mode = _node_execution_mode(node)
+                if node_mode == 'worker_pool':
+                    active_dask_client = dask_phase.client_for_node(
+                        node, [recorder]
+                    )
                     started = _start_task_worker_pool_batch(
                         ordered_nodes=ordered_nodes,
                         graph=graph,
