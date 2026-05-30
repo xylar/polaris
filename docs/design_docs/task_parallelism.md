@@ -47,6 +47,17 @@ transitions: run a batch of eligible non-MPI work while the worker-pool phase
 is active, then switch to a batch of serialized MPI or ineligible work,
 switching modes only when dependencies or ready-work exhaustion require it.
 
+Subsequent review of the Phase 1 implementation revealed a more fundamental
+issue: the Dask worker pool provides only logical resource accounting. Polaris
+can record that a step has reserved certain resources, but Dask is free to
+schedule the step on any available worker regardless of that reservation. The
+logical reservation is therefore not tied to actual process placement. Phase 1
+has been redesigned as a task-serial graph executor that runs steps directly
+in the scheduler process without a Dask worker pool for ordinary steps. The
+Dask-worker-pool executor model described in earlier versions of Phase 1 is
+superseded. Phase 2 must implement a true resource-bound orchestrator with
+actual placement enforcement before enabling concurrent execution.
+
 Task parallelism should be introduced as an opt-in capability. Existing
 `polaris serial` behavior remains the compatibility baseline until task
 parallelism is mature enough to consider broader use. A successful design will
@@ -64,9 +75,12 @@ selected architecture.
 The intended development phases are:
 
 1. Add a parallel-ready framework that still runs task-serial and proves no
-   regression relative to existing behavior. This framework should already
-   use the Phase 2 scheduler and executor model, with eligible non-MPI
-   concurrency capped at one active step.
+   regression relative to existing behavior. This framework establishes
+   dependency-graph construction, node-aware resource accounting and
+   scheduler diagnostics. Phase 1 does not use the Phase 2 executor model;
+   true resource-bound concurrent execution requires placement enforcement
+   that Phase 1 does not implement. Phase 2 must design a placement-enforced
+   executor before enabling concurrency.
 2. Enable parallel execution of explicitly safe non-MPI steps, with mixed
    workflows supported by barriered, one-at-a-time MPI execution. This phase
    should primarily raise the eligible non-MPI concurrency cap and validate
@@ -143,6 +157,49 @@ parallel with other eligible steps.
 
 The capability shall support concurrent execution across more than one node,
 not only within a single shared-memory node.
+
+### Requirement: Semantically Correct Resource Views
+
+Date last modified: 2026/05/30
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+The resource view passed to each step shall accurately describe the resources
+that step can actually use.
+
+Non-MPI steps shall receive resource views describing at most a single node's
+resources. A non-distributed step cannot use cores or memory on other nodes
+without an explicit distributed launcher; presenting it with an aggregate
+multi-node view would be incorrect.
+
+MPI steps shall receive resource views that reflect the resources actually
+available to them. Any orchestration resources subtracted from an MPI step's
+view shall be backed by actual enforcement.
+
+In phases where multiple steps run concurrently, each step shall receive a
+resource view that reflects only the resources reserved for that specific step,
+not the total allocation.
+
+### Requirement: Enforced Resource Placement
+
+Date last modified: 2026/05/30
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+When multiple steps run concurrently, the framework shall enforce that each
+step executes on the nodes and cores reserved for it. A resource reservation
+shall not be merely a logical accounting entry; it shall constrain where the
+step's process actually runs.
+
+This requirement does not apply to Phase 1, where only one step runs at a time
+and unenforced reservations cause no harm. It is a prerequisite for any phase
+that enables concurrent execution.
 
 ### Requirement: CPU-Aware Resource Scheduling
 

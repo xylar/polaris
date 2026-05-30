@@ -15,11 +15,14 @@ Phase 1. The eligibility mechanism, dependency graph, resource model,
 restart behavior and run summaries developed in Phase 1 become the foundation
 for actually running independent work concurrently.
 
-Phase 2 should be a small policy change on top of the Phase 1 runtime model:
-raise the eligible non-MPI concurrency cap from one active step to
-resource-limited concurrent execution. The scheduler, control-plane
-reservation, phase-scoped worker-pool lifecycle and mixed-workflow barriers
-should already have been implemented and validated in Phase 1.
+Phase 2 requires designing and implementing a true resource-bound executor.
+Phase 1 has been redesigned as a serial graph executor that runs steps
+directly in the scheduler process without a Dask worker pool for ordinary
+steps. As a result, Phase 2 cannot simply raise a concurrency cap on top of
+the Phase 1 runtime model. The dependency graph, node-aware resource pool and
+structured event stream from Phase 1 provide the foundation, but Phase 2 must
+implement an executor that enforces actual placement of processes on specific
+nodes and cores before enabling concurrent execution.
 
 The central new capability in Phase 2 is that independent non-MPI steps may
 run at the same time by default, subject to dependency, explicit ineligibility
@@ -107,9 +110,9 @@ effectively on realistic workflows without mixed-workflow support.
 Within dependency and resource constraints, Phase 2 shall minimize transitions
 between task-parallel worker-pool mode and task-serial launch mode. This is a
 runtime-efficiency requirement, not a requirement to use a particular
-worker-pool implementation. If the implementation uses Dask, Dask startup and
-shutdown are the current costs being minimized; another implementation would
-need to minimize the analogous worker-pool lifecycle cost.
+worker-pool implementation. Each mode transition has a lifecycle cost; Phase 2
+shall minimize the number of transitions rather than paying that cost for
+every ready-step boundary.
 
 ### Requirement: Dependency-Correct Parallel Execution
 
@@ -158,6 +161,25 @@ fails.
 A failure in one step shall not prevent independent steps from running.
 Independent work that does not depend on the failed step shall remain eligible
 for execution, whether or not it was already running when the failure occurred.
+
+### Requirement: Enforced Resource Placement
+
+Date last modified: 2026/05/30
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+Phase 2 shall enforce that each step runs on the nodes and cores that were
+reserved for it. A resource reservation shall not be merely a logical
+accounting entry; it shall constrain where the step's process actually
+executes.
+
+This requirement distinguishes Phase 2 from Phase 1. Phase 1 establishes
+correct resource views but does not enforce placement because only one step
+runs at a time and unenforced reservations cause no harm. In Phase 2, with
+concurrent steps, an unenforced reservation provides no isolation guarantee.
 
 ### Requirement: Resource-Constrained Non-MPI Scheduling
 
@@ -382,15 +404,18 @@ Contributors:
 - Xylar Asay-Davis
 - Codex
 
-Phase 2 should enable concurrency by changing only the scheduling policy on
-top of the Phase 1 command path. The dependency graph, Dask scheduler, worker
-pool, resource pool, execution-kind metadata and structured event stream
-should all be inherited from Phase 1.
+Phase 2 should enable concurrency by designing a new resource-bound executor
+on top of the Phase 1 command path. The dependency graph, node-aware resource
+pool, execution-kind metadata and structured event stream should all be
+inherited from Phase 1.
 
-The Phase 1 scheduler should already own Dask phase lifetimes and control
-plane resource reservations. Phase 2 should not introduce a new Dask
-lifecycle model; it should only allow more than one eligible non-MPI step to
-hold data-plane resources during an active non-MPI phase.
+Phase 1 does not own Dask phase lifetimes or a worker-pool lifecycle, because
+Phase 1 has been redesigned as a serial graph executor without a Dask worker
+pool for ordinary steps. Phase 2 must implement an executor that enforces
+actual process placement: either a direct Slurm-bound launcher per local step,
+a pinned Dask worker model, or a hybrid approach. The `placement_enforced=false`
+flag in Phase 1 `resource_reserved` events marks exactly the gap that Phase 2
+must close.
 
 Non-MPI steps should be eligible for concurrent execution by default. Step
 authors should explicitly mark steps unsafe or ineligible when they rely on

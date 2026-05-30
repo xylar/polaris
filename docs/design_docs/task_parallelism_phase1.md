@@ -16,12 +16,6 @@ practical for suites, tasks and individual steps. The new command discovers
 work from the same work directories, accepts similar command-line options and
 preserves the per-step execution semantics that users rely on.
 
-After Perlmutter validation, Phase 1 must also establish the runtime model
-that Phase 2 will use. The only intended policy difference between Phase 1
-and Phase 2 is the eligible non-MPI concurrency cap: Phase 1 sets the cap to
-one active non-MPI step, while Phase 2 raises the cap so independent eligible
-steps may run concurrently when resources allow.
-
 The phrase "task parallelism" is the historical project label, but the Polaris
 scheduling unit is a `Step`. Later phases are intended to run independent
 selected steps concurrently, potentially drawn from one task or from multiple
@@ -31,21 +25,20 @@ as the indivisible unit of parallel execution.
 Unlike `polaris serial`, `polaris run` is intended to become the foundation
 for later task parallelism. In Phase 1, it builds the scheduling framework
 needed for future concurrent execution, including dependency-graph
-construction, ready-step selection, resource-aware scheduling, deterministic
-step ordering, schedule summaries, structured scheduler events and metadata
-for future step eligibility. It also establishes the Dask Distributed
-orchestration layer that Phase 2 will use for concurrent non-MPI execution.
-However, Dask workers must be phase-scoped rather than run-scoped. They are
-started only for eligible non-MPI phases and are stopped before MPI or
-otherwise serialized steps are launched. The scheduler still executes only
-one eligible non-MPI Polaris step at a time in Phase 1.
+construction, ready-step selection, node-aware resource scheduling,
+deterministic step ordering, schedule summaries, structured scheduler events
+and metadata for future step eligibility. Phase 1 does not establish a Dask
+orchestration layer for Phase 2. Steps run directly in the scheduler process
+without routing through a Dask worker pool. The node-aware resource model,
+dependency graph and structured diagnostic events built in Phase 1 provide the
+foundation for Phase 2, but Phase 2 must implement a true resource-bound
+executor with actual process placement enforcement.
 
 Phase 1 therefore aims to prove that the new execution path is correct and
 complete before it is asked to deliver speedup. Some slowdown relative to
 `polaris serial` is acceptable. The goal is not improved wall time in this
-phase, but rather that the infrastructure needed for Phase 2 is already in
-place, so Phase 2 can focus primarily on raising the concurrency cap and
-debugging issues that arise only when independent steps overlap.
+phase, but rather that the scheduling infrastructure and node-aware resource
+model needed for Phase 2 are already in place.
 
 `polaris serial` remains unchanged and continues to be the default execution
 path recommended by `polaris setup` and `polaris suite`. Phase 1 provides an
@@ -201,9 +194,38 @@ replaced in Phase 2. Steps expected to be eligible for parallel scheduling in
 Phases 1 and 2 shall have enough resource information for Phase 2 to schedule
 them concurrently without oversubscribing the available allocation.
 
+### Requirement: Semantically Correct Resource Views
+
+Date last modified: 2026/05/30
+
+Contributors:
+
+- Xylar Asay-Davis
+- Codex
+
+The resource view passed to each step shall accurately describe the resources
+that step can actually use.
+
+Non-MPI steps shall receive resource views describing at most a single node's
+resources. A non-distributed Python step cannot use cores or GPUs on other
+nodes without an explicit distributed launcher, so presenting it with an
+aggregate multi-node view would be misleading and could cause incorrect
+scaling decisions within the step.
+
+MPI steps shall receive resource views that match `polaris serial` behavior.
+Any orchestration resources subtracted from the MPI allocation view shall be
+backed by actual enforcement; orchestration resources that are not enforced
+shall not be subtracted.
+
+This requirement applies in Phase 1 and must be preserved in all later phases.
+In Phase 1, where only one step runs at a time, the requirement establishes
+the correct baseline. In Phase 2 and later, where multiple steps may run
+concurrently, this requirement also means that each step's resource view must
+reflect only the resources reserved for that step, not the full allocation.
+
 ### Requirement: Single-Step Execution in Phase 1
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -219,10 +241,9 @@ The purpose of Phase 1 is to validate the new command path, scheduler,
 dependency graph and observability without yet enabling task parallelism
 itself.
 
-The single ready step shall run through the `polaris run` orchestration path,
-including the selected execution backend where applicable, so Phase 1
-validates worker lifecycle, serialization, logging and cleanup before
-concurrency is enabled.
+The single ready step shall run through the `polaris run` orchestration path.
+Phase 1 shall not incur worker-pool startup or shutdown overhead as part of
+ordinary step execution.
 
 ### Requirement: Future Parallel-Eligibility Metadata
 
@@ -324,7 +345,7 @@ Phase 1.
 
 ### Algorithm Design: New Task-Parallel Command Path
 
-Date last modified: 2026/05/29
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -337,28 +358,29 @@ artifacts, pickle files, work-directory discovery and user-facing scope as
 `polaris serial`, but it should route execution through a scheduler that owns
 the dependency graph, resource pool and step lifecycle.
 
-Phase 1 should stand up Dask Distributed only when the current execution
-phase contains eligible non-MPI work that runs through the task-parallel
-executor. The default local backend uses a local `distributed.LocalCluster`.
-On multi-node supported allocations, an allocation-scoped backend should
-launch one Dask scheduler and multiple single-threaded worker processes
-across the data-plane resources. Dask workers should not be launched for a
-whole mixed suite.
+Phase 1 should not launch a Dask worker pool for ordinary step execution.
+For each ready step, the scheduler should classify it as LOCAL or MPI using
+`get_step_execution_kind()`, reserve resources from the node-aware pool, build
+a placement-correct `AvailableResources` view, call the step lifecycle
+directly in the scheduler process, and release the reservation in a `finally`
+block.
 
-Polaris should control the Dask scheduler and worker lifecycle directly
-rather than using `dask-mpi` as the primary orchestration mechanism. This
-keeps resource handoff policy in Polaris, avoids making the batch scheduler
-responsible for many small Python tasks, and leaves room for
-scheduler-specific MPI launch behavior to remain isolated in later phases.
-The parent `polaris run` process and any Dask scheduler process are
-control-plane work. Polaris should reserve control-plane resources before
-planning Dask workers or checking step feasibility, and those resources
-should be excluded from both non-MPI and MPI step scheduling. The default
-reservation should be a small CPU-only slice rather than a whole dedicated
-node, for example one orchestration CPU core for the run when that is
-sufficient. The design should also allow reserving one orchestration CPU core
-per node on platforms where worker launch helpers, scheduler communication or
-measured interference make a per-node reservation necessary.
+LOCAL (non-MPI) steps must fit on a single node. A single-process Python step
+cannot use aggregate cores across multiple nodes, so a LOCAL reservation must
+target exactly one node and must not combine resources from multiple nodes.
+MPI steps receive the full allocation view, as they do under `polaris serial`.
+
+Phase 1 does not subtract a control-plane core from the MPI allocation view.
+This reservation is not enforced by Slurm or the OS in Phase 1's direct-
+execution model, and subtracting it would change MPI rank counts relative to
+`polaris serial` without providing any isolation benefit. The control-plane
+reservation concept is preserved as a design artifact for a future phase where
+enforcement can be provided.
+
+Dask Distributed may remain in the codebase for steps that explicitly
+implement `run_with_dask()`, but the Phase 1 scheduler passes `dask_client=None`
+for ordinary steps, preserving the fallback-to-`run()` behavior without
+starting a Dask cluster.
 
 ### Algorithm Design: Backward-Compatible Per-Step Execution Semantics
 
@@ -485,39 +507,32 @@ treating MPI task counts as non-MPI worker counts.
 
 ### Algorithm Design: Single-Step Execution in Phase 1
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/30
 
 Contributors:
 
 - Xylar Asay-Davis
 - Codex
 
-The Phase 1 scheduling policy should be a single-active-step policy layered on
-top of the future task-parallel scheduler. The scheduler should repeatedly:
+The Phase 1 scheduling policy should be a single-active-step policy. The
+scheduler should repeatedly:
 
 - identify ready graph nodes,
-- filter them by completion, cached status, resource feasibility and execution
-  mode,
-- choose the next step from the current execution-mode batch when possible,
-- reserve resources for that step,
-- execute it through the `polaris run` orchestration path, and
+- filter them by completion, cached status and resource feasibility,
+- choose the next step using stable setup order as the deterministic
+  tie-breaker,
+- classify the step as LOCAL or MPI,
+- reserve resources from the node-aware pool,
+- execute the step directly through the step lifecycle in the scheduler
+  process, and
 - release resources after the step succeeds or fails.
 
-No second step should be started while another step is active, even if it is
-independent and enough resources remain idle. This intentionally leaves
-parallel speedup for Phase 2 while proving that the scheduler, resource pool
-and task-parallel runtime path are already real.
-
-Within that single-active-step constraint, Phase 1 should already use the
-same mode-batching policy expected in Phase 2. If a task-parallel worker pool
-is active, the scheduler should continue running ready eligible non-MPI steps
-that can use the active worker-pool phase before stopping it for serialized
-work. If no worker pool is active, the scheduler should run a batch of ready
-MPI or ineligible serialized steps before starting the worker-pool mode again,
-unless no serialized work is ready and an eligible non-MPI step can make
-progress. Stable deterministic step order remains the tie-breaker within a
-mode, but independent steps may be reordered across modes to avoid
-unnecessary worker-pool start/stop cycles.
+No second step should be started while another step is active. Phase 1 has a
+single execution path with no mode switching between worker-pool and serialized
+modes. There is no Dask worker pool to start or stop, so there is no lifecycle
+cost from mode transitions. This simplification is appropriate because Phase 1
+is a serial executor; Phase 2 must design the mode-batching policy as part of
+implementing a true resource-bound concurrent executor.
 
 ### Algorithm Design: Future Parallel-Eligibility Metadata
 
@@ -546,7 +561,7 @@ system.
 
 ### Algorithm Design: Observable Execution and Schedule Summaries
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -560,24 +575,14 @@ structured output should record schedule/resource events so Phase 2 and later
 debugging can reconstruct what happened without scraping free-form logs.
 
 Structured events should include at least graph construction, ready-step
-selection, resource feasibility, resource reservation, task-parallel runtime
-state, mode-batch start/stop decisions, worker-pool launch requested,
-worker-pool ready, worker-pool shutdown requested, worker-pool stopped,
-serialized-step barriers, step start, step finish, step failure, skipped or
-blocked steps and resource release. These events should be sufficient to
-verify that Phase 1 did not accidentally run steps concurrently, that Phase 2
-does run eligible steps concurrently and that Polaris is not paying avoidable
-task-parallel runtime lifecycle overhead.
-
-The scheduler should also summarize task-parallel runtime lifecycle overhead
-in human-readable output. At minimum, a task-parallel run should report the
-number of worker-pool phases, total worker-pool startup wall time, total
-worker-pool shutdown wall time, mean and maximum startup time, mean and
-maximum shutdown time and the fraction of suite wall time spent in
-worker-pool lifecycle management. For the current Dask-backed implementation,
-this report should name Dask startup and shutdown explicitly. This report is
-required because Perlmutter validation showed that lifecycle overhead can be
-large enough to dominate small `omega_pr` steps.
+selection, resource feasibility, resource reservation (with `execution_kind`,
+`node_indices`, `cores`, `gpus`, `placement_enforced` and `resource_scope`),
+step start, step finish, step failure, skipped or blocked steps and resource
+release. These events should be sufficient to verify that Phase 1 did not
+accidentally run steps concurrently, and that Phase 2 steps are actually
+receiving placement-enforced resources. Dask worker-pool lifecycle events
+should not appear in default Phase 1 runs, because Phase 1 does not launch a
+Dask worker pool for ordinary steps.
 
 Task and suite timing should be distinct. Suite runtime should be wall-clock
 time for the whole run. A task runtime reported by `polaris run` should be the
@@ -588,7 +593,7 @@ run in isolation.
 
 ### Algorithm Design: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/05/29
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -596,25 +601,23 @@ Contributors:
 - Codex
 
 The Phase 1 algorithm should assume the batch scheduler provides a fixed
-allocation, while Polaris explicitly separates control-plane resources from
-the data-plane resources available to Dask workers and steps.
-Machine-specific differences should be confined to allocation discovery, job
-script generation, worker launch details and later MPI launch behavior.
+allocation. Machine-specific differences should be confined to allocation
+discovery, job script generation and MPI launch behavior.
 
-The control-plane reservation should remain a first-class part of allocation
-accounting on every machine. Step feasibility checks, MPI launch decisions
-and Dask worker planning should all operate on the remaining data-plane view
-after those orchestration resources have been removed. By default, the goal is
-to reserve only CPU resources for orchestration and to avoid consuming a whole
-node, but the design should permit one reserved orchestration CPU per node if
-that is needed to keep orchestration work from interfering with step
-execution.
+Phase 1 does not separate control-plane resources from data-plane resources
+as a first-class accounting step. A control-plane core reservation is not
+enforced by Slurm or the OS in Phase 1's direct-execution model, and
+subtracting it would change MPI rank counts relative to `polaris serial`
+without providing any isolation benefit. The concept of control-plane
+reservation is preserved as a design artifact for a future phase where
+enforcement can be provided.
 
-On Slurm systems such as Chrysalis and Perlmutter, the design should avoid
-using a scheduler-launched job step for every small Python step and should
-avoid overlapping long-lived Dask worker job steps with model `srun` calls.
-On PBS-based systems such as Aurora, the same phase-scoped Dask model should
-remain the conceptual target even if worker launch details differ.
+LOCAL (non-MPI) steps receive a single-node `AvailableResources` view. MPI
+steps receive the full allocation view, identical to what `polaris serial`
+provides. On Slurm systems such as Chrysalis and Perlmutter, Phase 1 avoids
+scheduler-launched job steps for non-MPI work by running those steps directly
+in the scheduler process. MPI steps continue to use `run_parallel_command`
+for Slurm launch.
 
 ### Algorithm Design: Frontier Support
 
@@ -646,15 +649,14 @@ validation status. They do not need Dask worker or resource-pool events.
 
 ### Implementation: New Task-Parallel Command Path
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/30
 
 Contributors:
 
 - Xylar Asay-Davis
 - Codex
 
-Dask Distributed is part of the Polaris runtime dependency set. The
-`polaris.run.parallel` module implements the `polaris run` command path and
+The `polaris.run.parallel` module implements the `polaris run` command path and
 shares command-independent lifecycle helpers with `polaris serial` through
 `polaris.run.shared`. These shared helpers cover suite unpickling, runtime
 configuration setup, dependency loading, step selection, completion markers,
@@ -664,8 +666,17 @@ step execution and pull-request summary generation.
 `polaris run` is wired into the top-level Polaris CLI and mirrors
 `polaris serial` scope detection for suites, tasks and individual steps. The
 command constructs the scheduler and passes allocation resources to it. The
-scheduler owns Dask phase lifetimes and passes an active Dask client to step
-lifecycle helpers only while an eligible non-MPI phase is running.
+scheduler runs each step directly in the scheduler process: it classifies the
+step as LOCAL or MPI using `get_step_execution_kind()`, reserves resources from
+the node-aware pool, builds a placement-correct `AvailableResources` view and
+calls the shared step lifecycle with `dask_client=None`. Resources are released
+in a `finally` block after the step completes or fails.
+
+Dask Distributed remains in the dependency set for steps that explicitly
+implement `run_with_dask()`, but the Phase 1 scheduler does not start a Dask
+cluster for ordinary step execution. Passing `dask_client=None` to the shared
+step lifecycle preserves fallback-to-`run()` behavior for Dask-aware steps
+without launching a Dask runtime.
 
 Generated job scripts remain task-serial by default. `polaris setup` and
 `polaris suite` accept `--run_command` with choices `serial` and `run`. When
@@ -689,12 +700,11 @@ step execution is performed, outputs are checked, validation hooks run and
 completion markers are written.
 
 Steps that require subprocess execution keep that behavior under
-`polaris run`. When a subprocess is started during an active Dask phase, the
-parent run passes the active Dask scheduler address through the
-`POLARIS_DASK_SCHEDULER_ADDRESS` environment variable so the subprocess can
-connect to the existing Dask runtime instead of starting a nested runtime.
-Serialized MPI or ineligible subprocesses should not inherit a stale Dask
-scheduler address after a Dask phase has stopped.
+`polaris run`. Since Phase 1 does not start a Dask scheduler, subprocesses
+launched during Phase 1 do not inherit a Dask scheduler address. The
+`POLARIS_DASK_SCHEDULER_ADDRESS` environment variable should not be set
+during Phase 1 execution, ensuring that subprocess steps see the same
+environment they would under `polaris serial`.
 
 Dask-aware steps can implement `run_with_dask(client, resources)`. The default
 implementation falls back to `run()`, so ordinary step behavior does not
@@ -875,28 +885,24 @@ the Phase 1 single-step policy.
 
 ### Implementation: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/30
 
 Contributors:
 
 - Xylar Asay-Davis
 - Codex
 
-Dask runtime selection is abstracted behind backend classes. The automatic
-selection path uses the allocation backend when the available resources
-represent a multi-node allocation and a process launcher is available from
-the active `mache` parallel system. Otherwise it falls back to the local
-backend and records the fallback reason.
+Phase 1 does not launch a Dask worker pool for ordinary step execution. Steps
+run directly in the scheduler process. The Dask backend infrastructure in
+`polaris.run.dask` is preserved for future phases and for steps that
+explicitly implement `run_with_dask()`, but it is not invoked by the Phase 1
+scheduler by default.
 
-The allocation backend launches the Dask scheduler as a subprocess, writes a
-scheduler metadata file, launches workers through a pluggable process
-launcher, creates a Dask client from the scheduler metadata, and shuts down
-the client, workers and scheduler at the end of the current non-MPI phase. On
-Slurm systems, the worker command is launched through the active parallel
-system rather than launching one batch step per Polaris step.
-
-The implementation has been exercised most heavily on Chrysalis. Perlmutter
-and Aurora remain required validation targets for the broader rollout.
+On Slurm systems such as Chrysalis and Perlmutter, Phase 1 avoids scheduler-
+launched job steps for non-MPI work by running those steps directly in the
+scheduler process. MPI steps continue to use `run_parallel_command` for
+Slurm launch, receiving the full allocation view without a control-plane
+core subtracted.
 
 ### Implementation: Frontier Support
 
@@ -936,13 +942,15 @@ Contributors:
 - Codex
 
 Unit tests cover top-level CLI dispatch, `polaris run --help`, suite/task/step
-work-directory discovery, `polaris run` Dask lifecycle creation and client
-propagation, and generated job-script command selection. Setup and suite tests
-verify that job scripts default to `polaris serial` and switch to
-`polaris run` only when `--run_command run` is provided.
+work-directory discovery, and generated job-script command selection. Tests
+verify that `run_task()` does not instantiate any Dask cluster for ordinary
+step execution. Setup and suite tests verify that job scripts default to
+`polaris serial` and switch to `polaris run` only when `--run_command run` is
+provided.
 
-Dependency metadata is validated by importing `dask` and `distributed` from
-the deployed pixi environment and by running `pip check` in that environment.
+Dask remains a declared dependency for Dask-aware steps. Dependency metadata
+is validated by importing `dask` and `distributed` from the deployed pixi
+environment and by running `pip check` in that environment.
 Pre-commit is run on changed files.
 
 ### Testing and Validation: Backward-Compatible Per-Step Execution Semantics
@@ -955,10 +963,10 @@ Contributors:
 - Codex
 
 Shared run-helper tests cover step selection, completion marker behavior,
-validation marker reads, status accumulation, subprocess step execution and
-Dask-client propagation. Scheduler tests verify that both task-scope and
-suite-scope `polaris run` still invoke the shared step lifecycle helpers with
-the active Dask client.
+validation marker reads, status accumulation, and subprocess step execution.
+Scheduler tests verify that both task-scope and suite-scope `polaris run`
+invoke the shared step lifecycle helpers, passing `dask_client=None` for
+ordinary steps so that Dask-aware step hooks fall back to `step.run()`.
 
 Synthetic integration tests compare serial-style task execution with
 scheduler execution for output files, task logs, completion markers,
@@ -1113,13 +1121,12 @@ Contributors:
 - Codex
 
 Scheduler tests verify that `schedule_events.jsonl` files are written and
-that they include graph construction, control-plane reservation, Dask runtime
-metadata, scheduler-owned Dask phase start/stop, serialized-step barriers,
-ready selection, wait reasons, resource feasibility, reservation, start,
-finish, failure, skip, block and release events. Focused scheduler tests also
-verify the new `step_timing` event and confirm that the shared step lifecycle
-can accept the optional timing-breakdown plumbing without changing task-serial
-call sites.
+that they include graph construction, ready selection, resource reservation
+(with `execution_kind`, `node_indices`, `cores`, `placement_enforced=false`
+and `resource_scope`), step start, step finish, step failure, skip, block and
+release events. Tests also verify the `step_timing` event and confirm that no
+Dask worker-pool lifecycle events (`worker_pool_launch_requested`,
+`worker_pool_ready`, etc.) appear in default Phase 1 runs.
 
 Validation-helper tests cover parsing scheduler event files, summarizing
 scheduler/Dask evidence, rejecting missing required events, detecting active
@@ -1139,11 +1146,11 @@ Contributors:
 - Xylar Asay-Davis
 - Codex
 
-Unit tests use fake launchers, fake clients and fake parallel systems to cover
-local backend selection, automatic allocation-backend selection, local
-fallback, data-plane worker launch planning, worker launch command
-construction and scheduler/worker/client cleanup on success and failure.
-These tests do not require a real Slurm or PBS allocation.
+Unit tests use fake resources and fake steps to cover `ExecutionKind`
+classification, local step reservation (single-node), MPI reservation
+(spanning all nodes), `resources_for_local_placement` and
+`resources_for_mpi_placement` view construction, and reservation release on
+failure. These tests do not require a real Slurm or PBS allocation.
 
 Dry-run job-script tests cover Slurm and PBS rendering for default
 `polaris serial` behavior and explicit `--run_command run` behavior.
@@ -1283,39 +1290,45 @@ unchanged serial path.
 
 ## Phase 2 Handoff
 
-Phase 2 should be able to inherit the Phase 1 command path, graph builder,
-resource feasibility model, Dask runtime, subprocess-client propagation and
-structured event stream. The main Phase 2 scheduling change should be
-replacing the single-active-step policy with conservative packing of eligible
-ready non-MPI steps.
+Phase 2 should inherit the Phase 1 command path, dependency graph builder,
+node-aware resource pool, `ExecutionKind` classification, placement-correct
+`AvailableResources` views and structured event stream. However, Phase 2
+cannot simply raise a concurrency cap on top of the Phase 1 runtime model,
+because Phase 1 has been redesigned as a serial graph executor without a
+Dask worker pool for ordinary steps.
 
-A review of the current code and design on 2026/05/29 did not identify any
-additional missing Phase 1 functional pieces in the command path, dependency
-graph construction, resource model, execution-kind metadata, scheduler
-observability or single-active-step validation beyond the follow-on work
-listed below. The main remaining issue before Phase 2 is performance rather
-than missing Phase 1 functionality: Aurora now shows that Dask lifecycle cost
-is already modest after mode batching, while most of the remaining slowdown is
-distributed across measured step runtimes. That result strengthens the case
-that Phase 2 should focus on overlapping eligible independent work so the
-orchestration cost is amortized, while keeping the existing Phase 1 scheduler
-and observability foundations.
+The `placement_enforced=false` flag in Phase 1 `resource_reserved` events
+marks exactly the gap Phase 2 must close. Logical reservations are correct
+in Phase 1 because only one step runs at a time; in Phase 2, with concurrent
+steps, a reservation that does not actually bind a process to specific nodes
+and cores provides no real isolation. A correct Phase 2 implementation must
+enforce actual placement. The options are:
 
-One likely follow-on refinement is making the orchestration reservation more
-explicit and more portable across machines. The intent is that the parent
-`polaris run` process, Dask scheduler and any required launch helpers should
-run on CPU resources that are reserved for orchestration and are never
-offered to MPI or non-MPI steps. This reservation should remain sub-node when
-possible, such as one CPU for the run or one CPU per node when a platform
-requires per-node helpers, rather than consuming a whole node unless platform
-constraints force that outcome.
+1. **Direct Slurm-bound launcher per local step**: The orchestrator launches
+   each local non-MPI step with explicit `srun` placement, controlling node,
+   core and GPU binding directly. This is the most transparent HPC model.
+2. **Pinned worker model**: Workers are started with known node/core/GPU
+   bindings and labeled with their capacity. Each step is submitted only to
+   workers that match its selected reservation.
+3. **Hybrid model**: MPI steps continue through `run_parallel_command`. Local
+   non-MPI steps use a direct bound subprocess launch.
 
-The following work is explicitly handed to Phase 2 or later:
+The Phase 2 scheduler should also design a mode-batching policy for
+minimizing worker-pool lifecycle transitions. Earlier Phase 1 testing on
+Perlmutter demonstrated that alternating between worker-pool mode and
+serialized mode at every ready-step boundary creates unacceptable overhead;
+batching similar work into phases reduces the number of costly mode
+transitions.
+
+The following work is handed to Phase 2 or later:
 
 - concurrent ready-step execution, beginning with eligible non-MPI steps in
   Phase 2;
+- choosing and implementing a resource-bound executor with actual placement
+  enforcement;
+- mode-batching policy for minimizing worker-pool lifecycle transitions;
 - a cheap Dask-aware regression task or fixture that exercises Dask-aware step
-  code without requiring a long global hydrography workflow;
+  code without requiring the long WOA23 hydrography workflow;
 - MPI-step concurrency and MPI/non-MPI scheduling barriers, which belong to
   Phases 3 and 4;
 - memory-aware scheduling and prevention of memory oversubscription, which
