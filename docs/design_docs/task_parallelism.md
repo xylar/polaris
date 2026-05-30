@@ -22,12 +22,14 @@ terminology, however, the scheduler unit is a `Step`, not a whole `Task`.
 Parallel work may include independent selected steps from one task or from
 multiple tasks in a suite.
 
-The first priority is to support parallel execution of explicitly safe
-non-MPI steps, including steps implemented primarily in Python. These steps
+The first priority is to support parallel execution of eligible non-MPI
+steps, including steps implemented primarily in Python. The default Phase 2
+policy is that non-MPI steps are eligible unless they are explicitly marked
+unsafe or ineligible for concurrent task-parallel execution. These steps
 should be able to run concurrently across more than one node in an HPC
 allocation. Polaris should also support realistic mixed workflows containing
-both non-MPI and MPI steps. In the initial mixed-workflow capability, MPI steps
-will run one at a time and will not overlap with non-MPI steps.
+both non-MPI and MPI steps. In the initial mixed-workflow capability, MPI
+steps will run one at a time and will not overlap with non-MPI steps.
 
 Validation on Perlmutter showed that Polaris must not assume a Slurm
 allocation permits overlapping job steps. A long-lived allocation-wide Dask
@@ -66,11 +68,14 @@ The intended development phases are:
 1. Add a parallel-ready framework that still runs task-serial and proves no
    regression relative to existing behavior. This framework should already
    use the Phase 2 scheduler and executor model, with eligible non-MPI
-   concurrency capped at one active step.
-2. Enable parallel execution of explicitly safe non-MPI steps, with mixed
-   workflows supported by barriered, one-at-a-time MPI execution. This phase
-   should primarily raise the eligible non-MPI concurrency cap and validate
-   the resulting overlap, not introduce a second scheduler architecture.
+   concurrency capped at one active step. Phase 1 owns the dependency graph,
+   resource accounting, control-plane reservation, phase-scoped Dask worker
+   pools, mixed-workflow barriers and execution-mode batching.
+2. Enable parallel execution of eligible non-MPI steps, with mixed workflows
+   supported by barriered, one-at-a-time MPI execution. This phase should
+   primarily raise the eligible non-MPI concurrency cap from one active step
+   to resource-limited concurrency and validate the resulting overlap, not
+   introduce a second scheduler architecture.
 3. Enable concurrent execution of independent MPI steps when dependencies and
    resources allow.
 4. Enable concurrent execution of non-MPI and MPI steps within the same
@@ -124,22 +129,23 @@ work that completed successfully before the failure.
 
 ### Requirement: Eligible Non-MPI Step Parallelism
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/30
 
 Contributors:
 
 - Xylar Asay-Davis
 - Codex
 
-Polaris shall support concurrent execution of explicitly safe non-MPI steps
-across a multi-node HPC allocation. This includes steps implemented primarily
-in Python.
+Polaris shall support concurrent execution of eligible non-MPI steps across a
+multi-node HPC allocation. This includes steps implemented primarily in
+Python.
 
-Eligibility for non-MPI task parallelism shall be conservative at first. Steps
-that are unsafe, unclassified or not known to behave correctly when run
-concurrently shall not run concurrently by default. The capability shall
-provide a path for step authors to identify steps that are safe to run in
-parallel with other eligible steps.
+Eligibility for non-MPI task parallelism shall be conservative about known
+unsafe behavior without requiring every ordinary non-MPI step to opt in.
+Non-MPI steps shall be eligible by default in Phase 2, and the capability
+shall provide a path for step authors to mark steps unsafe or ineligible when
+they rely on shared mutable state, external side effects, uncontrolled process
+launching or other behavior that is not safe under concurrent execution.
 
 The capability shall support concurrent execution across more than one node,
 not only within a single shared-memory node.
@@ -285,16 +291,16 @@ block dependents and that reruns resume from completed work.
 
 ### Testing and Validation: Eligible Non-MPI Step Parallelism
 
-Date last modified: 2026/04/23
+Date last modified: 2026/05/30
 
 Contributors:
 
 - Xylar Asay-Davis
 - Codex
 
-Unit tests shall verify that only explicitly eligible non-MPI steps can run
-concurrently in the initial implementation and that unsafe or unclassified
-steps are not scheduled concurrently by default.
+Unit tests shall verify that eligible non-MPI steps can run concurrently in
+the initial implementation and that MPI steps or explicitly ineligible
+non-MPI steps are not scheduled concurrently by default.
 
 Integration and HPC tests shall use controlled synthetic non-MPI steps to
 demonstrate concurrent execution across multiple nodes. The tests shall record

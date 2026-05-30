@@ -51,6 +51,15 @@ independent work, but a successful Phase 2 primarily means that task-parallel
 execution preserves Polaris results, dependency behavior, restart behavior and
 resource limits on realistic workflows and target machines.
 
+Generated job scripts that opt in to `polaris run` shall not automatically
+request larger allocations in Phase 2 merely because task parallelism may be
+able to use them. The existing setup-time resource sizing remains based on
+the resources needed by the largest individual selected step. Users and HPC
+validation runs may manually request larger allocations when they want to
+measure speedup or expose multi-node concurrency, but Polaris should avoid
+increasing queue cost and idle allocation size by default before the
+performance behavior is better understood.
+
 Success in Phase 2 means that `polaris run`:
 
 - runs eligible non-MPI steps concurrently when dependencies and resources
@@ -129,7 +138,7 @@ shall not weaken or bypass the dependency graph established in Phase 1.
 
 ### Requirement: Restart and Rerun Behavior
 
-Date last modified: 2026/04/28
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -140,12 +149,14 @@ Phase 2 shall preserve restart and rerun behavior after task-parallel
 execution.
 
 Completed steps shall remain skippable on rerun. If a step fails, dependent
-steps shall not run, and users shall be able to resume from successfully
-completed work without repeating completed steps unnecessarily.
+steps shall not run, unrelated independent work may continue to be launched
+when the scheduler can still make dependency-correct progress, and users
+shall be able to resume from successfully completed work without repeating
+completed steps unnecessarily.
 
 ### Requirement: Failure Isolation and Independent Progress
 
-Date last modified: 2026/04/28
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -158,6 +169,8 @@ fails.
 A failure in one step shall not prevent independent steps from running.
 Independent work that does not depend on the failed step shall remain eligible
 for execution, whether or not it was already running when the failure occurred.
+This Phase 2 policy intentionally favors completing unrelated work before the
+run exits with a clear failure status.
 
 ### Requirement: Resource-Constrained Non-MPI Scheduling
 
@@ -215,7 +228,7 @@ capability.
 
 ### Requirement: Human-Readable Parallel Progress
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -229,6 +242,12 @@ The progress output shall make it possible to understand which steps are
 running, which steps have completed, which steps are waiting and how
 concurrent execution is progressing. The exact format and location of this
 output are design details.
+
+Concurrent step execution shall not depend on multiple active steps writing
+to the same task log at the same time. Scheduler-managed concurrent steps
+shall write deterministic per-step logs, while task logs should retain
+scheduler summaries, progress messages and references to the corresponding
+step-level logs.
 
 Phase 2 shall also preserve the structured schedule and resource-event output
 introduced in Phase 1 so concurrent runs can be analyzed without scraping
@@ -270,7 +289,7 @@ assumptions.
 
 ### Requirement: Opt-In Task-Parallel Setup
 
-Date last modified: 2026/04/28
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -284,6 +303,12 @@ suites to use the task-parallel infrastructure. Task-serial setup shall remain
 the default in Phase 2. A later phase may change the default so task-parallel
 setup becomes the normal path and task-serial setup requires an explicit
 option.
+
+When `--run_command run` is selected, generated job scripts shall use
+`polaris run` but shall not automatically request a larger node allocation
+than the current task-serial resource-sizing logic would request. Larger
+allocations for speedup experiments remain an explicit user or validation
+choice.
 
 ### Requirement: Task-Serial Compatibility
 
@@ -466,7 +491,7 @@ which steps completed, failed, were blocked, or were never started.
 
 ### Algorithm Design: Failure Isolation and Independent Progress
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -479,12 +504,14 @@ Independent steps that are already running may finish. Independent ready steps
 may continue to be scheduled if they do not depend on the failed step.
 
 The scheduler should not cancel unrelated running steps merely because one
-concurrent step failed. The final run result should still fail clearly if any
-selected step fails or if any selected dependent step is blocked by a failure.
+concurrent step failed, and it should continue launching unrelated ready work
+if dependency and resource constraints allow. The final run result should
+still fail clearly if any selected step fails or if any selected dependent
+step is blocked by a failure.
 
 ### Algorithm Design: Resource-Constrained Non-MPI Scheduling
 
-Date last modified: 2026/05/14
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -502,6 +529,12 @@ oversubscription. They do not guarantee that the step's Python code is spread
 across multiple Dask workers. For Dask-aware steps, the resource lease should
 provide access to the assigned Dask client and worker capacity so the step can
 submit internal Dask work.
+
+The scheduler should not reinterpret this packing policy as permission to
+increase the batch allocation requested by setup-generated job scripts. Phase
+2 scheduling operates within the allocation it is given. If a user wants more
+eligible steps to fit concurrently, the user can request a larger allocation
+outside the automatic setup defaults.
 
 ### Algorithm Design: Multi-Node Task Parallelism
 
@@ -542,7 +575,7 @@ markers as in task-serial execution.
 
 ### Algorithm Design: Human-Readable Parallel Progress
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -554,6 +587,11 @@ failed, blocked, waiting for dependencies, waiting for resources, or
 serialized by policy. It should also summarize worker-pool state at the start
 and end of non-MPI phases and before/after serialized MPI or ineligible
 steps.
+
+Task-level logs should remain readable scheduler records rather than becoming
+the shared output stream for concurrently running step code. Concurrent
+step-level output should be written to deterministic per-step logs so a
+failure can be traced without relying on interleaved task-log output.
 
 Structured events should remain the authoritative diagnostic record. They
 should include enough timing and resource information to prove that eligible
@@ -630,7 +668,7 @@ policy.
 
 ### Algorithm Design: Cross-Machine Phase-2 Functionality
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -648,6 +686,13 @@ scheduling.
 Machine-specific configuration should provide physical core counts, node
 counts, GPU counts where relevant and worker-launch details. The scheduling
 policy should be the same on Chrysalis, Perlmutter and Aurora.
+
+Initial Phase 2 HPC validation should begin with the `omega_pr` suite on
+Chrysalis because it is short and Chrysalis queue times are typically modest.
+When the synthetic and Chrysalis `omega_pr` evidence is stable, validation
+should broaden to additional Chrysalis suites and then to Perlmutter and
+Aurora, where GPU and scheduler differences are more likely to expose
+machine-specific issues.
 
 ### Algorithm Design: Multi-Node Non-MPI Steps
 
@@ -754,7 +799,7 @@ real suites.
 
 ### Testing and Validation: Cross-Machine Phase-2 Functionality
 
-Date last modified: 2026/05/26
+Date last modified: 2026/05/30
 
 Contributors:
 
@@ -769,3 +814,11 @@ failures, resume behavior and serial-vs-parallel wall time when meaningful.
 On systems where worker-pool startup and shutdown are expensive, validation
 should include the number of execution-mode switches and an estimate of how
 much task-parallel speedup is needed to amortize that overhead.
+
+Validation should start with `omega_pr` on Chrysalis. Broader validation is
+needed after the first overlap and failure-isolation behavior is working:
+`omega_nightly` and `mpaso_pr` on Chrysalis should increase suite coverage,
+and `omega_pr` on Perlmutter and Aurora should test GPU-capable and PBS-based
+execution environments. Larger-than-default allocations may be requested
+manually for these validation runs when they are needed to demonstrate
+resource-limited concurrency.
