@@ -780,27 +780,35 @@ loop.
 
 ### Implementation: Resource-Aware Scheduling and Enforcement
 
-Date last modified: 2026/05/23
+Date last modified: 2026/05/30
 
 Contributors:
 
 - Xylar Asay-Davis
 - Codex
 
-`polaris.run.resources` provides resource-request and resource-pool helpers.
+`polaris.run.resources` provides step classification, resource-request and
+resource-pool helpers.
+
+`ExecutionKind` (`LOCAL` or `MPI`) classifies each step's execution model.
+`get_step_execution_kind()` derives this classification from
+`step.execution_kind`, falling back to inspecting `ntasks`, `min_tasks` and
+`args` directly for duck-typed objects.
+
+`NodeResources` records total and free cores, GPUs and memory for a single
+allocation node. `StepPlacement` records the execution kind, the target node
+indices and the reserved core and GPU counts for one step. These types form
+the foundation of the node-aware resource model used by `ResourcePool`.
+
 The scheduler derives step resource requests from step CPU, node, GPU and MPI
 metadata without mutating the step. It checks minimum feasibility before
-starting a step, reserves resources for the active step, records the
-reservation, and releases the reservation in a `finally` block.
+starting a step, reserves resources for the active step using the node-aware
+pool, records the reservation in a `ResourceReservation` that includes a
+`StepPlacement`, and releases the reservation in a `finally` block.
 
 Resource feasibility, reservation and release are recorded in structured
-events. These events include requested and minimum resources when available,
-free and total resource counts, infeasible shortfalls and result status.
-
-The Dask runtime backend also records planned worker resources. The local
-backend uses single-threaded local workers. The allocation backend plans a
-single Dask scheduler and single-threaded workers distributed across the
-allocation, using physical core counts from the active machine resource model.
+events. These events include the execution kind, node indices, cores, GPUs,
+`placement_enforced` and `resource_scope` fields.
 
 ### Implementation: Single-Step Execution in Phase 1
 

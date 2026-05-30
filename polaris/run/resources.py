@@ -1,5 +1,82 @@
 from dataclasses import dataclass
-from typing import Optional
+from enum import Enum
+from typing import Literal, Optional
+
+
+class ExecutionKind(Enum):
+    """Classification of a step's execution model for resource scheduling."""
+
+    LOCAL = 'local'
+    MPI = 'mpi'
+
+
+@dataclass(frozen=True)
+class NodeResources:
+    """
+    Resources available on a single allocation node.
+
+    Attributes
+    ----------
+    node_index : int
+        Zero-based index of the node in the allocation.
+
+    total_cores : int
+        Total physical CPU cores on this node.
+
+    total_gpus : int
+        Total GPUs on this node.
+
+    total_memory : int, optional
+        Total memory on this node in MB.
+
+    free_cores : int, optional
+        Currently unreserved CPU cores on this node.
+
+    free_gpus : int, optional
+        Currently unreserved GPUs on this node.
+
+    free_memory : int, optional
+        Currently unreserved memory on this node in MB.
+    """
+
+    node_index: int
+    total_cores: int
+    total_gpus: int = 0
+    total_memory: int | None = None
+    free_cores: int | None = None
+    free_gpus: int | None = None
+    free_memory: int | None = None
+
+
+@dataclass(frozen=True)
+class StepPlacement:
+    """
+    Placement of a step within the allocation.
+
+    Attributes
+    ----------
+    kind : {'local', 'mpi'}
+        Execution model of the step. ``'local'`` steps run on a single node;
+        ``'mpi'`` steps span the full allocation.
+
+    node_indices : tuple of int
+        Indices of the nodes reserved for this step.
+
+    cores : int
+        CPU cores reserved for the step.
+
+    gpus : int
+        GPUs reserved for the step.
+
+    memory : int, optional
+        Memory reserved for the step in MB.
+    """
+
+    kind: Literal['local', 'mpi']
+    node_indices: tuple
+    cores: int
+    gpus: int = 0
+    memory: int | None = None
 
 
 @dataclass(frozen=True)
@@ -64,6 +141,10 @@ class ResourceReservation:
 
     memory : int, optional
         Memory requested by the step in MB.
+
+    placement : StepPlacement, optional
+        Node and core placement for the step. Populated by node-aware
+        reservation methods; ``None`` when using aggregate-only reservation.
     """
 
     reservation_id: int
@@ -72,6 +153,7 @@ class ResourceReservation:
     nodes: int
     gpus: int
     memory: Optional[int] = None
+    placement: Optional[StepPlacement] = None
 
 
 @dataclass(frozen=True)
@@ -246,6 +328,43 @@ class ResourcePool:
                 f'Step {step_name} requests {request.gpus} GPUs but only '
                 f'{self.free_gpus} are free.'
             )
+
+
+def get_step_execution_kind(step) -> ExecutionKind:
+    """
+    Classify a step's execution model for resource scheduling.
+
+    Uses ``step.execution_kind`` when available, which is the authoritative
+    source on real ``polaris.Step`` objects. Falls back to inspecting
+    ``ntasks``, ``min_tasks`` and ``args`` directly for duck-typed objects.
+
+    Parameters
+    ----------
+    step : polaris.Step
+        The step to classify.
+
+    Returns
+    -------
+    kind : ExecutionKind
+        ``ExecutionKind.MPI`` if the step uses MPI or a parallel command
+        launcher; ``ExecutionKind.LOCAL`` otherwise.
+    """
+    declared = getattr(step, 'execution_kind', None)
+    if declared == 'mpi':
+        return ExecutionKind.MPI
+    if declared == 'non_mpi':
+        return ExecutionKind.LOCAL
+    # Fallback: inspect raw attributes (mirrors _get_default_execution_kind).
+
+    ntasks = getattr(step, 'ntasks', None)
+    min_tasks = getattr(step, 'min_tasks', None)
+    if (
+        (ntasks is not None and int(ntasks) > 1)
+        or (min_tasks is not None and int(min_tasks) > 1)
+        or getattr(step, 'args', None) is not None
+    ):
+        return ExecutionKind.MPI
+    return ExecutionKind.LOCAL
 
 
 def get_local_worker_count(available_resources):
