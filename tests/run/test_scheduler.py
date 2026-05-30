@@ -845,11 +845,17 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
     )
     lifecycle: list[tuple[object, ...]] = []
 
+    class FakeDaskClient:
+        @staticmethod
+        def submit(function, pure=None, **kwargs):
+            lifecycle.append(('submit', kwargs['node'].step_name, pure))
+            return run_scheduler._ImmediateFuture(function(**kwargs))
+
     @contextmanager
     def _dask_client_context(available_resources, logger=None):
         lifecycle.append(('dask_start', available_resources['cores']))
         try:
-            yield 'phase-client'
+            yield FakeDaskClient()
         finally:
             lifecycle.append(('dask_stop', None))
 
@@ -874,8 +880,8 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
         task,
         {
             'cores': 4,
-            'nodes': 1,
-            'cores_per_node': 4,
+            'nodes': 2,
+            'cores_per_node': 2,
             'gpus': 0,
             'mpi_allowed': True,
         },
@@ -883,8 +889,10 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
 
     assert lifecycle == [
         ('dask_start', 3),
-        ('step', 'prep', 'phase-client'),
-        ('step', 'analysis', 'phase-client'),
+        ('submit', 'prep', False),
+        ('step', 'prep', None),
+        ('submit', 'analysis', False),
+        ('step', 'analysis', None),
         ('dask_stop', None),
         ('step', 'forward', None),
     ]
@@ -921,6 +929,12 @@ def test_scheduler_owns_dask_lifecycle_for_non_mpi_phases(
         'worker-pool phases: 1' in message
         for message in stdout_logger.messages
     )
+    active_steps = [
+        event['active_steps']
+        for event in events
+        if event['event'] == 'step_start'
+    ]
+    assert max(active_steps) == 2
 
 
 def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):

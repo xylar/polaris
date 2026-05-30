@@ -157,6 +157,19 @@ class _StepRunResult:
     exception_message: str | None = None
 
 
+@dataclass
+class _ActiveStepRun:
+    """
+    Parent-side state for one submitted scheduler step.
+    """
+
+    node: SchedulerNode
+    task: Any
+    recorder: Any
+    reservation: Any
+    future: Any
+
+
 class _ScheduleRecorder:
     """
     Record human-readable and structured scheduler events for one task.
@@ -527,8 +540,20 @@ def run_suite(
     )
     pending_keys = _selected_pending_keys(ordered_nodes)
     current_mode = None
+    active_runs: list[_ActiveStepRun] = []
     try:
-        while len(pending_keys) > 0:
+        while len(pending_keys) > 0 or len(active_runs) > 0:
+            for active_run in _pop_finished_active_runs(active_runs):
+                _finish_suite_active_run(
+                    active_run=active_run,
+                    states=states,
+                    resource_pool=resource_pool,
+                    active_counter=active_counter,
+                    step_runtimes=step_runtimes,
+                    failed_keys=failed_keys,
+                    pending_keys=pending_keys,
+                )
+
             selection = _select_next_node(
                 ordered_nodes=ordered_nodes,
                 graph=graph,
@@ -536,10 +561,23 @@ def run_suite(
                 blocked_keys=blocked_keys,
                 failed_keys=failed_keys,
                 current_mode=current_mode,
+                active_keys=_active_keys(active_runs),
             )
             node = selection.node
             current_mode = selection.mode
             if node is None:
+                if len(active_runs) > 0:
+                    active_run = _pop_next_finished_active_run(active_runs)
+                    _finish_suite_active_run(
+                        active_run=active_run,
+                        states=states,
+                        resource_pool=resource_pool,
+                        active_counter=active_counter,
+                        step_runtimes=step_runtimes,
+                        failed_keys=failed_keys,
+                        pending_keys=pending_keys,
+                    )
+                    continue
                 raise RuntimeError('No ready scheduler node was available.')
 
             task_name = node.task_name
@@ -554,6 +592,15 @@ def run_suite(
                 graph.predecessors[node.key] & (blocked_keys | failed_keys)
             )
             if len(blocked_dependencies) > 0:
+                _drain_suite_active_runs(
+                    active_runs=active_runs,
+                    states=states,
+                    resource_pool=resource_pool,
+                    active_counter=active_counter,
+                    step_runtimes=step_runtimes,
+                    failed_keys=failed_keys,
+                    pending_keys=pending_keys,
+                )
                 dask_phase.close(
                     recorders=recorders.values(),
                     reason='blocked_dependency',
@@ -584,6 +631,41 @@ def run_suite(
                 continue
 
             try:
+                active_dask_client = dask_phase.client_for_node(
+                    node, recorders.values()
+                )
+                if _node_execution_mode(node) == 'worker_pool':
+                    started = _start_suite_worker_pool_batch(
+                        ordered_nodes=ordered_nodes,
+                        graph=graph,
+                        pending_keys=pending_keys,
+                        active_runs=active_runs,
+                        blocked_keys=blocked_keys,
+                        failed_keys=failed_keys,
+                        states=states,
+                        recorders=recorders,
+                        available_resources=data_plane_resources,
+                        resource_pool=resource_pool,
+                        cwd=cwd,
+                        subprocess_command=subprocess_command,
+                        dask_client=active_dask_client,
+                        active_counter=active_counter,
+                        stdout_logger=stdout_logger,
+                        current_task_name=current_task_name,
+                    )
+                    if len(started) > 0:
+                        current_task_name = started[-1]
+                        continue
+
+                _drain_suite_active_runs(
+                    active_runs=active_runs,
+                    states=states,
+                    resource_pool=resource_pool,
+                    active_counter=active_counter,
+                    step_runtimes=step_runtimes,
+                    failed_keys=failed_keys,
+                    pending_keys=pending_keys,
+                )
                 active_dask_client = dask_phase.client_for_node(
                     node, recorders.values()
                 )
@@ -629,6 +711,15 @@ def run_suite(
                         'Exception raised while running the steps of the task'
                     )
     finally:
+        _drain_suite_active_runs(
+            active_runs=active_runs,
+            states=states,
+            resource_pool=resource_pool,
+            active_counter=active_counter,
+            step_runtimes=step_runtimes,
+            failed_keys=failed_keys,
+            pending_keys=pending_keys,
+        )
         dask_phase.close()
 
     _finalize_suite_task_states(states, stdout_logger, step_runtimes)
@@ -698,8 +789,30 @@ def run_task(
     )
     pending_keys = _selected_pending_keys(ordered_nodes)
     current_mode = None
+    active_runs: list[_ActiveStepRun] = []
     try:
-        while len(pending_keys) > 0:
+        while len(pending_keys) > 0 or len(active_runs) > 0:
+            for active_run in _pop_finished_active_runs(active_runs):
+                baseline_status, property_status, exception = (
+                    _finish_task_active_run(
+                        active_run=active_run,
+                        resource_pool=resource_pool,
+                        active_counter=None,
+                        failed_keys=failed_keys,
+                        pending_keys=pending_keys,
+                    )
+                )
+                baselines_passed, property_passed, first_exception = (
+                    _accumulate_task_active_status(
+                        baselines_passed=baselines_passed,
+                        property_passed=property_passed,
+                        first_exception=first_exception,
+                        baseline_status=baseline_status,
+                        property_status=property_status,
+                        exception=exception,
+                    )
+                )
+
             selection = _select_next_node(
                 ordered_nodes=ordered_nodes,
                 graph=graph,
@@ -707,16 +820,46 @@ def run_task(
                 blocked_keys=blocked_keys,
                 failed_keys=failed_keys,
                 current_mode=current_mode,
+                active_keys=_active_keys(active_runs),
             )
             node = selection.node
             current_mode = selection.mode
             if node is None:
+                if len(active_runs) > 0:
+                    active_run = _pop_next_finished_active_run(active_runs)
+                    baseline_status, property_status, exception = (
+                        _finish_task_active_run(
+                            active_run=active_run,
+                            resource_pool=resource_pool,
+                            active_counter=None,
+                            failed_keys=failed_keys,
+                            pending_keys=pending_keys,
+                        )
+                    )
+                    baselines_passed, property_passed, first_exception = (
+                        _accumulate_task_active_status(
+                            baselines_passed=baselines_passed,
+                            property_passed=property_passed,
+                            first_exception=first_exception,
+                            baseline_status=baseline_status,
+                            property_status=property_status,
+                            exception=exception,
+                        )
+                    )
+                    continue
                 raise RuntimeError('No ready scheduler node was available.')
 
             blocked_dependencies = sorted(
                 graph.predecessors[node.key] & (blocked_keys | failed_keys)
             )
             if len(blocked_dependencies) > 0:
+                _drain_task_active_runs(
+                    active_runs=active_runs,
+                    resource_pool=resource_pool,
+                    active_counter=None,
+                    failed_keys=failed_keys,
+                    pending_keys=pending_keys,
+                )
                 dask_phase.close(
                     recorders=[recorder],
                     reason='blocked_dependency',
@@ -734,6 +877,36 @@ def run_task(
                 continue
 
             try:
+                active_dask_client = dask_phase.client_for_node(
+                    node, [recorder]
+                )
+                if _node_execution_mode(node) == 'worker_pool':
+                    started = _start_task_worker_pool_batch(
+                        ordered_nodes=ordered_nodes,
+                        graph=graph,
+                        pending_keys=pending_keys,
+                        active_runs=active_runs,
+                        blocked_keys=blocked_keys,
+                        failed_keys=failed_keys,
+                        task=task,
+                        recorder=recorder,
+                        available_resources=data_plane_resources,
+                        resource_pool=resource_pool,
+                        cwd=cwd,
+                        subprocess_command=subprocess_command,
+                        dask_client=active_dask_client,
+                        active_counter=None,
+                    )
+                    if started:
+                        continue
+
+                _drain_task_active_runs(
+                    active_runs=active_runs,
+                    resource_pool=resource_pool,
+                    active_counter=None,
+                    failed_keys=failed_keys,
+                    pending_keys=pending_keys,
+                )
                 active_dask_client = dask_phase.client_for_node(
                     node, [recorder]
                 )
@@ -765,6 +938,13 @@ def run_task(
                 )
             pending_keys.remove(node.key)
     finally:
+        _drain_task_active_runs(
+            active_runs=active_runs,
+            resource_pool=resource_pool,
+            active_counter=None,
+            failed_keys=failed_keys,
+            pending_keys=pending_keys,
+        )
         dask_phase.close()
         task_wall_time = time.time() - task_start_time
         _log_lifecycle_timing_summary(
@@ -812,6 +992,25 @@ def _prepare_suite_tasks(suite, stdout_logger, quiet, log_dir):
     return states
 
 
+def _accumulate_task_active_status(
+    baselines_passed,
+    property_passed,
+    first_exception,
+    baseline_status,
+    property_status,
+    exception,
+):
+    if exception is not None and first_exception is None:
+        first_exception = exception
+    if baseline_status is not None:
+        baselines_passed = accumulate_statuses(
+            baselines_passed, baseline_status
+        )
+    if property_status is not None:
+        property_passed = accumulate_statuses(property_passed, property_status)
+    return baselines_passed, property_passed, first_exception
+
+
 def _configure_task_loggers(
     task, task_logger, stdout_logger, quiet, log_filename
 ):
@@ -835,12 +1034,19 @@ def _select_next_node(
     blocked_keys,
     failed_keys,
     current_mode,
+    active_keys=None,
 ):
+    if active_keys is None:
+        active_keys = set()
     mode = current_mode
     pending_nodes = [
         node
         for node in ordered_nodes
-        if node.selected and node.key in pending_keys
+        if (
+            node.selected
+            and node.key in pending_keys
+            and node.key not in active_keys
+        )
     ]
     failed_or_blocked = failed_keys | blocked_keys
     for node in pending_nodes:
@@ -866,6 +1072,33 @@ def _select_next_node(
     if node_mode != 'neutral':
         mode = node_mode
     return _SchedulerSelection(node=node, mode=mode)
+
+
+def _ready_worker_pool_nodes(
+    ordered_nodes,
+    graph,
+    pending_keys,
+    active_keys,
+    blocked_keys,
+    failed_keys,
+):
+    failed_or_blocked = failed_keys | blocked_keys
+    return [
+        node
+        for node in ordered_nodes
+        if (
+            node.selected
+            and node.key in pending_keys
+            and node.key not in active_keys
+            and _node_execution_mode(node) == 'worker_pool'
+            and not graph.predecessors[node.key] & failed_or_blocked
+            and len(graph.predecessors[node.key] & pending_keys) == 0
+        )
+    ]
+
+
+def _active_keys(active_runs):
+    return {active_run.node.key for active_run in active_runs}
 
 
 def _add_selected_scheduler_nodes(
@@ -1128,6 +1361,500 @@ def _run_scheduler_node(
         f'{start_time_color}{step_time_str}{end_color}',
     )
     return result.baseline_status, result.property_status
+
+
+def _start_suite_worker_pool_batch(
+    ordered_nodes,
+    graph,
+    pending_keys,
+    active_runs,
+    blocked_keys,
+    failed_keys,
+    states,
+    recorders,
+    available_resources,
+    resource_pool,
+    cwd,
+    subprocess_command,
+    dask_client,
+    active_counter,
+    stdout_logger,
+    current_task_name,
+):
+    started_task_names = []
+    ready_nodes = _ready_worker_pool_nodes(
+        ordered_nodes=ordered_nodes,
+        graph=graph,
+        pending_keys=pending_keys,
+        active_keys=_active_keys(active_runs),
+        blocked_keys=blocked_keys,
+        failed_keys=failed_keys,
+    )
+    for node in ready_nodes:
+        task_name = node.task_name
+        assert task_name is not None
+        state = states[task_name]
+        if task_name != current_task_name:
+            stdout_logger.info(f'{task_name}')
+            current_task_name = task_name
+        active_run = _try_start_scheduler_step_run(
+            node=node,
+            task=state.task,
+            available_resources=available_resources,
+            resource_pool=resource_pool,
+            recorder=recorders[task_name],
+            cwd=cwd,
+            subprocess_command=subprocess_command,
+            dask_client=dask_client,
+            predecessor_keys=graph.predecessors[node.key],
+            active_counter=active_counter,
+            force_start=len(active_runs) == 0,
+        )
+        if active_run is not None:
+            active_runs.append(active_run)
+            started_task_names.append(task_name)
+    return started_task_names
+
+
+def _start_task_worker_pool_batch(
+    ordered_nodes,
+    graph,
+    pending_keys,
+    active_runs,
+    blocked_keys,
+    failed_keys,
+    task,
+    recorder,
+    available_resources,
+    resource_pool,
+    cwd,
+    subprocess_command,
+    dask_client,
+    active_counter,
+):
+    started = False
+    ready_nodes = _ready_worker_pool_nodes(
+        ordered_nodes=ordered_nodes,
+        graph=graph,
+        pending_keys=pending_keys,
+        active_keys=_active_keys(active_runs),
+        blocked_keys=blocked_keys,
+        failed_keys=failed_keys,
+    )
+    for node in ready_nodes:
+        active_run = _try_start_scheduler_step_run(
+            node=node,
+            task=task,
+            available_resources=available_resources,
+            resource_pool=resource_pool,
+            recorder=recorder,
+            cwd=cwd,
+            subprocess_command=subprocess_command,
+            dask_client=dask_client,
+            predecessor_keys=graph.predecessors[node.key],
+            active_counter=active_counter,
+            force_start=len(active_runs) == 0,
+        )
+        if active_run is not None:
+            active_runs.append(active_run)
+            started = True
+    return started
+
+
+def _try_start_scheduler_step_run(
+    node,
+    task,
+    available_resources,
+    resource_pool,
+    recorder,
+    cwd,
+    subprocess_command,
+    dask_client,
+    predecessor_keys,
+    active_counter,
+    force_start=False,
+):
+    step = node.step
+    recorder.emit(
+        'ready_selection',
+        task=node.task_name,
+        step=node.step_name,
+        status=_node_status(node),
+        wait_reason=_wait_reason(predecessor_keys),
+    )
+    try:
+        request = get_step_resource_request(step, available_resources)
+    except ValueError as exception:
+        _emit_resource_feasibility(
+            recorder=recorder,
+            node=node,
+            resource_pool=resource_pool,
+            feasible=False,
+            reason=str(exception),
+        )
+        raise
+
+    feasible = _is_resource_request_feasible(request, resource_pool)
+    if not feasible and not force_start:
+        return None
+
+    print_to_stdout(task, f'  * step: {node.step_name}')
+    _emit_resource_feasibility(
+        recorder=recorder,
+        node=node,
+        resource_pool=resource_pool,
+        request=request,
+        feasible=feasible,
+    )
+    reservation = resource_pool.reserve_step(step, request)
+    print_to_stdout(
+        task,
+        f'          resources:        cores={reservation.cores}, '
+        f'nodes={reservation.nodes}, gpus={reservation.gpus}',
+    )
+    recorder.emit(
+        'resource_reserved',
+        task=node.task_name,
+        step=node.step_name,
+        cores=reservation.cores,
+        free_cores=resource_pool.free_cores,
+        free_gpus=resource_pool.free_gpus,
+        free_nodes=resource_pool.free_nodes,
+        nodes=reservation.nodes,
+        gpus=reservation.gpus,
+        result='reserved',
+        total_cores=resource_pool.total_cores,
+        total_gpus=resource_pool.total_gpus,
+        total_nodes=resource_pool.total_nodes,
+    )
+    recorder.active_steps += 1
+    _increment_active_counter(active_counter)
+    recorder.emit(
+        'step_start',
+        task=node.task_name,
+        step=node.step_name,
+        active_steps=recorder.active_steps,
+        result='running',
+        suite_active_steps=_active_count(active_counter),
+    )
+    step.config = setup_config(step.base_work_dir, step.config.filepath)
+    step_log_filename = _scheduler_step_log_filename(task, node)
+    try:
+        future = _submit_scheduler_step_lifecycle(
+            dask_client=dask_client,
+            node=node,
+            task=task,
+            available_resources=available_resources,
+            cwd=cwd,
+            subprocess_command=subprocess_command,
+            step_log_filename=step_log_filename,
+        )
+    except Exception:
+        if recorder.active_steps > 0:
+            recorder.active_steps -= 1
+        _decrement_active_counter(active_counter)
+        _release_scheduler_reservation(
+            node=node,
+            reservation=reservation,
+            resource_pool=resource_pool,
+            recorder=recorder,
+            active_counter=active_counter,
+        )
+        raise
+    return _ActiveStepRun(
+        node=node,
+        task=task,
+        recorder=recorder,
+        reservation=reservation,
+        future=future,
+    )
+
+
+def _finish_suite_active_run(
+    active_run,
+    states,
+    resource_pool,
+    active_counter,
+    step_runtimes,
+    failed_keys,
+    pending_keys,
+) -> None:
+    result = _active_run_result(active_run)
+    task_name = active_run.node.task_name
+    assert task_name is not None
+    state = states[task_name]
+    try:
+        baseline_status, _ = _finish_scheduler_step_run(
+            active_run=active_run,
+            result=result,
+            resource_pool=resource_pool,
+            active_counter=active_counter,
+            step_runtimes=step_runtimes,
+        )
+    except Exception:
+        state.task_pass = False
+        state.exec_failed = True
+        failed_keys.add(active_run.node.key)
+        with LoggingContext(
+            task_name.replace('/', '_'),
+            log_filename=state.log_filename,
+        ) as task_logger:
+            task_logger.exception(
+                'Exception raised while running the steps of the task'
+            )
+    else:
+        if baseline_status is not None:
+            state.baselines_passed = accumulate_statuses(
+                state.baselines_passed, baseline_status
+            )
+    finally:
+        pending_keys.discard(active_run.node.key)
+
+
+def _finish_task_active_run(
+    active_run,
+    resource_pool,
+    active_counter,
+    failed_keys,
+    pending_keys,
+):
+    result = _active_run_result(active_run)
+    try:
+        baseline_status, property_status = _finish_scheduler_step_run(
+            active_run=active_run,
+            result=result,
+            resource_pool=resource_pool,
+            active_counter=active_counter,
+            step_runtimes=None,
+        )
+    except Exception as exception:
+        failed_keys.add(active_run.node.key)
+        return None, None, exception
+    finally:
+        pending_keys.discard(active_run.node.key)
+    return baseline_status, property_status, None
+
+
+def _finish_scheduler_step_run(
+    active_run,
+    result,
+    resource_pool,
+    active_counter,
+    step_runtimes,
+):
+    node = active_run.node
+    task = active_run.task
+    recorder = active_run.recorder
+    if recorder.active_steps > 0:
+        recorder.active_steps -= 1
+    _decrement_active_counter(active_counter)
+    _record_step_runtime(
+        step_runtimes, node.step, getattr(result, 'step_duration', 0.0)
+    )
+
+    if not result.success:
+        recorder.emit(
+            'step_failure',
+            task=node.task_name,
+            step=node.step_name,
+            active_steps=recorder.active_steps,
+            duration=result.step_duration,
+            exception_message=result.exception_message,
+            exception_type=result.exception_type,
+            result='failure',
+            suite_active_steps=_active_count(active_counter),
+        )
+        _emit_step_timing(
+            recorder=recorder,
+            node=node,
+            timing_breakdown=result.timing_breakdown,
+            measured_step_duration=result.step_duration,
+            total_duration=result.total_duration,
+        )
+        print_to_stdout(task, f'          execution:        {error_str}')
+        _release_scheduler_reservation(
+            node=node,
+            reservation=active_run.reservation,
+            resource_pool=resource_pool,
+            recorder=recorder,
+            active_counter=active_counter,
+        )
+        assert result.exception is not None
+        raise result.exception
+
+    print_to_stdout(task, f'          execution:        {success_str}')
+    _release_scheduler_reservation(
+        node=node,
+        reservation=active_run.reservation,
+        resource_pool=resource_pool,
+        recorder=recorder,
+        active_counter=active_counter,
+    )
+    recorder.emit(
+        'step_finish',
+        task=node.task_name,
+        step=node.step_name,
+        active_steps=recorder.active_steps,
+        duration=result.step_duration,
+        result='success',
+        suite_active_steps=_active_count(active_counter),
+    )
+    if result.property_status is not None:
+        property_str = pass_str if result.property_status else fail_str
+        print_to_stdout(task, f'          property checks:   {property_str}')
+    if result.baseline_status is not None:
+        baseline_str = pass_str if result.baseline_status else fail_str
+        print_to_stdout(task, f'          baseline comp.:   {baseline_str}')
+    _emit_step_timing(
+        recorder=recorder,
+        node=node,
+        timing_breakdown=result.timing_breakdown,
+        measured_step_duration=result.step_duration,
+        total_duration=result.total_duration,
+        property_check_duration=result.property_check_duration,
+        baseline_check_duration=result.baseline_check_duration,
+    )
+    step_time_str = str(timedelta(seconds=round(result.step_duration)))
+    print_to_stdout(
+        task,
+        f'          runtime:          '
+        f'{start_time_color}{step_time_str}{end_color}',
+    )
+    return result.baseline_status, result.property_status
+
+
+def _drain_suite_active_runs(
+    active_runs,
+    states,
+    resource_pool,
+    active_counter,
+    step_runtimes,
+    failed_keys,
+    pending_keys,
+) -> None:
+    while len(active_runs) > 0:
+        active_run = _pop_next_finished_active_run(active_runs)
+        _finish_suite_active_run(
+            active_run=active_run,
+            states=states,
+            resource_pool=resource_pool,
+            active_counter=active_counter,
+            step_runtimes=step_runtimes,
+            failed_keys=failed_keys,
+            pending_keys=pending_keys,
+        )
+
+
+def _drain_task_active_runs(
+    active_runs,
+    resource_pool,
+    active_counter,
+    failed_keys,
+    pending_keys,
+) -> None:
+    while len(active_runs) > 0:
+        active_run = _pop_next_finished_active_run(active_runs)
+        _finish_task_active_run(
+            active_run=active_run,
+            resource_pool=resource_pool,
+            active_counter=active_counter,
+            failed_keys=failed_keys,
+            pending_keys=pending_keys,
+        )
+
+
+def _pop_finished_active_runs(active_runs):
+    finished = []
+    remaining = []
+    for active_run in active_runs:
+        if _future_done(active_run.future):
+            finished.append(active_run)
+        else:
+            remaining.append(active_run)
+    active_runs[:] = remaining
+    return finished
+
+
+def _pop_next_finished_active_run(active_runs):
+    while True:
+        for index, active_run in enumerate(active_runs):
+            if _future_done(active_run.future):
+                return active_runs.pop(index)
+        time.sleep(0.01)
+
+
+def _active_run_result(active_run):
+    try:
+        return active_run.future.result()
+    except Exception as exception:
+        return _StepRunResult(
+            step_name=active_run.node.step_name,
+            success=False,
+            step_duration=0.0,
+            total_duration=0.0,
+            timing_breakdown=StepTimingBreakdown(),
+            exception=exception,
+            exception_type=type(exception).__name__,
+            exception_message=str(exception),
+        )
+
+
+def _future_done(future) -> bool:
+    done = getattr(future, 'done', None)
+    if done is None:
+        return True
+    return bool(done())
+
+
+def _submit_scheduler_step_lifecycle(
+    dask_client,
+    node,
+    task,
+    available_resources,
+    cwd,
+    subprocess_command,
+    step_log_filename,
+):
+    submit = getattr(dask_client, 'submit', None)
+    if submit is None:
+        return _ImmediateFuture(
+            _run_scheduler_step_lifecycle(
+                node=node,
+                task=task,
+                available_resources=available_resources,
+                cwd=cwd,
+                subprocess_command=subprocess_command,
+                dask_client=None,
+                step_log_filename=step_log_filename,
+            )
+        )
+    return submit(
+        _run_scheduler_step_lifecycle,
+        node=node,
+        task=task,
+        available_resources=available_resources,
+        cwd=cwd,
+        subprocess_command=subprocess_command,
+        dask_client=None,
+        step_log_filename=step_log_filename,
+        pure=False,
+    )
+
+
+class _ImmediateFuture:
+    """
+    Future-like wrapper for tests or externally supplied non-Dask clients.
+    """
+
+    def __init__(self, result):
+        self._result = result
+
+    @staticmethod
+    def done():
+        return True
+
+    def result(self):
+        return self._result
 
 
 def _release_scheduler_reservation(
