@@ -30,7 +30,8 @@ def test_get_local_worker_count_caps_to_one_node():
     )
 
 
-def test_get_resource_views_reserves_control_plane_core():
+def test_get_resource_views_default_no_control_plane():
+    # Phase 1 default: control_plane_cores=0, so data_plane == allocated.
     views = get_resource_views(
         {
             'cores': 64,
@@ -42,11 +43,32 @@ def test_get_resource_views_reserves_control_plane_core():
     )
 
     assert views.allocated['cores'] == 64
+    assert views.control_plane['cores'] == 0
+    assert views.control_plane['nodes'] == 0
+    assert views.data_plane['cores'] == 64
+    assert views.data_plane['nodes'] == 2
+    assert views.data_plane['cores_per_node'] == 32
+    assert views.data_plane['node_core_counts'] == (32, 32)
+    assert views.data_plane['control_plane_cores'] == 0
+
+
+def test_get_resource_views_explicit_control_plane_core():
+    # Future-phase opt-in: explicitly passing control_plane_cores=1 works.
+    views = get_resource_views(
+        {
+            'cores': 64,
+            'nodes': 2,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+        control_plane_cores=1,
+    )
+
+    assert views.allocated['cores'] == 64
     assert views.control_plane['cores'] == 1
     assert views.control_plane['nodes'] == 0
     assert views.data_plane['cores'] == 63
-    assert views.data_plane['nodes'] == 2
-    assert views.data_plane['cores_per_node'] == 32
     assert views.data_plane['node_core_counts'] == (31, 32)
     assert views.data_plane['control_plane_cores'] == 1
 

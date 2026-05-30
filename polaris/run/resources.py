@@ -611,7 +611,7 @@ def get_local_worker_count(available_resources):
 
 def get_resource_views(
     available_resources,
-    control_plane_cores=1,
+    control_plane_cores=0,
     control_plane_gpus=0,
     control_plane_nodes=0,
 ):
@@ -625,7 +625,10 @@ def get_resource_views(
 
     control_plane_cores : int, optional
         CPU cores to reserve for the parent ``polaris run`` process and any
-        scheduler processes.
+        scheduler processes. Defaults to 0 in Phase 1 because the reservation
+        is not enforced by the OS or job scheduler; subtracting it would change
+        MPI rank counts without providing isolation. Pass a non-zero value only
+        when enforcement is available (future phases).
 
     control_plane_gpus : int, optional
         GPUs to reserve for the control plane.

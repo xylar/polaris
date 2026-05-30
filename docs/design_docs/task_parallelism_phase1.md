@@ -599,18 +599,18 @@ Contributors:
 
 - Xylar Asay-Davis
 - Codex
+- Claude Sonnet 4.6
 
 The Phase 1 algorithm should assume the batch scheduler provides a fixed
 allocation. Machine-specific differences should be confined to allocation
 discovery, job script generation and MPI launch behavior.
 
-Phase 1 does not separate control-plane resources from data-plane resources
-as a first-class accounting step. A control-plane core reservation is not
-enforced by Slurm or the OS in Phase 1's direct-execution model, and
-subtracting it would change MPI rank counts relative to `polaris serial`
-without providing any isolation benefit. The concept of control-plane
-reservation is preserved as a design artifact for a future phase where
-enforcement can be provided.
+Phase 1 does not subtract a control-plane core from the allocation by
+default. The `get_resource_views()` helper retains the concept and remains
+callable with an explicit non-zero `control_plane_cores` value for future
+phases where enforcement is available. In Phase 1, because the reservation
+is not enforced by Slurm or the OS, the default is `control_plane_cores=0`
+so that MPI steps receive the same core count as `polaris serial`.
 
 LOCAL (non-MPI) steps receive a single-node `AvailableResources` view. MPI
 steps receive the full allocation view, identical to what `polaris serial`
