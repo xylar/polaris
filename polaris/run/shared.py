@@ -766,7 +766,13 @@ def run_step(
     logger_name = step.path.replace('/', '_')
     if new_log_file:
         # we want to create new log file and point the step to that name
-        new_log_filename = f'{cwd}/{step.name}.log'
+        if step_log_filename is None:
+            new_log_filename = f'{cwd}/{step.name}.log'
+        else:
+            new_log_filename = step_log_filename
+        log_dir = os.path.dirname(new_log_filename)
+        if log_dir != '':
+            os.makedirs(log_dir, exist_ok=True)
         step_log_filename = new_log_filename
         step_logger = None
     else:
@@ -893,7 +899,13 @@ def run_step_as_subprocess(
         timing_breakdown = StepTimingBreakdown()
     logger_name = step.path.replace('/', '_')
     if new_log_file:
-        log_filename = f'{cwd}/{step.name}.log'
+        if step.log_filename is None:
+            log_filename = f'{cwd}/{step.name}.log'
+        else:
+            log_filename = step.log_filename
+        log_dir = os.path.dirname(log_filename)
+        if log_dir != '':
+            os.makedirs(log_dir, exist_ok=True)
         step_logger = None
     else:
         step_logger = logger

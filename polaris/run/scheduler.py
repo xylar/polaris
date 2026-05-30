@@ -137,6 +137,26 @@ class _LifecycleTiming:
         return len(self.startup_durations)
 
 
+@dataclass
+class _StepRunResult:
+    """
+    Result from running one scheduler-managed step lifecycle.
+    """
+
+    step_name: str
+    success: bool
+    step_duration: float
+    total_duration: float
+    timing_breakdown: StepTimingBreakdown
+    baseline_status: Optional[bool] = None
+    property_status: Optional[bool] = None
+    property_check_duration: float = 0.0
+    baseline_check_duration: float = 0.0
+    exception: Exception | None = None
+    exception_type: str | None = None
+    exception_message: str | None = None
+
+
 class _ScheduleRecorder:
     """
     Record human-readable and structured scheduler events for one task.
@@ -962,16 +982,10 @@ def _run_scheduler_node(
         )
         return None, None
 
-    step_start = time.time()
-    step_start_perf = time.perf_counter()
     step.config = setup_config(step.base_work_dir, step.config.filepath)
-    if task.log_filename is not None:
-        step_log_filename = task.log_filename
-    else:
-        step_log_filename = None
 
     reservation = None
-    timing_breakdown = StepTimingBreakdown()
+    result = None
     try:
         try:
             request = get_step_resource_request(step, available_resources)
@@ -1023,11 +1037,145 @@ def _run_scheduler_node(
             result='running',
             suite_active_steps=_active_count(active_counter),
         )
+        step_log_filename = _scheduler_step_log_filename(task, node)
+        result = _run_scheduler_step_lifecycle(
+            node=node,
+            task=task,
+            available_resources=available_resources,
+            cwd=cwd,
+            subprocess_command=subprocess_command,
+            dask_client=dask_client,
+            step_log_filename=step_log_filename,
+        )
+    finally:
+        if recorder.active_steps > 0:
+            recorder.active_steps -= 1
+        _decrement_active_counter(active_counter)
+
+    assert result is not None
+    _record_step_runtime(step_runtimes, step, result.step_duration)
+
+    if not result.success:
+        recorder.emit(
+            'step_failure',
+            task=node.task_name,
+            step=node.step_name,
+            active_steps=recorder.active_steps,
+            duration=result.step_duration,
+            exception_message=result.exception_message,
+            exception_type=result.exception_type,
+            result='failure',
+            suite_active_steps=_active_count(active_counter),
+        )
+        _emit_step_timing(
+            recorder=recorder,
+            node=node,
+            timing_breakdown=result.timing_breakdown,
+            measured_step_duration=result.step_duration,
+            total_duration=result.total_duration,
+        )
+        print_to_stdout(task, f'          execution:        {error_str}')
+        _release_scheduler_reservation(
+            node=node,
+            reservation=reservation,
+            resource_pool=resource_pool,
+            recorder=recorder,
+            active_counter=active_counter,
+        )
+        assert result.exception is not None
+        raise result.exception
+
+    print_to_stdout(task, f'          execution:        {success_str}')
+    _release_scheduler_reservation(
+        node=node,
+        reservation=reservation,
+        resource_pool=resource_pool,
+        recorder=recorder,
+        active_counter=active_counter,
+    )
+    recorder.emit(
+        'step_finish',
+        task=node.task_name,
+        step=node.step_name,
+        active_steps=recorder.active_steps,
+        duration=result.step_duration,
+        result='success',
+        suite_active_steps=_active_count(active_counter),
+    )
+    step_time_str = str(timedelta(seconds=round(result.step_duration)))
+
+    if result.property_status is not None:
+        property_str = pass_str if result.property_status else fail_str
+        print_to_stdout(task, f'          property checks:   {property_str}')
+
+    if result.baseline_status is not None:
+        baseline_str = pass_str if result.baseline_status else fail_str
+        print_to_stdout(task, f'          baseline comp.:   {baseline_str}')
+
+    _emit_step_timing(
+        recorder=recorder,
+        node=node,
+        timing_breakdown=result.timing_breakdown,
+        measured_step_duration=result.step_duration,
+        total_duration=result.total_duration,
+        property_check_duration=result.property_check_duration,
+        baseline_check_duration=result.baseline_check_duration,
+    )
+
+    print_to_stdout(
+        task,
+        f'          runtime:          '
+        f'{start_time_color}{step_time_str}{end_color}',
+    )
+    return result.baseline_status, result.property_status
+
+
+def _release_scheduler_reservation(
+    node,
+    reservation,
+    resource_pool,
+    recorder,
+    active_counter,
+) -> None:
+    if reservation is None:
+        return
+    resource_pool.release(reservation)
+    recorder.emit(
+        'resource_released',
+        task=node.task_name,
+        step=node.step_name,
+        active_steps=recorder.active_steps,
+        free_cores=resource_pool.free_cores,
+        free_gpus=resource_pool.free_gpus,
+        free_nodes=resource_pool.free_nodes,
+        result='released',
+        suite_active_steps=_active_count(active_counter),
+        total_cores=resource_pool.total_cores,
+        total_gpus=resource_pool.total_gpus,
+        total_nodes=resource_pool.total_nodes,
+    )
+
+
+def _run_scheduler_step_lifecycle(
+    node,
+    task,
+    available_resources,
+    cwd,
+    subprocess_command,
+    dask_client,
+    step_log_filename,
+):
+    step = node.step
+    step_start = time.time()
+    step_start_perf = time.perf_counter()
+    timing_breakdown = StepTimingBreakdown()
+    try:
+        step.log_filename = step_log_filename
         if step.run_as_subprocess:
             run_step_as_subprocess(
                 task.logger,
                 step,
-                task.new_step_log_file,
+                new_log_file=True,
                 subprocess_command=subprocess_command,
                 dask_client=dask_client,
                 timing_breakdown=timing_breakdown,
@@ -1036,77 +1184,35 @@ def _run_scheduler_node(
             run_step(
                 task,
                 step,
-                task.new_step_log_file,
-                available_resources,
-                step_log_filename,
+                new_log_file=True,
+                available_resources=available_resources,
+                step_log_filename=step_log_filename,
                 dask_client=dask_client,
                 timing_breakdown=timing_breakdown,
             )
-    except Exception:
-        step_time = time.time() - step_start
+    except Exception as exception:
+        step_duration = time.time() - step_start
         total_duration = time.perf_counter() - step_start_perf
-        _record_step_runtime(step_runtimes, step, step_time)
-        recorder.emit(
-            'step_failure',
-            task=node.task_name,
-            step=node.step_name,
-            active_steps=recorder.active_steps,
-            duration=step_time,
-            result='failure',
-            suite_active_steps=_active_count(active_counter),
-        )
-        _emit_step_timing(
-            recorder=recorder,
-            node=node,
-            timing_breakdown=timing_breakdown,
-            measured_step_duration=step_time,
+        return _StepRunResult(
+            step_name=node.step_name,
+            success=False,
+            step_duration=step_duration,
             total_duration=total_duration,
+            timing_breakdown=timing_breakdown,
+            exception=exception,
+            exception_type=type(exception).__name__,
+            exception_message=str(exception),
         )
-        print_to_stdout(task, f'          execution:        {error_str}')
-        raise
     finally:
-        if recorder.active_steps > 0:
-            recorder.active_steps -= 1
-        _decrement_active_counter(active_counter)
-        if reservation is not None:
-            resource_pool.release(reservation)
-            recorder.emit(
-                'resource_released',
-                task=node.task_name,
-                step=node.step_name,
-                active_steps=recorder.active_steps,
-                free_cores=resource_pool.free_cores,
-                free_gpus=resource_pool.free_gpus,
-                free_nodes=resource_pool.free_nodes,
-                result='released',
-                suite_active_steps=_active_count(active_counter),
-                total_cores=resource_pool.total_cores,
-                total_gpus=resource_pool.total_gpus,
-                total_nodes=resource_pool.total_nodes,
-            )
         os.chdir(cwd)
 
-    print_to_stdout(task, f'          execution:        {success_str}')
-    step_time = time.time() - step_start
-    _record_step_runtime(step_runtimes, step, step_time)
-    recorder.emit(
-        'step_finish',
-        task=node.task_name,
-        step=node.step_name,
-        active_steps=recorder.active_steps,
-        duration=step_time,
-        result='success',
-        suite_active_steps=_active_count(active_counter),
-    )
-    step_time_str = str(timedelta(seconds=round(step_time)))
+    step_duration = time.time() - step_start
 
     property_status = None
     property_start = time.perf_counter()
     compared, status = step.check_properties()
     property_check_duration = time.perf_counter() - property_start
     if compared:
-        property_str = pass_str if status else fail_str
-        print_to_stdout(task, f'          property checks:   {property_str}')
         property_status = status
 
     baseline_status = None
@@ -1114,27 +1220,26 @@ def _run_scheduler_node(
     compared, status = step.validate_baselines()
     baseline_check_duration = time.perf_counter() - baseline_start
     if compared:
-        baseline_str = pass_str if status else fail_str
-        print_to_stdout(task, f'          baseline comp.:   {baseline_str}')
         baseline_status = status
 
     total_duration = time.perf_counter() - step_start_perf
-    _emit_step_timing(
-        recorder=recorder,
-        node=node,
-        timing_breakdown=timing_breakdown,
-        measured_step_duration=step_time,
+    return _StepRunResult(
+        step_name=node.step_name,
+        success=True,
+        step_duration=step_duration,
         total_duration=total_duration,
+        timing_breakdown=timing_breakdown,
+        baseline_status=baseline_status,
+        property_status=property_status,
         property_check_duration=property_check_duration,
         baseline_check_duration=baseline_check_duration,
     )
 
-    print_to_stdout(
-        task,
-        f'          runtime:          '
-        f'{start_time_color}{step_time_str}{end_color}',
-    )
-    return baseline_status, property_status
+
+def _scheduler_step_log_filename(task, node) -> str:
+    step_logs_dir = os.path.join(task.work_dir, 'step_logs')
+    step_log_name = f'{node.step_name}.log'
+    return os.path.join(step_logs_dir, step_log_name)
 
 
 def _block_scheduler_node(

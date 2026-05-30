@@ -615,6 +615,8 @@ def test_scheduler_run_task_updates_rerun_markers(tmp_path, monkeypatch):
     assert (tmp_path / 'forward' / 'polaris_step_complete.log').exists()
     assert (tmp_path / 'forward' / 'baseline_passed.log').exists()
     assert (tmp_path / 'forward' / 'property_check_failed.log').exists()
+    assert (tmp_path / 'step_logs' / 'init.log').exists()
+    assert (tmp_path / 'step_logs' / 'forward.log').exists()
 
 
 def test_scheduler_run_task_blocks_failed_dependents_and_releases_resources(

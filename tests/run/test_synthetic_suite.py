@@ -336,9 +336,9 @@ def _patch_runtime_setup(monkeypatch):
 
 def _available_resources():
     return {
-        'cores': 2,
+        'cores': 3,
         'nodes': 1,
-        'cores_per_node': 2,
+        'cores_per_node': 3,
         'gpus': 0,
         'mpi_allowed': True,
     }
