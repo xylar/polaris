@@ -1013,8 +1013,9 @@ def test_scheduler_no_dask_phase_for_mpi_only_task(tmp_path, monkeypatch):
 def test_scheduler_dask_workers_stay_alive_across_mpi_step(
     tmp_path, monkeypatch
 ):
-    # R8: Workers must NOT stop before an MPI step.  A single Dask phase
-    # spans the whole task; only one start/stop pair occurs.
+    # R8 (stop_workers_before_mpi=False default): Workers must NOT stop before
+    # an MPI step.  A single Dask phase spans the whole task; only one
+    # start/stop pair occurs.
     class DummyLogger:
         def info(self, message):
             pass
@@ -1091,6 +1092,107 @@ def test_scheduler_dask_workers_stay_alive_across_mpi_step(
     step_starts = [e['step'] for e in events if e['event'] == 'step_start']
     assert set(step_starts) == {'local', 'mpi_run', 'local2'}
     assert len(step_starts) == 3
+
+
+def test_scheduler_workers_stop_before_mpi_when_flag_set(
+    tmp_path, monkeypatch
+):
+    # R9: When stop_workers_before_mpi=True (e.g. Perlmutter), workers must
+    # stop before each MPI step and restart for following LOCAL steps.
+    # Uses a forced dependency chain local_a → mpi_step → local_b so that
+    # mode-batching cannot reorder the steps.
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    local_a = DummyStep(tmp_path, 'local_a')
+    mpi_step = DummyStep(tmp_path, 'mpi_step')
+    mpi_step.ntasks = 4
+    mpi_step.min_tasks = 4
+    local_b = DummyStep(tmp_path, 'local_b')
+    mpi_step.add_dependency(local_a)
+    local_b.add_dependency(mpi_step)
+
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['local_a', 'mpi_step', 'local_b'],
+        steps={
+            'local_a': local_a,
+            'mpi_step': mpi_step,
+            'local_b': local_b,
+        },
+    )
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+        timing_breakdown=None,
+    ):
+        pass
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    monkeypatch.setattr(
+        run_scheduler, '_get_stop_workers_before_mpi', lambda *_: True
+    )
+    _patch_dask_client(monkeypatch)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 4,
+            'nodes': 1,
+            'cores_per_node': 4,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+
+    # All three steps must have run in dependency order.
+    step_starts = [e['step'] for e in events if e['event'] == 'step_start']
+    assert step_starts == ['local_a', 'mpi_step', 'local_b']
+
+    # Workers must stop before mpi_step and restart before local_b.
+    event_pairs = [(e['event'], e.get('step')) for e in events]
+    stop_indices = [
+        i for i, e in enumerate(events) if e['event'] == 'dask_phase_stop'
+    ]
+    start_indices = [
+        i for i, e in enumerate(events) if e['event'] == 'dask_phase_start'
+    ]
+    mpi_start_idx = next(
+        i
+        for i, e in enumerate(events)
+        if e['event'] == 'step_start' and e.get('step') == 'mpi_step'
+    )
+    local_b_start_idx = next(
+        i
+        for i, e in enumerate(events)
+        if e['event'] == 'step_start' and e.get('step') == 'local_b'
+    )
+    # A stop must precede mpi_step.
+    assert any(idx < mpi_start_idx for idx in stop_indices), (
+        'Expected a dask_phase_stop before mpi_step'
+    )
+    # A start must precede local_b (workers restarted after the MPI step).
+    assert any(idx < local_b_start_idx for idx in start_indices[1:]), (
+        'Expected a second dask_phase_start before local_b'
+    )
+    # Sanity: 2 starts and 2 stops (one around the MPI step, one at task end).
+    assert len(start_indices) == 2
+    assert len(stop_indices) == 2
+    _ = event_pairs  # suppress unused-variable lint
 
 
 def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):

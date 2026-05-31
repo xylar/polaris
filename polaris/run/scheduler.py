@@ -242,13 +242,20 @@ class _DaskPhaseManager:
     Own Dask client lifetime for scheduler-managed non-MPI phases.
     """
 
-    def __init__(self, available_resources, logger=None, dask_client=None):
+    def __init__(
+        self,
+        available_resources,
+        logger=None,
+        dask_client=None,
+        stop_workers_before_mpi=False,
+    ):
         self.available_resources = available_resources
         self.logger = logger
         self.external_client = dask_client
         self.client = dask_client
         self._context = None
         self._active_recorders = ()
+        self.stop_workers_before_mpi = stop_workers_before_mpi
         self.timing = _LifecycleTiming(
             startup_durations=[], shutdown_durations=[]
         )
@@ -264,8 +271,13 @@ class _DaskPhaseManager:
             return self._start(recorders)
         if mode == 'neutral':
             return self.client
-        # MPI step: runs outside the worker pool.  Workers stay alive and
-        # stop only at task/suite end via dask_phase.close().
+        # MPI step: runs outside the worker pool.  On systems that prohibit
+        # concurrent srun job steps (stop_workers_before_mpi=True, e.g.
+        # Perlmutter), stop workers now; they restart for the next LOCAL step.
+        if self.stop_workers_before_mpi and self._context is not None:
+            self.close(
+                recorders=recorders, reason='serialized_step', node=node
+            )
         return None
 
     def close(self, recorders=None, reason='phase_complete', node=None):
@@ -559,6 +571,9 @@ def run_suite(
         available_resources=data_plane_resources,
         logger=stdout_logger,
         dask_client=dask_client,
+        stop_workers_before_mpi=_get_stop_workers_before_mpi(
+            available_resources
+        ),
     )
     try:
         while len(pending_keys) > 0:
@@ -719,6 +734,9 @@ def run_task(
         available_resources=data_plane_resources,
         logger=None,
         dask_client=dask_client,
+        stop_workers_before_mpi=_get_stop_workers_before_mpi(
+            available_resources
+        ),
     )
     try:
         while len(pending_keys) > 0:
@@ -1400,6 +1418,21 @@ def _node_status(node: SchedulerNode) -> str:
     if node.cached:
         return 'cached'
     return 'ready'
+
+
+def _get_stop_workers_before_mpi(available_resources) -> bool:
+    """
+    True for systems that prohibit concurrent srun job steps (e.g. Perlmutter).
+
+    Reads ``stop_workers_before_mpi`` from the ``[parallel]`` section of the
+    combined polaris + mache config via the parallel system object stored in
+    ``available_resources``.
+    """
+    parallel_system = available_resources.get('parallel_system')
+    if parallel_system is None:
+        return False
+    value = parallel_system.get_config('stop_workers_before_mpi', 'false')
+    return str(value).lower() in ('true', 'yes', '1')
 
 
 def _node_needs_dask_phase(node: SchedulerNode) -> bool:
