@@ -586,6 +586,111 @@ def get_step_execution_kind(step) -> ExecutionKind:
     return ExecutionKind.LOCAL
 
 
+def resources_for_local_placement(allocation, reservation):
+    """
+    Build an ``available_resources`` view for a LOCAL (non-MPI) step.
+
+    The returned dict scopes cores and GPUs to the single node reserved for
+    the step. ``cores`` and ``node_core_counts`` reflect the reserved amount;
+    ``cores_per_node`` reflects the node's total hardware capacity so steps
+    can reason about their environment without overstating what they own.
+
+    Parameters
+    ----------
+    allocation : dict
+        Full allocation resources from the active machine.
+
+    reservation : ResourceReservation
+        The active reservation for the step. Must have
+        ``placement.kind == 'local'``.
+
+    Returns
+    -------
+    resources : dict
+        Resource view scoped to the reserved node.
+
+    Raises
+    ------
+    ValueError
+        If ``reservation.placement`` is ``None`` or has
+        ``kind != 'local'``.
+    """
+    placement = reservation.placement
+    if placement is None or placement.kind != 'local':
+        raise ValueError(
+            'resources_for_local_placement requires a local reservation, '
+            f'but got kind={getattr(placement, "kind", None)!r}.'
+        )
+
+    node_idx = placement.node_indices[0]
+
+    node_core_counts = allocation.get('node_core_counts')
+    if node_core_counts is not None and node_idx < len(node_core_counts):
+        node_total_cores = int(node_core_counts[node_idx])
+    else:
+        node_total_cores = _resource_count(
+            allocation.get('cores_per_node'),
+            default=_resource_count(allocation.get('cores'), default=1),
+        )
+
+    node_gpu_counts = allocation.get('node_gpu_counts')
+    if node_gpu_counts is not None and node_idx < len(node_gpu_counts):
+        node_total_gpus = int(node_gpu_counts[node_idx])
+    else:
+        node_total_gpus = _resource_count(
+            allocation.get('gpus_per_node'), default=0
+        )
+
+    resources = dict(allocation)
+    resources.update(
+        cores=placement.cores,
+        nodes=1,
+        gpus=placement.gpus,
+        cores_per_node=node_total_cores,
+        gpus_per_node=node_total_gpus,
+        node_core_counts=(placement.cores,),
+        node_gpu_counts=(placement.gpus,),
+    )
+    return resources
+
+
+def resources_for_mpi_placement(allocation, reservation):
+    """
+    Build an ``available_resources`` view for an MPI step.
+
+    MPI steps receive the full allocation view, identical to what
+    ``polaris serial`` would provide. No orchestration core is subtracted in
+    Phase 1 (see ``get_resource_views`` for opt-in future-phase reservation).
+
+    Parameters
+    ----------
+    allocation : dict
+        Full allocation resources from the active machine.
+
+    reservation : ResourceReservation
+        The active reservation for the step. Must have
+        ``placement.kind == 'mpi'``.
+
+    Returns
+    -------
+    resources : dict
+        Full allocation view, unchanged from ``polaris serial`` semantics.
+
+    Raises
+    ------
+    ValueError
+        If ``reservation.placement`` is ``None`` or has
+        ``kind != 'mpi'``.
+    """
+    placement = reservation.placement
+    if placement is None or placement.kind != 'mpi':
+        raise ValueError(
+            'resources_for_mpi_placement requires an MPI reservation, '
+            f'but got kind={getattr(placement, "kind", None)!r}.'
+        )
+    return dict(allocation)
+
+
 def get_local_worker_count(available_resources):
     """
     Determine the number of local single-threaded workers for this run.

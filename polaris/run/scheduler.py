@@ -14,6 +14,8 @@ from polaris.run.resources import (
     ResourcePool,
     get_resource_views,
     get_step_resource_request,
+    resources_for_local_placement,
+    resources_for_mpi_placement,
 )
 from polaris.run.shared import (
     StepTimingBreakdown,
@@ -928,6 +930,17 @@ def _run_scheduler_node(
             feasible=feasible,
         )
         reservation = resource_pool.reserve_step(step, request)
+        if (
+            reservation.placement is not None
+            and reservation.placement.kind == 'local'
+        ):
+            step_resources = resources_for_local_placement(
+                available_resources, reservation
+            )
+        else:
+            step_resources = resources_for_mpi_placement(
+                available_resources, reservation
+            )
         print_to_stdout(
             task,
             f'          resources:        cores={reservation.cores}, '
@@ -972,7 +985,7 @@ def _run_scheduler_node(
                 task,
                 step,
                 task.new_step_log_file,
-                available_resources,
+                step_resources,
                 step_log_filename,
                 dask_client=None,
                 timing_breakdown=timing_breakdown,

@@ -14,6 +14,8 @@ from polaris.run.resources import (
     get_step_execution_kind,
     get_step_resource_lease,
     get_step_resource_request,
+    resources_for_local_placement,
+    resources_for_mpi_placement,
 )
 
 
@@ -551,3 +553,144 @@ def test_resource_pool_reserve_step_dispatches_mpi():
 
     reservation = pool.reserve_step(step, req)
     assert reservation.placement.kind == 'mpi'
+
+
+# --- resources_for_local_placement and resources_for_mpi_placement (R6) ---
+
+
+def _three_node_allocation():
+    """3-node, 64-core-each allocation used by placement view tests."""
+    return {
+        'cores': 192,
+        'nodes': 3,
+        'cores_per_node': 64,
+        'node_core_counts': (64, 64, 64),
+        'gpus': 0,
+        'node_gpu_counts': (0, 0, 0),
+        'gpus_per_node': 0,
+        'mpi_allowed': True,
+    }
+
+
+def test_resources_for_local_placement_single_node_view():
+    allocation = _three_node_allocation()
+    placement = StepPlacement(kind='local', node_indices=(0,), cores=8, gpus=0)
+    from polaris.run.resources import ResourceReservation
+
+    reservation = ResourceReservation(
+        reservation_id=1,
+        step_name='step',
+        cores=8,
+        nodes=1,
+        gpus=0,
+        placement=placement,
+    )
+
+    resources = resources_for_local_placement(allocation, reservation)
+
+    assert resources['nodes'] == 1
+    assert resources['cores'] == 8
+    assert resources['cores_per_node'] == 64  # full node capacity
+    assert resources['node_core_counts'] == (8,)  # reserved amount only
+    assert resources['gpus'] == 0
+
+
+def test_resources_for_local_placement_no_control_plane_subtraction():
+    # No cores should be subtracted for an orchestration reservation.
+    allocation = _three_node_allocation()
+    placement = StepPlacement(kind='local', node_indices=(1,), cores=32)
+    from polaris.run.resources import ResourceReservation
+
+    reservation = ResourceReservation(
+        reservation_id=1,
+        step_name='step',
+        cores=32,
+        nodes=1,
+        gpus=0,
+        placement=placement,
+    )
+
+    resources = resources_for_local_placement(allocation, reservation)
+
+    # Cores come from reservation, not from allocation minus some overhead.
+    assert resources['cores'] == 32
+    assert resources['cores_per_node'] == 64
+
+
+def test_resources_for_mpi_placement_full_allocation_view():
+    allocation = _three_node_allocation()
+    placement = StepPlacement(
+        kind='mpi', node_indices=(0, 1, 2), cores=192, gpus=0
+    )
+    from polaris.run.resources import ResourceReservation
+
+    reservation = ResourceReservation(
+        reservation_id=1,
+        step_name='step',
+        cores=192,
+        nodes=3,
+        gpus=0,
+        placement=placement,
+    )
+
+    resources = resources_for_mpi_placement(allocation, reservation)
+
+    assert resources['cores'] == 192
+    assert resources['nodes'] == 3
+    assert resources['node_core_counts'] == (64, 64, 64)
+
+
+def test_resources_for_mpi_placement_no_control_plane_subtraction():
+    allocation = _three_node_allocation()
+    placement = StepPlacement(kind='mpi', node_indices=(0, 1, 2), cores=192)
+    from polaris.run.resources import ResourceReservation
+
+    reservation = ResourceReservation(
+        reservation_id=1,
+        step_name='step',
+        cores=192,
+        nodes=3,
+        gpus=0,
+        placement=placement,
+    )
+
+    resources = resources_for_mpi_placement(allocation, reservation)
+
+    # MPI gets full allocation; no core is subtracted.
+    assert resources['cores'] == allocation['cores']
+
+
+def test_resources_for_local_placement_rejects_mpi_reservation():
+    allocation = _three_node_allocation()
+    placement = StepPlacement(kind='mpi', node_indices=(0, 1, 2), cores=192)
+    from polaris.run.resources import ResourceReservation
+
+    reservation = ResourceReservation(
+        reservation_id=1,
+        step_name='step',
+        cores=192,
+        nodes=3,
+        gpus=0,
+        placement=placement,
+    )
+
+    with pytest.raises(ValueError, match="kind='mpi'"):
+        resources_for_local_placement(allocation, reservation)
+
+
+def test_resources_for_mpi_placement_rejects_local_reservation():
+    allocation = _three_node_allocation()
+    placement = StepPlacement(kind='local', node_indices=(0,), cores=8)
+    from polaris.run.resources import ResourceReservation
+
+    reservation = ResourceReservation(
+        reservation_id=1,
+        step_name='step',
+        cores=8,
+        nodes=1,
+        gpus=0,
+        placement=placement,
+    )
+
+    with pytest.raises(ValueError, match="kind='local'"):
+        resources_for_mpi_placement(allocation, reservation)

@@ -1204,3 +1204,73 @@ def test_scheduler_run_suite_records_single_suite_active_step(
         )
 
     assert max(suite_active_steps) == 1
+
+
+def test_scheduler_passes_placement_correct_resources_to_run_step(
+    tmp_path, monkeypatch
+):
+    # LOCAL (non-MPI) step sees nodes=1; MPI step sees the full allocation.
+    received: dict[str, dict] = {}
+
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    local_step = DummyStep(tmp_path, 'local')  # ntasks=1, no args → LOCAL
+    mpi_step = DummyStep(tmp_path, 'mpi')
+    mpi_step.ntasks = 4
+    mpi_step.min_tasks = 2
+
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['local', 'mpi'],
+        steps={'local': local_step, 'mpi': mpi_step},
+    )
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+        timing_breakdown=None,
+    ):
+        received[step.name] = dict(available_resources)
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 192,
+            'nodes': 3,
+            'cores_per_node': 64,
+            'node_core_counts': (64, 64, 64),
+            'gpus': 0,
+            'node_gpu_counts': (0, 0, 0),
+            'gpus_per_node': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    # Local step receives a single-node view.
+    local_res = received['local']
+    assert local_res['nodes'] == 1
+    assert local_res['node_core_counts'] == (local_res['cores'],)
+
+    # MPI step receives the full allocation view.
+    mpi_res = received['mpi']
+    assert mpi_res['cores'] == 192
+    assert mpi_res['nodes'] == 3
+    assert mpi_res['node_core_counts'] == (64, 64, 64)
+
+    # Neither view subtracts a control-plane core.
+    assert local_res['cores'] > 0
+    assert mpi_res['cores'] == 192

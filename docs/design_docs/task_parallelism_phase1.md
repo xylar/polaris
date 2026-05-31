@@ -599,7 +599,7 @@ Contributors:
 
 - Xylar Asay-Davis
 - Codex
-- Claude Sonnet 4.6
+- Claude
 
 The Phase 1 algorithm should assume the batch scheduler provides a fixed
 allocation. Machine-specific differences should be confined to allocation
@@ -780,13 +780,13 @@ loop.
 
 ### Implementation: Resource-Aware Scheduling and Enforcement
 
-Date last modified: 2026/05/30
+Date last modified: 2026/05/31
 
 Contributors:
 
 - Xylar Asay-Davis
 - Codex
-- Claude Sonnet 4.6
+- Claude
 
 `polaris.run.resources` provides step classification, resource-request and
 resource-pool helpers.
@@ -813,6 +813,15 @@ dispatches to the appropriate method based on `get_step_execution_kind()`.
 `free_cores`, `free_gpus` and `free_nodes` are computed properties on
 `ResourcePool`; `free_nodes` counts nodes with any unreserved cores.
 
+After reserving resources for a step, the scheduler builds a
+placement-correct `available_resources` view using
+`resources_for_local_placement()` or `resources_for_mpi_placement()` and
+passes that view to the step lifecycle instead of the full allocation.
+LOCAL steps receive a single-node view: `cores` reflects the reserved amount,
+`cores_per_node` reflects the node's total hardware capacity, and
+`node_core_counts` contains only the reserved core count. MPI steps receive
+the full allocation view unchanged, identical to `polaris serial`.
+
 The scheduler derives step resource requests from step CPU, node, GPU and MPI
 metadata without mutating the step. It checks minimum feasibility before
 starting a step, reserves resources for the active step using the node-aware
@@ -831,7 +840,7 @@ Contributors:
 
 - Xylar Asay-Davis
 - Codex
-- Claude Sonnet 4.6
+- Claude
 
 The Phase 1 scheduler uses a single-active-step policy in both task-scope and
 suite-scope runs. It never starts a second Polaris step while another step is
