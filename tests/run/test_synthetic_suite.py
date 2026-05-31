@@ -1,4 +1,5 @@
 import os
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -369,23 +370,46 @@ def _run_serial_suite(suite, log_dir):
 
 def _run_scheduler_suite(suite, log_dir):
     log_dir.mkdir()
-    dask_client = SimpleNamespace(
-        polaris_dask_runtime_info=DaskRuntimeInfo(
-            backend='local',
-            workers=2,
-            scheduler_address='tcp://127.0.0.1:8786',
+
+    class MockFuture:
+        def __init__(self, result_val, exc=None):
+            self._r, self._e = result_val, exc
+
+        def result(self):
+            if self._e is not None:
+                raise self._e
+            return self._r
+
+    class SyncDaskClient:
+        polaris_dask_runtime_info = DaskRuntimeInfo(
+            backend='mock',
+            workers=1,
             total_cores=2,
             total_gpus=0,
         )
-    )
-    return run_scheduler.run_suite(
-        suite=suite,
-        stdout_logger=SyntheticLogger(),
-        quiet=False,
-        log_dir=str(log_dir),
-        available_resources=_available_resources(),
-        dask_client=dask_client,
-    )
+
+        def submit(self, fn, *args, resources=None, **kwargs):
+            try:
+                return MockFuture(fn(*args, **kwargs))
+            except Exception as exc:
+                return MockFuture(None, exc=exc)
+
+    @contextmanager
+    def _mock_dask_client_context(*args, **kwargs):
+        yield SyncDaskClient()
+
+    original_ctx = run_scheduler.dask_client_context
+    run_scheduler.dask_client_context = _mock_dask_client_context
+    try:
+        return run_scheduler.run_suite(
+            suite=suite,
+            stdout_logger=SyntheticLogger(),
+            quiet=False,
+            log_dir=str(log_dir),
+            available_resources=_available_resources(),
+        )
+    finally:
+        run_scheduler.dask_client_context = original_ctx
 
 
 def _assert_suite_outputs_match(serial_suite, scheduler_suite):

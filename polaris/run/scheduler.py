@@ -9,10 +9,16 @@ import mpas_tools.io
 from mpas_tools.logging import LoggingContext
 
 from polaris.logging import log_function_call
-from polaris.run.dask import dask_client_context, get_dask_runtime_info
+from polaris.run.dask import (
+    dask_client_context,
+    get_dask_runtime_info,
+    submit_step_to_node,
+)
 from polaris.run.resources import (
+    ExecutionKind,
     ResourcePool,
     get_resource_views,
+    get_step_execution_kind,
     get_step_resource_request,
     resources_for_local_placement,
     resources_for_mpi_placement,
@@ -139,6 +145,59 @@ class _LifecycleTiming:
         return len(self.startup_durations)
 
 
+class _WorkerTaskProxy:
+    """Picklable task state forwarded to step execution inside Dask workers."""
+
+    def __init__(self, logger, path=None, log_filename=None):
+        self.logger = logger
+        self.path = path
+        self.log_filename = log_filename
+
+
+def _step_worker_fn(
+    step,
+    task_path,
+    task_log_filename,
+    new_step_log_file,
+    step_resources,
+    step_log_filename,
+    subprocess_command,
+    cwd,
+):
+    """
+    Execute a step inside a Dask worker process.
+
+    Returns the populated ``StepTimingBreakdown`` for the step.
+    """
+    os.chdir(cwd)
+    timing_breakdown = StepTimingBreakdown()
+    task_name = task_path.replace('/', '_')
+    with LoggingContext(task_name, log_filename=task_log_filename) as logger:
+        if step.run_as_subprocess:
+            run_step_as_subprocess(
+                logger,
+                step,
+                new_step_log_file,
+                subprocess_command=subprocess_command,
+                dask_client=None,
+                timing_breakdown=timing_breakdown,
+            )
+        else:
+            task_proxy = _WorkerTaskProxy(
+                logger, path=task_path, log_filename=task_log_filename
+            )
+            run_step(
+                task_proxy,
+                step,
+                new_step_log_file,
+                step_resources,
+                step_log_filename,
+                dask_client=None,
+                timing_breakdown=timing_breakdown,
+            )
+    return timing_breakdown
+
+
 class _ScheduleRecorder:
     """
     Record human-readable and structured scheduler events for one task.
@@ -254,6 +313,10 @@ class _DaskPhaseManager:
 
     def _start(self, recorders):
         if self.client is not None:
+            runtime_info = get_dask_runtime_info(self.client)
+            if runtime_info is not None:
+                for recorder in recorders:
+                    _emit_dask_runtime(recorder, runtime_info)
             return self.client
         start_time = time.time()
         for recorder in recorders:
@@ -499,6 +562,11 @@ def run_suite(
     failed_keys: set[str] = set()
     step_runtimes: dict[str, float] = {}
     pending_keys = _selected_pending_keys(ordered_nodes)
+    dask_phase = _DaskPhaseManager(
+        available_resources=data_plane_resources,
+        logger=stdout_logger,
+        dask_client=dask_client,
+    )
     try:
         while len(pending_keys) > 0:
             selection = _select_next_node(
@@ -571,6 +639,7 @@ def run_suite(
                         predecessor_keys=graph.predecessors[node.key],
                         active_counter=active_counter,
                         step_runtimes=step_runtimes,
+                        dask_phase=dask_phase,
                     )
                 if baseline_status is not None:
                     state.baselines_passed = accumulate_statuses(
@@ -590,7 +659,7 @@ def run_suite(
                         'Exception raised while running the steps of the task'
                     )
     finally:
-        pass
+        dask_phase.close()
 
     _finalize_suite_task_states(states, stdout_logger, step_runtimes)
     return _suite_results(states)
@@ -645,6 +714,11 @@ def run_task(
     failed_keys: set[str] = set()
     first_exception = None
     pending_keys = _selected_pending_keys(ordered_nodes)
+    dask_phase = _DaskPhaseManager(
+        available_resources=data_plane_resources,
+        logger=None,
+        dask_client=dask_client,
+    )
     try:
         while len(pending_keys) > 0:
             selection = _select_next_node(
@@ -683,6 +757,7 @@ def run_task(
                     cwd=cwd,
                     subprocess_command=subprocess_command,
                     predecessor_keys=graph.predecessors[node.key],
+                    dask_phase=dask_phase,
                 )
             except Exception as exception:
                 failed_keys.add(node.key)
@@ -701,7 +776,7 @@ def run_task(
                 )
             pending_keys.remove(node.key)
     finally:
-        pass
+        dask_phase.close()
 
     if first_exception is not None:
         raise first_exception
@@ -847,6 +922,7 @@ def _run_scheduler_node(
     predecessor_keys=None,
     active_counter=None,
     step_runtimes=None,
+    dask_phase=None,
 ):
     step = node.step
     recorder.emit(
@@ -906,6 +982,11 @@ def _run_scheduler_node(
         step_log_filename = task.log_filename
     else:
         step_log_filename = None
+
+    # Trigger Dask phase lifecycle before resource reservation.
+    dask_client = None
+    if dask_phase is not None:
+        dask_client = dask_phase.client_for_node(node, [recorder])
 
     reservation = None
     timing_breakdown = StepTimingBreakdown()
@@ -971,7 +1052,27 @@ def _run_scheduler_node(
             result='running',
             suite_active_steps=_active_count(active_counter),
         )
-        if step.run_as_subprocess:
+        if dask_client is not None:
+            node_index = reservation.placement.node_indices[0]
+            future = submit_step_to_node(
+                dask_client,
+                _step_worker_fn,
+                node_index,
+                reservation.placement.cores,
+                reservation.placement.gpus,
+                step,
+                task.path,
+                task.log_filename,
+                task.new_step_log_file,
+                step_resources,
+                step_log_filename,
+                subprocess_command,
+                cwd,
+            )
+            result = future.result()
+            if result is not None:
+                timing_breakdown = result
+        elif step.run_as_subprocess:
             run_step_as_subprocess(
                 task.logger,
                 step,
@@ -1280,7 +1381,7 @@ def _node_status(node: SchedulerNode) -> str:
 def _node_needs_dask_phase(node: SchedulerNode) -> bool:
     if node.completed or node.cached:
         return False
-    return bool(getattr(node.step, 'can_run_concurrently', False))
+    return get_step_execution_kind(node.step) == ExecutionKind.LOCAL
 
 
 def _node_execution_mode(node: SchedulerNode) -> str:

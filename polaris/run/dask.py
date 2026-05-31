@@ -13,6 +13,44 @@ from polaris.run.resources import get_local_worker_count
 EXISTING_DASK_SCHEDULER_ADDRESS = 'POLARIS_DASK_SCHEDULER_ADDRESS'
 
 
+def submit_step_to_node(client, fn, node_index, cores, gpus, *args, **kwargs):
+    """
+    Submit a step function to the Dask worker pinned to a given node.
+
+    Parameters
+    ----------
+    client : distributed.Client
+        The active Dask client.
+
+    fn : callable
+        The function to submit.
+
+    node_index : int
+        Zero-based index of the target allocation node.
+
+    cores : int
+        Number of cores the step requires from that node's resource pool.
+
+    gpus : int
+        Number of GPUs the step requires from that node's resource pool.
+
+    *args
+        Positional arguments forwarded to ``fn``.
+
+    **kwargs
+        Keyword arguments forwarded to ``fn``.
+
+    Returns
+    -------
+    future : distributed.Future
+        A Dask future for the submitted call.
+    """
+    resources = {f'node_{node_index}_cores': cores}
+    if gpus > 0:
+        resources[f'node_{node_index}_gpus'] = gpus
+    return client.submit(fn, *args, resources=resources, **kwargs)
+
+
 @dataclass(frozen=True)
 class DaskRuntimeInfo:
     """
@@ -156,7 +194,8 @@ class LocalDaskRuntimeBackend:
         """
         self.available_resources = available_resources
         self.logger = logger
-        self.worker_count = get_dask_worker_count(available_resources)
+        self.node_cores = get_local_worker_count(available_resources)
+        self.worker_count = 1
         self.fallback_reason = fallback_reason
 
     @property
@@ -173,11 +212,11 @@ class LocalDaskRuntimeBackend:
                     node_index=0,
                     workers=self.worker_count,
                     threads_per_worker=1,
-                    cores_per_worker=1,
+                    cores_per_worker=self.node_cores,
                     gpus=0,
                 ),
             ),
-            total_cores=self.worker_count,
+            total_cores=self.node_cores,
             total_gpus=0,
             local_fallback=self.fallback_reason is not None,
             fallback_reason=self.fallback_reason,
@@ -204,6 +243,7 @@ class LocalDaskRuntimeBackend:
             threads_per_worker=1,
             processes=True,
             dashboard_address=None,
+            resources={'node_0_cores': self.node_cores},
         )
         client = None
         try:
@@ -313,8 +353,8 @@ class AllocationDaskRuntimeBackend:
                     scheduler_file=scheduler_file,
                     scheduler_process=scheduler_process,
                 )
-                worker_process = self._launch_workers(scheduler_file)
-                processes.append(worker_process)
+                worker_processes = self._launch_workers(scheduler_file)
+                processes.extend(worker_processes)
                 client = self.client_class(scheduler_file=scheduler_file)
                 scheduler_address = _read_scheduler_address(scheduler_file)
                 _attach_runtime_info(
@@ -353,18 +393,14 @@ class AllocationDaskRuntimeBackend:
         return self.process_launcher.launch_scheduler(command, self.logger)
 
     def _launch_workers(self, scheduler_file):
-        command = [
-            'dask',
-            'worker',
-            '--scheduler-file',
-            scheduler_file,
-            '--nthreads',
-            '1',
-            '--no-dashboard',
-        ]
-        return self.process_launcher.launch_workers(
-            command, self.launch_plan, self.logger
-        )
+        processes = []
+        for group in self.launch_plan.worker_groups:
+            command = _worker_command_for_group(scheduler_file, group)
+            process = self.process_launcher.launch_worker_group(
+                command, group, self.logger
+            )
+            processes.append(process)
+        return processes
 
 
 class SubprocessDaskProcessLauncher:
@@ -395,6 +431,22 @@ class SubprocessDaskProcessLauncher:
             'polaris-worker',
         ]
         return self._launch(command, label='workers', logger=logger)
+
+    def launch_worker_group(self, command, group, logger=None):
+        """
+        Launch one pinned Dask worker process for a single node group.
+        """
+        command = command + [
+            '--nworkers',
+            '1',
+            '--name',
+            f'polaris-worker-{group.node_index}',
+        ]
+        return self._launch(
+            command,
+            label=f'workers-node-{group.node_index}',
+            logger=logger,
+        )
 
     def _launch(self, command, label, logger=None):
         if logger is not None:
@@ -461,15 +513,33 @@ class ParallelSystemDaskProcessLauncher(SubprocessDaskProcessLauncher):
         )
         return self._launch(command, label='workers', logger=logger)
 
+    def launch_worker_group(self, command, group, logger=None):
+        """
+        Launch one pinned Dask worker per node group via the parallel system.
+
+        Uses a single MPI task with ``group.workers`` CPUs so the worker
+        process inherits affinity for all cores on that node.
+        """
+        mpi_command = self.parallel_system.get_parallel_command(
+            args=command + ['--nworkers', '1'],
+            ntasks=1,
+            cpus_per_task=group.workers,
+            gpus_per_task=0,
+        )
+        return self._launch(
+            mpi_command,
+            label=f'workers-node-{group.node_index}',
+            logger=logger,
+        )
+
 
 def get_dask_worker_count(available_resources):
     """
-    Determine the number of local single-threaded Dask workers for this run.
+    Determine the number of Dask workers for this run.
 
-    The current lifecycle uses ``distributed.LocalCluster``, so workers run on
-    the orchestration node only. If the active parallel system reports a
-    multi-node allocation, cap this local worker count to one node to avoid
-    oversubscribing the launch node.
+    The local backend uses one pinned worker per node (always 1 for local
+    single-node backends). Use ``get_local_worker_count`` to get the total
+    core count for resource-label sizing.
 
     Parameters
     ----------
@@ -481,7 +551,7 @@ def get_dask_worker_count(available_resources):
     worker_count : int
         The number of Dask workers to start.
     """
-    return get_local_worker_count(available_resources)
+    return 1
 
 
 def select_dask_runtime_backend(
@@ -751,6 +821,23 @@ def existing_dask_client_context(scheduler_address):
         yield client
     finally:
         client.close()
+
+
+def _worker_command_for_group(scheduler_file, group):
+    resources_str = f'node_{group.node_index}_cores={group.workers}'
+    if group.gpus > 0:
+        resources_str += f',node_{group.node_index}_gpus={group.gpus}'
+    return [
+        'dask',
+        'worker',
+        '--scheduler-file',
+        scheduler_file,
+        '--nthreads',
+        '1',
+        '--no-dashboard',
+        '--resources',
+        resources_str,
+    ]
 
 
 def _attach_runtime_info(client, runtime_info):

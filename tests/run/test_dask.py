@@ -13,6 +13,7 @@ from polaris.run.dask import (
     get_dask_worker_count,
     plan_dask_launch,
     select_dask_runtime_backend,
+    submit_step_to_node,
 )
 
 
@@ -61,10 +62,11 @@ class FakeClient:
 
 
 def test_get_dask_worker_count():
+    # Phase 1 always uses one pinned worker per node.
     assert get_dask_worker_count({}) == 1
     assert get_dask_worker_count({'cores': None}) == 1
     assert get_dask_worker_count({'cores': 0}) == 1
-    assert get_dask_worker_count({'cores': 4}) == 4
+    assert get_dask_worker_count({'cores': 4}) == 1
 
 
 def test_select_dask_runtime_backend_defaults_to_local():
@@ -72,7 +74,8 @@ def test_select_dask_runtime_backend_defaults_to_local():
 
     assert isinstance(backend, LocalDaskRuntimeBackend)
     assert backend.runtime_info.backend == 'local'
-    assert backend.runtime_info.workers == 2
+    # Phase 1: one pinned worker regardless of core count.
+    assert backend.runtime_info.workers == 1
     assert backend.runtime_info.local_fallback
     assert backend.runtime_info.fallback_reason == 'single_node_allocation'
 
@@ -162,7 +165,8 @@ def test_select_dask_runtime_backend_auto_falls_back_without_launcher():
 
     assert isinstance(backend, LocalDaskRuntimeBackend)
     assert backend.runtime_info.backend == 'local'
-    assert backend.runtime_info.workers == 32
+    # Phase 1: one pinned worker per node regardless of core count.
+    assert backend.runtime_info.workers == 1
     assert backend.runtime_info.local_fallback
     assert backend.runtime_info.fallback_reason == 'missing_process_launcher'
 
@@ -449,7 +453,7 @@ def test_parallel_system_process_launcher_respects_gpu_task_limit():
 
 def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
     events: list[tuple[object, ...]] = []
-    launched_commands = {}
+    launched_commands: dict = {}
 
     class FakeProcessLauncher:
         output_file = None
@@ -462,10 +466,10 @@ def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
             (tmp_path / scheduler_file).write_text('{"address": "tcp://x"}')
             return FakeProcess('scheduler', events)
 
-        def launch_workers(self, command, launch_plan, logger=None):
-            launched_commands['workers'] = command
-            launched_commands['worker_count'] = launch_plan.worker_count
-            return FakeProcess('workers', events)
+        def launch_worker_group(self, command, group, logger=None):
+            key = f'workers-node-{group.node_index}'
+            launched_commands[key] = command
+            return FakeProcess(key, events)
 
     class RecordingClient(FakeClient):
         def __init__(self, scheduler_file):
@@ -515,15 +519,24 @@ def test_allocation_dask_client_context_lifecycle(tmp_path, monkeypatch):
         ]
         == '0'
     )
-    assert launched_commands['workers'][:2] == ['dask', 'worker']
-    assert launched_commands['worker_count'] == 64
+    # Each node gets its own worker command with a node-specific resource.
+    for node_index, n_cores in enumerate([32, 32]):
+        key = f'workers-node-{node_index}'
+        cmd = launched_commands[key]
+        assert cmd[:2] == ['dask', 'worker']
+        assert '--resources' in cmd
+        resources_val = cmd[cmd.index('--resources') + 1]
+        assert resources_val == f'node_{node_index}_cores={n_cores}'
+    scheduler_file = launched_commands['scheduler'][-1]
     assert events == [
         ('scheduler', 'start'),
-        ('workers', 'start'),
-        ('client', 'start', launched_commands['scheduler'][-1]),
+        ('workers-node-0', 'start'),
+        ('workers-node-1', 'start'),
+        ('client', 'start', scheduler_file),
         ('client', 'shutdown'),
         ('client', 'close'),
-        ('workers', 'wait', 10),
+        ('workers-node-1', 'wait', 10),
+        ('workers-node-0', 'wait', 10),
         ('scheduler', 'wait', 10),
     ]
     assert launched_commands['log_filename'] == str(
@@ -552,8 +565,8 @@ def test_allocation_dask_client_context_cleans_up_after_failure(
             (tmp_path / scheduler_file).write_text('{"address": "tcp://x"}')
             return FakeProcess('scheduler', events)
 
-        def launch_workers(self, command, launch_plan, logger=None):
-            return FakeProcess('workers', events)
+        def launch_worker_group(self, command, group, logger=None):
+            return FakeProcess(f'workers-node-{group.node_index}', events)
 
     monkeypatch.chdir(tmp_path)
     with pytest.raises(RuntimeError, match='boom'):
@@ -573,8 +586,10 @@ def test_allocation_dask_client_context_cleans_up_after_failure(
 
     assert events == [
         ('scheduler', 'start'),
-        ('workers', 'start'),
-        ('workers', 'wait', 10),
+        ('workers-node-0', 'start'),
+        ('workers-node-1', 'start'),
+        ('workers-node-1', 'wait', 10),
+        ('workers-node-0', 'wait', 10),
         ('scheduler', 'wait', 10),
     ]
     assert (tmp_path / 'dask_runtime.log').exists()
@@ -593,8 +608,8 @@ def test_allocation_dask_client_context_terminates_after_shutdown_failure(
             (tmp_path / scheduler_file).write_text('{"address": "tcp://x"}')
             return FakeProcess('scheduler', events)
 
-        def launch_workers(self, command, launch_plan, logger=None):
-            return FakeProcess('workers', events)
+        def launch_worker_group(self, command, group, logger=None):
+            return FakeProcess(f'workers-node-{group.node_index}', events)
 
     class BrokenShutdownClient(FakeClient):
         def shutdown(self):
@@ -619,9 +634,12 @@ def test_allocation_dask_client_context_terminates_after_shutdown_failure(
 
     assert events == [
         ('scheduler', 'start'),
-        ('workers', 'start'),
-        ('workers', 'terminate'),
-        ('workers', 'wait', 10),
+        ('workers-node-0', 'start'),
+        ('workers-node-1', 'start'),
+        ('workers-node-1', 'terminate'),
+        ('workers-node-1', 'wait', 10),
+        ('workers-node-0', 'terminate'),
+        ('workers-node-0', 'wait', 10),
         ('scheduler', 'terminate'),
         ('scheduler', 'wait', 10),
     ]
@@ -678,13 +696,16 @@ def test_dask_client_context_closes_client_and_cluster(monkeypatch):
         assert isinstance(client, FakeClient)
         runtime_info = get_dask_runtime_info(client)
         assert runtime_info.backend == 'local'
-        assert runtime_info.workers == 3
+        # Phase 1: one pinned worker; core count is the resource label value.
+        assert runtime_info.workers == 1
+        assert runtime_info.total_cores == 3
 
     assert FakeCluster.kwargs == {
-        'n_workers': 3,
+        'n_workers': 1,
         'threads_per_worker': 1,
         'processes': True,
         'dashboard_address': None,
+        'resources': {'node_0_cores': 3},
     }
     assert events == [
         'cluster.start',
@@ -693,7 +714,7 @@ def test_dask_client_context_closes_client_and_cluster(monkeypatch):
         'cluster.close',
     ]
     assert logger.messages == [
-        'Starting Dask Distributed backend=local workers=3',
+        'Starting Dask Distributed backend=local workers=1',
         'Stopped Dask Distributed',
     ]
 
@@ -733,3 +754,137 @@ def test_dask_client_context_cleans_up_after_failure(monkeypatch):
         'Starting Dask Distributed backend=local workers=1',
         'Stopped Dask Distributed',
     ]
+
+
+def test_submit_step_to_node_passes_correct_resources_dict():
+    submitted = {}
+
+    class FakeClient:
+        def submit(self, fn, *args, resources=None, **kwargs):
+            submitted['fn'] = fn
+            submitted['args'] = args
+            submitted['resources'] = resources
+            return 'future'
+
+    def dummy_fn(x):
+        return x
+
+    result = submit_step_to_node(FakeClient(), dummy_fn, 0, 8, 0, 'arg1')
+    assert result == 'future'
+    assert submitted['fn'] is dummy_fn
+    assert submitted['args'] == ('arg1',)
+    assert submitted['resources'] == {'node_0_cores': 8}
+
+
+def test_submit_step_to_node_includes_gpu_resource():
+    submitted = {}
+
+    class FakeClient:
+        def submit(self, fn, *args, resources=None, **kwargs):
+            submitted['resources'] = resources
+            return 'future'
+
+    submit_step_to_node(FakeClient(), lambda: None, 1, 4, 2)
+    assert submitted['resources'] == {'node_1_cores': 4, 'node_1_gpus': 2}
+
+
+def test_submit_step_to_node_omits_gpu_resource_when_zero():
+    submitted = {}
+
+    class FakeClient:
+        def submit(self, fn, *args, resources=None, **kwargs):
+            submitted['resources'] = resources
+            return 'future'
+
+    submit_step_to_node(FakeClient(), lambda: None, 2, 16, 0)
+    assert 'node_2_gpus' not in submitted['resources']
+    assert submitted['resources'] == {'node_2_cores': 16}
+
+
+def test_allocation_backend_worker_groups_have_node_resource_labels(
+    tmp_path, monkeypatch
+):
+    captured_commands: dict = {}
+
+    class FakeProcess:
+        def poll(self):
+            return None
+
+        def wait(self, timeout=None):
+            pass
+
+        def terminate(self):
+            pass
+
+        def kill(self):
+            pass
+
+    class FakeProcessLauncher:
+        output_file = None
+
+        def launch_scheduler(self, command, logger=None):
+            scheduler_file = command[command.index('--scheduler-file') + 1]
+            (tmp_path / scheduler_file).write_text('{"address": "tcp://x"}')
+            return FakeProcess()
+
+        def launch_worker_group(self, command, group, logger=None):
+            captured_commands[f'node_{group.node_index}'] = command
+            return FakeProcess()
+
+    class FakeClient:
+        def __init__(self, scheduler_file):
+            pass
+
+        def shutdown(self):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.chdir(tmp_path)
+    with dask_client_context(
+        {
+            'cores': 96,
+            'nodes': 3,
+            'cores_per_node': 32,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+        backend_name='allocation',
+        process_launcher=FakeProcessLauncher(),
+        client_class=FakeClient,
+    ):
+        pass
+
+    for i, n_cores in enumerate([32, 32, 32]):
+        cmd = captured_commands[f'node_{i}']
+        assert '--resources' in cmd
+        res = cmd[cmd.index('--resources') + 1]
+        assert res == f'node_{i}_cores={n_cores}'
+
+
+def test_local_backend_worker_has_node_resource_label(monkeypatch):
+    cluster_kwargs: dict = {}
+
+    class FakeCluster:
+        def __init__(self, **kwargs):
+            cluster_kwargs.update(kwargs)
+
+        def close(self):
+            pass
+
+    class FakeClient:
+        def __init__(self, cluster):
+            pass
+
+        def close(self):
+            pass
+
+    monkeypatch.setattr('polaris.run.dask.LocalCluster', FakeCluster)
+    monkeypatch.setattr('polaris.run.dask.Client', FakeClient)
+
+    with dask_client_context({'cores': 8}):
+        pass
+
+    assert cluster_kwargs['n_workers'] == 1
+    assert cluster_kwargs['resources'] == {'node_0_cores': 8}

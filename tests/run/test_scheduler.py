@@ -1,4 +1,5 @@
 import json
+from contextlib import contextmanager
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -155,6 +156,41 @@ def _patch_suite_setup(monkeypatch):
         lambda task_name, steps_to_run, steps_to_skip, config, steps: list(
             steps
         ),
+    )
+
+
+def _patch_dask_client(monkeypatch):
+    """
+    Patch dask_client_context with a synchronous in-process mock.
+
+    The mock Dask client executes submitted functions immediately in the
+    calling process, so monkeypatched functions (run_step, etc.) are called
+    as expected by the test, without starting a real Dask cluster.
+    """
+
+    class MockFuture:
+        def __init__(self, result_val, exc=None):
+            self._result = result_val
+            self._exc = exc
+
+        def result(self):
+            if self._exc is not None:
+                raise self._exc
+            return self._result
+
+    class SyncDaskClient:
+        def submit(self, fn, *args, resources=None, **kwargs):
+            try:
+                return MockFuture(fn(*args, **kwargs))
+            except Exception as exc:
+                return MockFuture(None, exc=exc)
+
+    @contextmanager
+    def _mock_dask_client_context(*args, **kwargs):
+        yield SyncDaskClient()
+
+    monkeypatch.setattr(
+        run_scheduler, 'dask_client_context', _mock_dask_client_context
     )
 
 
@@ -504,6 +540,7 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
 
     monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    _patch_dask_client(monkeypatch)
 
     run_scheduler.run_task(
         task,
@@ -540,18 +577,23 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
         for event in resource_events
     )
     assert all(event['insufficient'] == [] for event in resource_events)
+    # R7: Dask phase lifecycle events surround LOCAL step execution.
     assert [event['result'] for event in events if 'result' in event] == [
-        'reserved',
+        'reserved',  # control_plane_reserved
+        'starting',  # dask_phase_launch_requested (before init)
+        'started',  # dask_phase_start
         'feasible',
         'reserved',
         'running',
         'released',
-        'success',
+        'success',  # init
         'feasible',
         'reserved',
         'running',
         'released',
-        'success',
+        'success',  # forward
+        'stopping',  # dask_phase_shutdown_requested
+        'stopped',  # dask_phase_stop
     ]
     timing_events = [
         event for event in events if event['event'] == 'step_timing'
@@ -567,6 +609,11 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
         )
         == 1
     )
+    # Verify Dask lifecycle events are present.
+    dask_events = [e['event'] for e in events if e['event'].startswith('dask')]
+    assert 'dask_phase_launch_requested' in dask_events
+    assert 'dask_phase_start' in dask_events
+    assert 'dask_phase_stop' in dask_events
 
 
 def test_scheduler_run_task_updates_rerun_markers(tmp_path, monkeypatch):
@@ -594,6 +641,7 @@ def test_scheduler_run_task_updates_rerun_markers(tmp_path, monkeypatch):
     )
 
     monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    _patch_dask_client(monkeypatch)
 
     baselines_passed = run_scheduler.run_task(
         task,
@@ -657,6 +705,7 @@ def test_scheduler_run_task_blocks_failed_dependents_and_releases_resources(
 
     monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    _patch_dask_client(monkeypatch)
 
     with pytest.raises(RuntimeError, match='expected failure'):
         run_scheduler.run_task(
@@ -755,19 +804,17 @@ def test_scheduler_records_infeasible_resource_diagnostics(
     assert 'minimum' in resource_events[0]['reason']
 
 
-def test_scheduler_does_not_start_dask_for_ordinary_steps(
-    tmp_path, monkeypatch
-):
-    # Phase 1 must not instantiate a Dask cluster for ordinary step execution.
+def test_scheduler_submits_local_step_to_dask_worker(tmp_path, monkeypatch):
+    # R7: LOCAL steps are submitted to the pinned Dask worker via
+    # submit_step_to_node, not called directly from the scheduler process.
+    submitted_resources: list[dict] = []
+    run_order: list[str] = []
+
     class DummyLogger:
         def info(self, message):
             pass
 
-    dask_started: list[str] = []
-
-    prep = DummyStep(tmp_path, 'prep')
-    forward = DummyStep(tmp_path, 'forward')
-    analysis = DummyStep(tmp_path, 'analysis')
+    step = DummyStep(tmp_path, 'prep')
     task = SimpleNamespace(
         path='ocean/task',
         work_dir=str(tmp_path),
@@ -775,8 +822,8 @@ def test_scheduler_does_not_start_dask_for_ordinary_steps(
         stdout_logger=DummyLogger(),
         log_filename=None,
         new_step_log_file=False,
-        steps_to_run=['prep', 'forward', 'analysis'],
-        steps={'prep': prep, 'forward': forward, 'analysis': analysis},
+        steps_to_run=['prep'],
+        steps={'prep': step},
     )
 
     def _run_step(
@@ -789,14 +836,161 @@ def test_scheduler_does_not_start_dask_for_ordinary_steps(
         timing_breakdown=None,
     ):
         assert dask_client is None
+        run_order.append(step.name)
+
+    original_submit = run_scheduler.submit_step_to_node
+
+    def _capturing_submit(
+        client, fn, node_index, cores, gpus, *args, **kwargs
+    ):
+        submitted_resources.append({f'node_{node_index}_cores': cores})
+        return original_submit(
+            client, fn, node_index, cores, gpus, *args, **kwargs
+        )
 
     monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
     monkeypatch.setattr(
+        run_scheduler, 'submit_step_to_node', _capturing_submit
+    )
+    _patch_dask_client(monkeypatch)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 4,
+            'nodes': 1,
+            'cores_per_node': 4,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    assert run_order == ['prep']
+    assert len(submitted_resources) == 1
+    assert list(submitted_resources[0].keys()) == ['node_0_cores']
+
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+    dask_lifecycle_events = [
+        event['event']
+        for event in events
+        if event['event'].startswith('dask_phase')
+    ]
+    # Phase starts for LOCAL steps and stops at the end of the task.
+    assert 'dask_phase_launch_requested' in dask_lifecycle_events
+    assert 'dask_phase_start' in dask_lifecycle_events
+    assert 'dask_phase_stop' in dask_lifecycle_events
+
+
+def test_scheduler_submits_subprocess_step_to_dask_worker(
+    tmp_path, monkeypatch
+):
+    # R7: run_as_subprocess steps are also submitted to the Dask worker,
+    # not called directly.
+    submitted_resources: list[dict] = []
+    subprocess_called: list[str] = []
+
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    step = DummyStep(tmp_path, 'subproc')
+    step.run_as_subprocess = True
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['subproc'],
+        steps={'subproc': step},
+    )
+
+    def _run_subprocess(
+        logger,
+        step,
+        new_log_file,
+        subprocess_command='serial',
+        dask_client=None,
+        timing_breakdown=None,
+    ):
+        subprocess_called.append(step.name)
+
+    original_submit = run_scheduler.submit_step_to_node
+
+    def _capturing_submit(
+        client, fn, node_index, cores, gpus, *args, **kwargs
+    ):
+        submitted_resources.append({f'node_{node_index}_cores': cores})
+        return original_submit(
+            client, fn, node_index, cores, gpus, *args, **kwargs
+        )
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'run_step_as_subprocess', _run_subprocess
+    )
+    monkeypatch.setattr(
+        run_scheduler, 'submit_step_to_node', _capturing_submit
+    )
+    _patch_dask_client(monkeypatch)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 2,
+            'nodes': 1,
+            'cores_per_node': 2,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    # Step was called inside the Dask worker (submitted), not directly.
+    assert subprocess_called == ['subproc']
+    assert len(submitted_resources) == 1
+
+
+def test_scheduler_no_dask_phase_for_mpi_only_task(tmp_path, monkeypatch):
+    # R7: A task containing only MPI steps must not start a Dask phase.
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    mpi_step = DummyStep(tmp_path, 'mpi_run')
+    mpi_step.ntasks = 4
+    mpi_step.min_tasks = 4
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['mpi_run'],
+        steps={'mpi_run': mpi_step},
+    )
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+        timing_breakdown=None,
+    ):
+        pass
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    # dask_client_context must NOT be called for an MPI-only task.
+    monkeypatch.setattr(
         run_scheduler,
         'dask_client_context',
         lambda *a, **kw: (_ for _ in ()).throw(
-            AssertionError('dask_client_context must not be called in Phase 1')
+            AssertionError('dask_client_context must not start for MPI tasks')
         ),
     )
 
@@ -811,14 +1005,75 @@ def test_scheduler_does_not_start_dask_for_ordinary_steps(
         },
     )
 
-    assert dask_started == []
     events = _read_events(tmp_path / 'schedule_events.jsonl')
-    dask_lifecycle_events = [
-        event['event']
-        for event in events
-        if event['event'].startswith('dask_phase')
+    dask_events = [e['event'] for e in events if e['event'].startswith('dask')]
+    assert dask_events == []
+
+
+def test_scheduler_dask_phase_stops_before_mpi_step(tmp_path, monkeypatch):
+    # R7: Dask phase must stop before an MPI step and may restart afterward.
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    local_step = DummyStep(tmp_path, 'local')
+    mpi_step = DummyStep(tmp_path, 'mpi_run')
+    mpi_step.ntasks = 4
+    mpi_step.min_tasks = 4
+    local_step2 = DummyStep(tmp_path, 'local2')
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['local', 'mpi_run', 'local2'],
+        steps={
+            'local': local_step,
+            'mpi_run': mpi_step,
+            'local2': local_step2,
+        },
+    )
+
+    def _run_step(
+        task,
+        step,
+        new_log_file,
+        available_resources,
+        step_log_filename,
+        dask_client=None,
+        timing_breakdown=None,
+    ):
+        pass
+
+    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    _patch_dask_client(monkeypatch)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 4,
+            'nodes': 1,
+            'cores_per_node': 4,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+    phase_events = [
+        e['event'] for e in events if e['event'].startswith('dask_phase')
     ]
-    assert dask_lifecycle_events == []
+    # Expect: start, stop (before MPI), start (after MPI), stop (end of task).
+    assert phase_events.count('dask_phase_launch_requested') >= 1
+    assert phase_events.count('dask_phase_start') >= 1
+    assert phase_events.count('dask_phase_stop') >= 1
+    # The phase must stop before the MPI step.
+    step_starts = [e['step'] for e in events if e['event'] == 'step_start']
+    assert 'local' in step_starts
+    assert 'mpi_run' in step_starts
 
 
 def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
@@ -896,6 +1151,7 @@ def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):
         ),
     )
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    _patch_dask_client(monkeypatch)
 
     results = run_suite(
         suite={'tasks': {'task_b': task_b, 'task_a': task_a}},
@@ -957,6 +1213,7 @@ def test_scheduler_run_suite_runs_shared_step_once(tmp_path, monkeypatch):
     _patch_suite_setup(monkeypatch)
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
     monkeypatch.setattr(run_scheduler.time, 'time', lambda: clock.current)
+    _patch_dask_client(monkeypatch)
 
     stdout_logger = DummyLogger()
     results = run_suite(
@@ -1031,6 +1288,7 @@ def test_scheduler_run_suite_blocks_failed_dependents(tmp_path, monkeypatch):
 
     _patch_suite_setup(monkeypatch)
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    _patch_dask_client(monkeypatch)
 
     results = run_suite(
         suite={
@@ -1118,6 +1376,7 @@ def test_scheduler_run_suite_records_completed_and_cached_skips(
 
     _patch_suite_setup(monkeypatch)
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    _patch_dask_client(monkeypatch)
 
     results = run_suite(
         suite={'tasks': {'task': task}},
@@ -1178,6 +1437,7 @@ def test_scheduler_run_suite_records_single_suite_active_step(
 
     _patch_suite_setup(monkeypatch)
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    _patch_dask_client(monkeypatch)
 
     results = run_suite(
         suite={'tasks': tasks},
@@ -1245,6 +1505,7 @@ def test_scheduler_passes_placement_correct_resources_to_run_step(
 
     monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
+    _patch_dask_client(monkeypatch)
 
     run_scheduler.run_task(
         task,
