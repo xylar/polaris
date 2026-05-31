@@ -1010,8 +1010,11 @@ def test_scheduler_no_dask_phase_for_mpi_only_task(tmp_path, monkeypatch):
     assert dask_events == []
 
 
-def test_scheduler_dask_phase_stops_before_mpi_step(tmp_path, monkeypatch):
-    # R7: Dask phase must stop before an MPI step and may restart afterward.
+def test_scheduler_dask_workers_stay_alive_across_mpi_step(
+    tmp_path, monkeypatch
+):
+    # R8: Workers must NOT stop before an MPI step.  A single Dask phase
+    # spans the whole task; only one start/stop pair occurs.
     class DummyLogger:
         def info(self, message):
             pass
@@ -1066,14 +1069,28 @@ def test_scheduler_dask_phase_stops_before_mpi_step(tmp_path, monkeypatch):
     phase_events = [
         e['event'] for e in events if e['event'].startswith('dask_phase')
     ]
-    # Expect: start, stop (before MPI), start (after MPI), stop (end of task).
-    assert phase_events.count('dask_phase_launch_requested') >= 1
-    assert phase_events.count('dask_phase_start') >= 1
-    assert phase_events.count('dask_phase_stop') >= 1
-    # The phase must stop before the MPI step.
+    # R8: single phase per task — workers stay alive through the MPI step.
+    assert phase_events.count('dask_phase_start') == 1
+    assert phase_events.count('dask_phase_stop') == 1
+
+    # The single stop must come after all steps have finished.
+    last_finish_idx = max(
+        i
+        for i, e in enumerate(events)
+        if e['event'] in {'step_finish', 'step_failure'}
+    )
+    stop_idx = next(
+        i for i, e in enumerate(events) if e['event'] == 'dask_phase_stop'
+    )
+    assert stop_idx > last_finish_idx, (
+        'dask_phase_stop must come after all steps complete, not mid-task'
+    )
+
+    # All three steps must have been started (mode-batching puts both LOCAL
+    # steps before the MPI step when all three are independent).
     step_starts = [e['step'] for e in events if e['event'] == 'step_start']
-    assert 'local' in step_starts
-    assert 'mpi_run' in step_starts
+    assert set(step_starts) == {'local', 'mpi_run', 'local2'}
+    assert len(step_starts) == 3
 
 
 def test_scheduler_run_suite_uses_suite_wide_graph(tmp_path, monkeypatch):

@@ -264,16 +264,8 @@ class _DaskPhaseManager:
             return self._start(recorders)
         if mode == 'neutral':
             return self.client
-        if self._context is not None:
-            for recorder in recorders:
-                recorder.emit(
-                    'serialized_step_barrier',
-                    task=node.task_name,
-                    step=node.step_name,
-                    reason='serialized_step',
-                    result='barrier',
-                )
-        self.close(recorders=recorders, reason='serialized_step', node=node)
+        # MPI step: runs outside the worker pool.  Workers stay alive and
+        # stop only at task/suite end via dask_phase.close().
         return None
 
     def close(self, recorders=None, reason='phase_complete', node=None):
@@ -561,6 +553,7 @@ def run_suite(
     blocked_keys: set[str] = set()
     failed_keys: set[str] = set()
     step_runtimes: dict[str, float] = {}
+    current_mode: Optional[str] = None
     pending_keys = _selected_pending_keys(ordered_nodes)
     dask_phase = _DaskPhaseManager(
         available_resources=data_plane_resources,
@@ -575,6 +568,7 @@ def run_suite(
                 pending_keys=pending_keys,
                 blocked_keys=blocked_keys,
                 failed_keys=failed_keys,
+                current_mode=current_mode,
             )
             node = selection.node
             if node is None:
@@ -645,12 +639,18 @@ def run_suite(
                     state.baselines_passed = accumulate_statuses(
                         state.baselines_passed, baseline_status
                     )
+                mode_label = _node_mode_label(node)
+                if mode_label is not None:
+                    current_mode = mode_label
                 pending_keys.remove(node.key)
             except Exception:
                 state.task_pass = False
                 state.exec_failed = True
                 failed_keys.add(node.key)
                 pending_keys.remove(node.key)
+                mode_label = _node_mode_label(node)
+                if mode_label is not None:
+                    current_mode = mode_label
                 with LoggingContext(
                     task_name.replace('/', '_'),
                     log_filename=state.log_filename,
@@ -713,6 +713,7 @@ def run_task(
     blocked_keys: set[str] = set()
     failed_keys: set[str] = set()
     first_exception = None
+    current_mode: Optional[str] = None
     pending_keys = _selected_pending_keys(ordered_nodes)
     dask_phase = _DaskPhaseManager(
         available_resources=data_plane_resources,
@@ -727,6 +728,7 @@ def run_task(
                 pending_keys=pending_keys,
                 blocked_keys=blocked_keys,
                 failed_keys=failed_keys,
+                current_mode=current_mode,
             )
             node = selection.node
             if node is None:
@@ -762,6 +764,9 @@ def run_task(
             except Exception as exception:
                 failed_keys.add(node.key)
                 pending_keys.remove(node.key)
+                mode_label = _node_mode_label(node)
+                if mode_label is not None:
+                    current_mode = mode_label
                 if first_exception is None:
                     first_exception = exception
                 continue
@@ -774,6 +779,9 @@ def run_task(
                 property_passed = accumulate_statuses(
                     property_passed, property_status
                 )
+            mode_label = _node_mode_label(node)
+            if mode_label is not None:
+                current_mode = mode_label
             pending_keys.remove(node.key)
     finally:
         dask_phase.close()
@@ -839,6 +847,7 @@ def _select_next_node(
     pending_keys,
     blocked_keys,
     failed_keys,
+    current_mode=None,
 ):
     pending_nodes = [
         node
@@ -857,6 +866,19 @@ def _select_next_node(
     ]
     if len(ready_nodes) == 0:
         return _SchedulerSelection(node=None, mode=None)
+
+    # Mode-batching: when multiple ready nodes are available, prefer those
+    # that match the current execution mode to minimise LOCAL↔MPI transitions
+    # and the resulting worker-pool lifecycle churn.
+    if current_mode is not None and len(ready_nodes) > 1:
+        preferred_exec = (
+            'worker_pool' if current_mode == 'local' else 'serialized'
+        )
+        preferred = [
+            n for n in ready_nodes if _node_execution_mode(n) == preferred_exec
+        ]
+        if preferred:
+            return _SchedulerSelection(node=preferred[0], mode=None)
 
     return _SchedulerSelection(node=ready_nodes[0], mode=None)
 
@@ -975,18 +997,20 @@ def _run_scheduler_node(
         )
         return None, None
 
-    step_start = time.time()
-    step_start_perf = time.perf_counter()
     step.config = setup_config(step.base_work_dir, step.config.filepath)
     if task.log_filename is not None:
         step_log_filename = task.log_filename
     else:
         step_log_filename = None
 
-    # Trigger Dask phase lifecycle before resource reservation.
+    # Trigger Dask phase lifecycle before resource reservation.  Timer
+    # starts after client_for_node() so Dask startup latency is not
+    # charged to the step's reported wall time.
     dask_client = None
     if dask_phase is not None:
         dask_client = dask_phase.client_for_node(node, [recorder])
+    step_start = time.time()
+    step_start_perf = time.perf_counter()
 
     reservation = None
     timing_breakdown = StepTimingBreakdown()
@@ -1390,6 +1414,21 @@ def _node_execution_mode(node: SchedulerNode) -> str:
     if _node_needs_dask_phase(node):
         return 'worker_pool'
     return 'serialized'
+
+
+def _node_mode_label(node: SchedulerNode) -> Optional[str]:
+    """
+    Return 'local', 'mpi', or None (for cached/completed nodes).
+
+    Used to track the current execution mode for mode-batching in
+    _select_next_node().
+    """
+    mode = _node_execution_mode(node)
+    if mode == 'worker_pool':
+        return 'local'
+    if mode == 'serialized':
+        return 'mpi'
+    return None
 
 
 def _wait_reason(predecessor_keys) -> str:
