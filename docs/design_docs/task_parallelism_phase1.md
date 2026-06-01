@@ -27,12 +27,14 @@ for later task parallelism. In Phase 1, it builds the scheduling framework
 needed for future concurrent execution, including dependency-graph
 construction, ready-step selection, node-aware resource scheduling,
 deterministic step ordering, schedule summaries, structured scheduler events
-and metadata for future step eligibility. Phase 1 does not establish a Dask
-orchestration layer for Phase 2. Steps run directly in the scheduler process
-without routing through a Dask worker pool. The node-aware resource model,
-dependency graph and structured diagnostic events built in Phase 1 provide the
-foundation for Phase 2, but Phase 2 must implement a true resource-bound
-executor with actual process placement enforcement.
+and metadata for future step eligibility. Phase 1 establishes the pinned Dask
+worker executor that Phase 2 will use for concurrent execution: one worker per
+allocation node, each pinned to its node so that local (non-MPI) steps are
+dispatched to a specific node. Steps are routed through this pool
+one-at-a-time in Phase 1, so the pinned executor is validated under realistic
+HPC conditions before concurrency is enabled. The node-aware resource model,
+dependency graph, pinned-worker executor and structured diagnostic events
+built in Phase 1 provide the direct foundation for Phase 2.
 
 Phase 1 therefore aims to prove that the new execution path is correct and
 complete before it is asked to deliver speedup. Some slowdown relative to
@@ -1376,42 +1378,27 @@ unchanged serial path.
 
 ## Phase 2 Handoff
 
-Phase 2 should inherit the Phase 1 command path, dependency graph builder,
+Phase 2 inherits the Phase 1 command path, dependency graph builder,
 node-aware resource pool, `ExecutionKind` classification, placement-correct
-`AvailableResources` views and structured event stream. However, Phase 2
-cannot simply raise a concurrency cap on top of the Phase 1 runtime model,
-because Phase 1 has been redesigned as a serial graph executor without a
-Dask worker pool for ordinary steps.
+`AvailableResources` views, pinned Dask worker executor and structured event
+stream. Because Phase 1 validates the pinned-worker executor under realistic
+HPC conditions, Phase 2 can raise the concurrency cap directly: instead of
+awaiting each step's completion before submitting the next, the scheduler
+submits multiple ready non-MPI steps simultaneously to their pinned workers.
+The `placement_enforced=true` field in Phase 1 `resource_reserved` events
+for local steps confirms that node binding is already in place.
 
-The `placement_enforced=false` flag in Phase 1 `resource_reserved` events
-marks exactly the gap Phase 2 must close. Logical reservations are correct
-in Phase 1 because only one step runs at a time; in Phase 2, with concurrent
-steps, a reservation that does not actually bind a process to specific nodes
-and cores provides no real isolation. A correct Phase 2 implementation must
-enforce actual placement. The options are:
-
-1. **Direct Slurm-bound launcher per local step**: The orchestrator launches
-   each local non-MPI step with explicit `srun` placement, controlling node,
-   core and GPU binding directly. This is the most transparent HPC model.
-2. **Pinned worker model**: Workers are started with known node/core/GPU
-   bindings and labeled with their capacity. Each step is submitted only to
-   workers that match its selected reservation.
-3. **Hybrid model**: MPI steps continue through `run_parallel_command`. Local
-   non-MPI steps use a direct bound subprocess launch.
-
-The Phase 2 scheduler should also design a mode-batching policy for
-minimizing worker-pool lifecycle transitions. Earlier Phase 1 testing on
-Perlmutter demonstrated that alternating between worker-pool mode and
-serialized mode at every ready-step boundary creates unacceptable overhead;
-batching similar work into phases reduces the number of costly mode
-transitions.
+Phase 2 must still design a mode-batching policy for minimizing worker-pool
+lifecycle transitions. Phase 1 testing on Perlmutter demonstrated that
+switching between worker-pool mode and serialized MPI launch at every
+ready-step boundary creates unacceptable overhead; batching eligible non-MPI
+work into phases and MPI work into phases reduces the number of costly mode
+transitions and, on Perlmutter, avoids srun job-step conflicts.
 
 The following work is handed to Phase 2 or later:
 
 - concurrent ready-step execution, beginning with eligible non-MPI steps in
   Phase 2;
-- choosing and implementing a resource-bound executor with actual placement
-  enforcement;
 - mode-batching policy for minimizing worker-pool lifecycle transitions;
 - a cheap Dask-aware regression task or fixture that exercises Dask-aware step
   code without requiring the long WOA23 hydrography workflow;

@@ -15,14 +15,14 @@ Phase 1. The eligibility mechanism, dependency graph, resource model,
 restart behavior and run summaries developed in Phase 1 become the foundation
 for actually running independent work concurrently.
 
-Phase 2 requires designing and implementing a true resource-bound executor.
-Phase 1 has been redesigned as a serial graph executor that runs steps
-directly in the scheduler process without a Dask worker pool for ordinary
-steps. As a result, Phase 2 cannot simply raise a concurrency cap on top of
-the Phase 1 runtime model. The dependency graph, node-aware resource pool and
-structured event stream from Phase 1 provide the foundation, but Phase 2 must
-implement an executor that enforces actual placement of processes on specific
-nodes and cores before enabling concurrent execution.
+Phase 1 validated a pinned Dask worker executor — one worker per allocation
+node, each pinned to its node — running steps one at a time. Phase 2 raises
+the concurrency cap on that executor: instead of awaiting each step's
+completion before dispatching the next, the scheduler submits multiple ready
+non-MPI steps simultaneously to their pinned workers. The dependency graph,
+node-aware resource pool, pinned-worker executor and structured event stream
+from Phase 1 provide the direct foundation; Phase 2 does not need to design
+an executor from scratch.
 
 The central new capability in Phase 2 is that independent non-MPI steps may
 run at the same time by default, subject to dependency, explicit ineligibility
