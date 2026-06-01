@@ -526,6 +526,11 @@ class ParallelSystemDaskProcessLauncher(SubprocessDaskProcessLauncher):
             cpus_per_task=group.workers,
             gpus_per_task=0,
         )
+        if logger is not None:
+            logger.info(
+                f'Dask worker srun command (node {group.node_index}): '
+                f'{" ".join(str(c) for c in mpi_command)}'
+            )
         return self._launch(
             mpi_command,
             label=f'workers-node-{group.node_index}',

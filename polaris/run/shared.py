@@ -53,6 +53,28 @@ class StepTimingBreakdown:
 
     output_check : float
         Time spent validating declared outputs after execution.
+
+    input_check : float
+        Time spent checking that declared inputs exist (os.path.exists loop).
+        Normally sub-millisecond; large values indicate Lustre metadata
+        latency.
+
+    log_context : float
+        Time spent creating the per-step LoggingContext (opening the log file).
+        Normally sub-millisecond; large values indicate Lustre or I/O latency.
+
+    worker_cpus_allowed : str
+        CPU affinity list for the Dask worker process (from /proc/self/status
+        ``Cpus_allowed_list``), e.g. ``'0-127'``.  Empty string when running
+        outside a Dask worker or on a non-Linux platform.
+
+    worker_mems_allowed : str
+        NUMA memory node list for the Dask worker process (from
+        /proc/self/status ``Mems_allowed_list``), e.g. ``'0'`` or ``'0-7'``.
+        A single-node value (e.g. ``'0'``) while cpus_allowed spans multiple
+        NUMA domains confirms a first-touch NUMA bottleneck.  Empty string
+        outside a worker.
+
     """
 
     dependency_load: float = 0.0
@@ -61,6 +83,10 @@ class StepTimingBreakdown:
     execution: float = 0.0
     completion_marker: float = 0.0
     output_check: float = 0.0
+    input_check: float = 0.0
+    log_context: float = 0.0
+    worker_cpus_allowed: str = ''
+    worker_mems_allowed: str = ''
 
 
 def unpickle_suite(suite_name):
@@ -747,10 +773,12 @@ def run_step(
     if timing_breakdown is None:
         timing_breakdown = StepTimingBreakdown()
 
+    phase_start = time.perf_counter()
     missing_files = list()
     for input_file in step.inputs:
         if not os.path.exists(input_file):
             missing_files.append(input_file)
+    timing_breakdown.input_check += time.perf_counter() - phase_start
 
     if len(missing_files) > 0:
         raise OSError(
@@ -779,9 +807,11 @@ def run_step(
 
     step.log_filename = step_log_filename
 
+    phase_start = time.perf_counter()
     with LoggingContext(
         name=logger_name, logger=step_logger, log_filename=new_log_filename
     ) as step_logger:
+        timing_breakdown.log_context += time.perf_counter() - phase_start
         step.logger = step_logger
         os.chdir(step.work_dir)
 

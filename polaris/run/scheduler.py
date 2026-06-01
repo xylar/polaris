@@ -1,5 +1,8 @@
+import cProfile
+import io
 import json
 import os
+import pstats
 import time
 from dataclasses import asdict, dataclass
 from datetime import timedelta
@@ -154,6 +157,32 @@ class _WorkerTaskProxy:
         self.log_filename = log_filename
 
 
+def _read_worker_affinity():
+    """
+    Read CPU and memory NUMA affinity for the current process from
+    ``/proc/self/status``.
+
+    Returns a dict with keys ``'cpus_allowed'`` and ``'mems_allowed'``
+    containing the allowed-list strings (e.g. ``'0-127'`` and ``'0-3'``),
+    or empty strings if ``/proc`` is unavailable (non-Linux platforms).
+
+    These values are read inside Dask workers to diagnose whether the worker's
+    memory is confined to a single NUMA domain - the primary suspect for the
+    5-7× execution slowdown observed for large-mesh LOCAL steps on Perlmutter.
+    """
+    info = {'cpus_allowed': '', 'mems_allowed': ''}
+    try:
+        with open('/proc/self/status') as f:
+            for line in f:
+                if line.startswith('Cpus_allowed_list:'):
+                    info['cpus_allowed'] = line.split(':', 1)[1].strip()
+                elif line.startswith('Mems_allowed_list:'):
+                    info['mems_allowed'] = line.split(':', 1)[1].strip()
+    except OSError:
+        pass
+    return info
+
+
 def _step_worker_fn(
     step,
     task_path,
@@ -171,8 +200,18 @@ def _step_worker_fn(
     """
     os.chdir(cwd)
     timing_breakdown = StepTimingBreakdown()
+    affinity = _read_worker_affinity()
+    timing_breakdown.worker_cpus_allowed = affinity['cpus_allowed']
+    timing_breakdown.worker_mems_allowed = affinity['mems_allowed']
     task_name = task_path.replace('/', '_')
+    _profiling = os.environ.get('POLARIS_PROFILE_STEPS', '').lower() in (
+        '1',
+        'true',
+    )
     with LoggingContext(task_name, log_filename=task_log_filename) as logger:
+        if _profiling:
+            _pr = cProfile.Profile()
+            _pr.enable()
         if step.run_as_subprocess:
             run_step_as_subprocess(
                 logger,
@@ -194,6 +233,15 @@ def _step_worker_fn(
                 step_log_filename,
                 dask_client=None,
                 timing_breakdown=timing_breakdown,
+            )
+        if _profiling:
+            _pr.disable()
+            _buf = io.StringIO()
+            stats = pstats.Stats(_pr, stream=_buf)
+            stats.sort_stats('cumulative').print_stats(20)
+            logger.info(
+                f'[POLARIS_PROFILE_STEPS] {step.name} '
+                f'(task={task_path}):\n{_buf.getvalue()}'
             )
     return timing_breakdown
 
@@ -1517,7 +1565,11 @@ def _emit_step_timing(
         constrain_resources_duration=timing_breakdown.constrain_resources,
         dependency_load_duration=timing_breakdown.dependency_load,
         execution_duration=timing_breakdown.execution,
+        input_check_duration=timing_breakdown.input_check,
+        log_context_duration=timing_breakdown.log_context,
         output_check_duration=timing_breakdown.output_check,
+        worker_cpus_allowed=timing_breakdown.worker_cpus_allowed,
+        worker_mems_allowed=timing_breakdown.worker_mems_allowed,
         property_check_duration=property_check_duration,
         runtime_setup_duration=timing_breakdown.runtime_setup,
         step_duration=measured_step_duration,
