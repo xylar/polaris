@@ -1,3 +1,18 @@
+# HPC Validation (run manually after unit tests pass)
+#
+# Stage 1 — Chrysalis and Perlmutter CPU:
+#   polaris run -s omega_pr
+#   polaris serial -s omega_pr   (for baseline comparison)
+#   Check: schedule_events.jsonl shows placement_enforced=true for local steps.
+#   Check: MPI rank counts unchanged; wall time within 5% or 30 s of serial.
+#   Check: schedule_events.jsonl shows dask_phase_start/stop lifecycle events.
+#
+# Stage 2 (only if Stage 1 passes) — Chrysalis omega_nightly/mpaso_pr and
+# Perlmutter or Aurora GPU omega_pr:
+#   polaris run -s omega_nightly  (Chrysalis)
+#   polaris run -s mpaso_pr       (Chrysalis)
+#   polaris run -s omega_pr       (Perlmutter GPU or Aurora)
+#   Check: same acceptance criteria as Stage 1.
 import json
 from contextlib import contextmanager
 from pathlib import Path
@@ -1779,3 +1794,136 @@ def test_resource_reserved_mpi_step_fields(tmp_path, monkeypatch):
     assert step_event['placement_enforced'] is False
     assert step_event['resource_scope'] == 'allocation'
     assert 'node_indices' in step_event
+
+
+def test_resource_released_includes_placement_fields(tmp_path, monkeypatch):
+    # resource_released events must carry execution_kind and node_indices so
+    # that post-run analysis tools can join them with resource_reserved events
+    # without needing a separate lookup.
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    local_step = DummyStep(tmp_path, 'local')
+    mpi_step = DummyStep(tmp_path, 'mpi')
+    mpi_step.ntasks = 4
+    mpi_step.min_tasks = 2
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['local', 'mpi'],
+        steps={'local': local_step, 'mpi': mpi_step},
+    )
+
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
+    monkeypatch.setattr(
+        run_scheduler,
+        'run_step',
+        lambda *args, **kwargs: None,
+    )
+    _patch_dask_client(monkeypatch)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 4,
+            'nodes': 1,
+            'cores_per_node': 4,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+    released = [e for e in events if e['event'] == 'resource_released']
+    assert len(released) == 2
+
+    local_rel = next(e for e in released if e['step'] == 'local')
+    assert local_rel['execution_kind'] == 'local'
+    assert isinstance(local_rel['node_indices'], list)
+
+    mpi_rel = next(e for e in released if e['step'] == 'mpi')
+    assert mpi_rel['execution_kind'] == 'mpi'
+    assert isinstance(mpi_rel['node_indices'], list)
+
+
+def test_placement_fields_consistent_across_mixed_task(tmp_path, monkeypatch):
+    # For a task with both local and MPI steps, verify that placement_enforced
+    # and resource_scope in resource_reserved events are consistent with
+    # execution_kind for every step, and that resource_released events always
+    # carry execution_kind and node_indices.
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    local_step = DummyStep(tmp_path, 'local')
+    mpi_step = DummyStep(tmp_path, 'mpi')
+    mpi_step.ntasks = 4
+    mpi_step.min_tasks = 2
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['local', 'mpi'],
+        steps={'local': local_step, 'mpi': mpi_step},
+    )
+
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
+    monkeypatch.setattr(
+        run_scheduler,
+        'run_step',
+        lambda *args, **kwargs: None,
+    )
+    _patch_dask_client(monkeypatch)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 4,
+            'nodes': 1,
+            'cores_per_node': 4,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+    for event in events:
+        if event['event'] != 'resource_reserved':
+            continue
+        kind = event['execution_kind']
+        if kind == 'local':
+            assert event['placement_enforced'] is True, (
+                f'local step {event["step"]} missing placement_enforced'
+            )
+            assert event['resource_scope'] == 'single_node', (
+                f'local step {event["step"]} wrong resource_scope'
+            )
+        else:
+            assert event['placement_enforced'] is False, (
+                f'mpi step {event["step"]} missing placement_enforced'
+            )
+            assert event['resource_scope'] == 'allocation', (
+                f'mpi step {event["step"]} wrong resource_scope'
+            )
+
+    for event in events:
+        if event['event'] != 'resource_released':
+            continue
+        assert 'execution_kind' in event, (
+            f'resource_released for {event["step"]} missing execution_kind'
+        )
+        assert 'node_indices' in event, (
+            f'resource_released for {event["step"]} missing node_indices'
+        )
