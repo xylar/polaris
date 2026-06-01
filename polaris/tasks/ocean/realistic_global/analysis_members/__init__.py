@@ -22,6 +22,7 @@ class AnalysisMembers(Task):
         mesh_id,
         config,
         config_filename,
+        resolution_for_cell_count,
     ):
         """
         Create the test case
@@ -60,7 +61,7 @@ class AnalysisMembers(Task):
             mesh_name=mesh_name,
             mesh_id=mesh_id,
             replacements=replacements,
-            resolution_for_cell_count=240,
+            resolution_for_cell_count=resolution_for_cell_count,
         )
         forward_step.set_shared_config(config, link=config_filename)
         self.add_step(forward_step)
