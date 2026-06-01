@@ -779,7 +779,7 @@ real suites.
 
 ### Testing and Validation: Cross-Machine Phase-2 Functionality
 
-Date last modified: 2026/05/26
+Date last modified: 2026/06/01
 
 Contributors:
 
@@ -794,3 +794,10 @@ failures, resume behavior and serial-vs-parallel wall time when meaningful.
 On systems where worker-pool startup and shutdown are expensive, validation
 should include the number of execution-mode switches and an estimate of how
 much task-parallel speedup is needed to amortize that overhead.
+
+Phase 2 validation should preserve the worker diagnostics added during Phase
+1, including worker-side IO format and engine, CPU and memory affinity where
+available, optional per-step profiling with `POLARIS_PROFILE_STEPS=1`,
+worker-pool lifecycle timing and serial-vs-parallel runtime comparisons.
+Perlmutter `omega_pr` should be treated as a regression target for changes
+that affect worker execution or NetCDF output.

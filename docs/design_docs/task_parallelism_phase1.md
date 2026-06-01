@@ -881,7 +881,7 @@ behavior that should remain serialized in Phase 2.
 
 ### Implementation: Observable Execution and Schedule Summaries
 
-Date last modified: 2026/05/29
+Date last modified: 2026/06/01
 
 Contributors:
 
@@ -900,6 +900,15 @@ execution, completion-marker writing, output checks, property checks,
 baseline validation, measured step duration and total step duration. The
 extra timing bucket is intended to show whether wall-time differences are
 coming from scheduler bookkeeping or from time spent inside the step body.
+The event also records input-check and log-context durations, plus worker-side
+CPU affinity, memory affinity, NetCDF format and NetCDF engine when those
+values are available from a worker-executed Python step.
+
+When `POLARIS_PROFILE_STEPS=1` is set, each step is wrapped in `cProfile`.
+The resulting cumulative-time profile summary is written to the step or task
+log. This optional diagnostic was added to compare task-serial and
+task-parallel performance and to identify whether slowdowns come from Polaris
+bookkeeping, model execution, filesystem IO or library calls inside the step.
 
 Task logs include a human-readable selected-order summary with node status and
 wait reason. The main suite log reports per-step runtime lines, per-task
@@ -914,6 +923,9 @@ Allocation-scoped Dask scheduler and worker output is written to
 `dask_runtime.log` in the run work directory. This keeps useful backend
 debugging output available without obscuring the main Polaris log with normal
 Dask lifecycle messages.
+Dask worker `srun` launch commands are also logged so that node placement, CPU
+binding, GPU binding and declared Dask worker resources can be checked after a
+run.
 
 The `polaris.run.validation` module provides helpers for parsing scheduler
 event files, summarizing scheduler and Dask evidence, counting events,
@@ -922,7 +934,7 @@ the Phase 1 single-step policy.
 
 ### Implementation: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/05/30
+Date last modified: 2026/06/01
 
 Contributors:
 
@@ -940,6 +952,15 @@ launched job steps for non-MPI work by running those steps directly in the
 scheduler process. MPI steps continue to use `run_parallel_command` for
 Slurm launch, receiving the full allocation view without a control-plane
 core subtracted.
+
+Perlmutter validation also showed that runtime IO configuration must be set
+inside Dask worker processes for worker-executed Python steps. The worker
+entry point reads `step.config` and sets `mpas_tools.io.default_format` and
+`mpas_tools.io.default_engine` from the Polaris `[io]` section before running
+the step. This is necessary because Dask worker processes do not inherit
+in-memory `mpas_tools.io` defaults from the driver process. Polaris now
+defaults to `format = NETCDF4` and `engine = netcdf4`, avoiding the observed
+Perlmutter worker-side bottleneck from `NETCDF3_64BIT_DATA` output.
 
 ### Implementation: Frontier Support
 
@@ -1150,7 +1171,7 @@ future node, GPU and memory accounting.
 
 ### Testing and Validation: Observable Execution and Schedule Summaries
 
-Date last modified: 2026/05/29
+Date last modified: 2026/06/01
 
 Contributors:
 
@@ -1174,9 +1195,20 @@ Task-runtime tests verify that suite task runtimes are summed from measured
 step durations, and that a shared step contributes to the runtime of every
 task that references it while still running only once.
 
+Profiling validation with `POLARIS_PROFILE_STEPS=1` should confirm that
+per-step profile blocks appear in logs, that the profile can identify
+expensive calls such as `mpas_tools.io.write_netcdf()` and
+`xarray.Dataset.to_netcdf()`, and that normal step success and failure
+reporting remains intact.
+
+Structured-event validation should confirm that worker-executed Python steps
+record worker-side IO format and engine in `step_timing` events. CPU and
+memory affinity fields should be populated when available from the worker
+environment. MPI or subprocess steps may leave worker-only fields blank.
+
 ### Testing and Validation: Cross-Machine Phase-1 Functionality
 
-Date last modified: 2026/05/29
+Date last modified: 2026/06/01
 
 Contributors:
 
@@ -1230,8 +1262,25 @@ Recorded system validation status is:
   worker-pool lifecycle time was `0:00:55`, or 8.9% of suite wall time,
   suggesting that the remaining overhead is much smaller and that the
   previous CPU validation may also have been affected by normal run-to-run
-  variability. `omega_nightly` and `mpaso_pr` are not planned for Perlmutter
-  validation in Phase 1.
+  variability.
+
+  Later May 31 and June 1 testing isolated a separate IO bottleneck in the
+  manufactured-solution `init_25km` step. Task-serial CPU and GPU baselines
+  showed the step near the expected short runtime, while task-parallel GPU
+  runs in `omega-pr-parallel-gpu10` and `omega-pr-parallel-gpu11` showed
+  `init_25km` taking roughly `52-60 s`. Profiling showed the slowdown was
+  dominated by NetCDF writes through `mpas_tools` and `xarray`. The first
+  NETCDF4 experiment did not actually test worker-side NETCDF4 output because
+  Dask workers were still using their own `mpas_tools.io` defaults. After
+  propagating Polaris IO configuration inside the worker, the successful run
+  `test_20260531/omega-pr-parallel-gpu13/polaris_omega_pr.o53717622`
+  restored `init_25km` to `0:00:10`, with total suite runtime `0:11:54`.
+  Its `step_timing` evidence recorded `worker_io_format = NETCDF4`,
+  `worker_io_engine = netcdf4`, `init_25km` execution duration about `8.9 s`
+  and step duration about `9.8 s`. Direct file checks confirmed
+  `data_model=NETCDF4` and `disk_format=HDF5` for `base_mesh.nc`,
+  `culled_mesh.nc` and `init.nc`. `omega_nightly` and `mpaso_pr` are not
+  planned for Perlmutter validation in Phase 1.
 - **Aurora**: updated post-restructure `omega_pr` validation has been run from
   `/lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260529`.
   The first task-parallel CPU and GPU runs in

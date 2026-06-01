@@ -438,7 +438,7 @@ benefits.
 
 ### Testing and Validation: Portable and Observable HPC Execution
 
-Date last modified: 2026/04/23
+Date last modified: 2026/06/01
 
 Contributors:
 
@@ -455,3 +455,10 @@ The exact workflows and machine-specific settings should be chosen in
 phase-specific design documents, but this umbrella design requires enough
 observability that failures, performance regressions and resource-allocation
 mistakes can be understood after a run.
+
+Perlmutter task-parallel validation showed that worker-local runtime state is
+part of that observability requirement. Optional per-step profiling isolated
+slow NetCDF writes inside task-parallel Dask workers, worker-side IO format
+and engine diagnostics showed whether Polaris configuration reached those
+workers, and confirmed NETCDF4 output resolved the
+manufactured-solution `init_25km` slowdown.
