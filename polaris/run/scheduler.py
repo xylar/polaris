@@ -1085,6 +1085,10 @@ def _run_scheduler_node(
     step_start_perf = time.perf_counter()
 
     reservation = None
+    execution_kind = 'mpi'
+    node_indices: list[int] = []
+    placement_enforced = False
+    resource_scope = 'allocation'
     timing_breakdown = StepTimingBreakdown()
     try:
         try:
@@ -1107,6 +1111,13 @@ def _run_scheduler_node(
             feasible=feasible,
         )
         reservation = resource_pool.reserve_step(step, request)
+        if reservation.placement is not None:
+            execution_kind = reservation.placement.kind
+            node_indices = list(reservation.placement.node_indices)
+            placement_enforced = reservation.placement.kind == 'local'
+            resource_scope = (
+                'single_node' if placement_enforced else 'allocation'
+            )
         if (
             reservation.placement is not None
             and reservation.placement.kind == 'local'
@@ -1128,11 +1139,15 @@ def _run_scheduler_node(
             task=node.task_name,
             step=node.step_name,
             cores=reservation.cores,
+            execution_kind=execution_kind,
             free_cores=resource_pool.free_cores,
             free_gpus=resource_pool.free_gpus,
             free_nodes=resource_pool.free_nodes,
+            node_indices=node_indices,
             nodes=reservation.nodes,
             gpus=reservation.gpus,
+            placement_enforced=placement_enforced,
+            resource_scope=resource_scope,
             result='reserved',
             total_cores=resource_pool.total_cores,
             total_gpus=resource_pool.total_gpus,
@@ -1220,9 +1235,11 @@ def _run_scheduler_node(
                 task=node.task_name,
                 step=node.step_name,
                 active_steps=recorder.active_steps,
+                execution_kind=execution_kind,
                 free_cores=resource_pool.free_cores,
                 free_gpus=resource_pool.free_gpus,
                 free_nodes=resource_pool.free_nodes,
+                node_indices=node_indices,
                 result='released',
                 suite_active_steps=_active_count(active_counter),
                 total_cores=resource_pool.total_cores,

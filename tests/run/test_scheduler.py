@@ -538,7 +538,9 @@ def test_scheduler_run_task_uses_graph_order_and_single_active_step(
         run_order.append(step.name)
         active_steps -= 1
 
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
     _patch_dask_client(monkeypatch)
 
@@ -640,7 +642,9 @@ def test_scheduler_run_task_updates_rerun_markers(tmp_path, monkeypatch):
         steps={'init': init, 'forward': forward},
     )
 
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
     _patch_dask_client(monkeypatch)
 
     baselines_passed = run_scheduler.run_task(
@@ -703,7 +707,9 @@ def test_scheduler_run_task_blocks_failed_dependents_and_releases_resources(
         if step.name == 'fail':
             raise RuntimeError('expected failure')
 
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
     _patch_dask_client(monkeypatch)
 
@@ -777,7 +783,9 @@ def test_scheduler_records_infeasible_resource_diagnostics(
         steps={'too_large': step},
     )
 
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
 
     with pytest.raises(ValueError, match='minimum'):
         run_scheduler.run_task(
@@ -848,7 +856,9 @@ def test_scheduler_submits_local_step_to_dask_worker(tmp_path, monkeypatch):
             client, fn, node_index, cores, gpus, *args, **kwargs
         )
 
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
     monkeypatch.setattr(
         run_scheduler, 'submit_step_to_node', _capturing_submit
@@ -927,7 +937,9 @@ def test_scheduler_submits_subprocess_step_to_dask_worker(
             client, fn, node_index, cores, gpus, *args, **kwargs
         )
 
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
     monkeypatch.setattr(
         run_scheduler, 'run_step_as_subprocess', _run_subprocess
     )
@@ -983,7 +995,9 @@ def test_scheduler_no_dask_phase_for_mpi_only_task(tmp_path, monkeypatch):
     ):
         pass
 
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
     # dask_client_context must NOT be called for an MPI-only task.
     monkeypatch.setattr(
@@ -1051,7 +1065,9 @@ def test_scheduler_dask_workers_stay_alive_across_mpi_step(
     ):
         pass
 
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
     _patch_dask_client(monkeypatch)
 
@@ -1139,7 +1155,9 @@ def test_scheduler_workers_stop_before_mpi_when_flag_set(
     ):
         pass
 
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
     monkeypatch.setattr(
         run_scheduler, '_get_stop_workers_before_mpi', lambda *_: True
@@ -1622,7 +1640,9 @@ def test_scheduler_passes_placement_correct_resources_to_run_step(
     ):
         received[step.name] = dict(available_resources)
 
-    monkeypatch.setattr(run_scheduler, 'setup_config', lambda *args: object())
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
     monkeypatch.setattr(run_scheduler, 'run_step', _run_step)
     _patch_dask_client(monkeypatch)
 
@@ -1654,3 +1674,108 @@ def test_scheduler_passes_placement_correct_resources_to_run_step(
     # Neither view subtracts a control-plane core.
     assert local_res['cores'] > 0
     assert mpi_res['cores'] == 192
+
+
+def test_resource_reserved_local_step_fields(tmp_path, monkeypatch):
+    # resource_reserved events for LOCAL (non-MPI) steps must carry
+    # placement_enforced=True and resource_scope='single_node' so that
+    # Phase 2 can verify pinned-worker placement at the event level.
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    step = DummyStep(tmp_path, 'local')
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['local'],
+        steps={'local': step},
+    )
+
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
+    monkeypatch.setattr(
+        run_scheduler,
+        'run_step',
+        lambda *args, **kwargs: None,
+    )
+    _patch_dask_client(monkeypatch)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 4,
+            'nodes': 1,
+            'cores_per_node': 4,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+    reserved = [e for e in events if e['event'] == 'resource_reserved']
+    assert len(reserved) >= 1
+    step_event = next(e for e in reserved if e['step'] == 'local')
+    assert step_event['execution_kind'] == 'local'
+    assert step_event['placement_enforced'] is True
+    assert step_event['resource_scope'] == 'single_node'
+    assert 'node_indices' in step_event
+    assert isinstance(step_event['node_indices'], list)
+
+
+def test_resource_reserved_mpi_step_fields(tmp_path, monkeypatch):
+    # resource_reserved events for MPI steps must carry
+    # placement_enforced=False and resource_scope='allocation' because
+    # the MPI launcher — not the scheduler — handles process placement.
+    class DummyLogger:
+        def info(self, message):
+            pass
+
+    step = DummyStep(tmp_path, 'mpi')
+    step.ntasks = 4
+    step.min_tasks = 2
+    task = SimpleNamespace(
+        path='ocean/task',
+        work_dir=str(tmp_path),
+        logger=DummyLogger(),
+        stdout_logger=DummyLogger(),
+        log_filename=None,
+        new_step_log_file=False,
+        steps_to_run=['mpi'],
+        steps={'mpi': step},
+    )
+
+    monkeypatch.setattr(
+        run_scheduler, 'setup_config', lambda *args: DummyConfig()
+    )
+    monkeypatch.setattr(
+        run_scheduler,
+        'run_step',
+        lambda *args, **kwargs: None,
+    )
+    _patch_dask_client(monkeypatch)
+
+    run_scheduler.run_task(
+        task,
+        {
+            'cores': 4,
+            'nodes': 1,
+            'cores_per_node': 4,
+            'gpus': 0,
+            'mpi_allowed': True,
+        },
+    )
+
+    events = _read_events(tmp_path / 'schedule_events.jsonl')
+    reserved = [e for e in events if e['event'] == 'resource_reserved']
+    assert len(reserved) >= 1
+    step_event = next(e for e in reserved if e['step'] == 'mpi')
+    assert step_event['execution_kind'] == 'mpi'
+    assert step_event['placement_enforced'] is False
+    assert step_event['resource_scope'] == 'allocation'
+    assert 'node_indices' in step_event
