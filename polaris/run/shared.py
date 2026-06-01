@@ -75,6 +75,11 @@ class StepTimingBreakdown:
         NUMA domains confirms a first-touch NUMA bottleneck.  Empty string
         outside a worker.
 
+    worker_io_format : str
+        NetCDF output format configured inside a Dask worker process.
+
+    worker_io_engine : str
+        NetCDF output engine configured inside a Dask worker process.
     """
 
     dependency_load: float = 0.0
@@ -87,6 +92,8 @@ class StepTimingBreakdown:
     log_context: float = 0.0
     worker_cpus_allowed: str = ''
     worker_mems_allowed: str = ''
+    worker_io_format: str = ''
+    worker_io_engine: str = ''
 
 
 def unpickle_suite(suite_name):

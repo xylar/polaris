@@ -203,6 +203,12 @@ def _step_worker_fn(
     affinity = _read_worker_affinity()
     timing_breakdown.worker_cpus_allowed = affinity['cpus_allowed']
     timing_breakdown.worker_mems_allowed = affinity['mems_allowed']
+    io_format = step.config.get('io', 'format')
+    io_engine = step.config.get('io', 'engine')
+    mpas_tools.io.default_format = io_format
+    mpas_tools.io.default_engine = io_engine
+    timing_breakdown.worker_io_format = io_format
+    timing_breakdown.worker_io_engine = io_engine
     task_name = task_path.replace('/', '_')
     _profiling = os.environ.get('POLARIS_PROFILE_STEPS', '').lower() in (
         '1',
@@ -1569,6 +1575,8 @@ def _emit_step_timing(
         log_context_duration=timing_breakdown.log_context,
         output_check_duration=timing_breakdown.output_check,
         worker_cpus_allowed=timing_breakdown.worker_cpus_allowed,
+        worker_io_engine=timing_breakdown.worker_io_engine,
+        worker_io_format=timing_breakdown.worker_io_format,
         worker_mems_allowed=timing_breakdown.worker_mems_allowed,
         property_check_duration=property_check_duration,
         runtime_setup_duration=timing_breakdown.runtime_setup,
