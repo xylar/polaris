@@ -19,7 +19,8 @@ class AnalysisMembers(Task):
         component,
         subdir,
         mesh_name,
-        mesh_id,
+        mpaso_id,
+        omega_id,
         resolution_for_cell_count,
     ):
         """
@@ -65,7 +66,8 @@ class AnalysisMembers(Task):
             package=package,
             indir=subdir,
             mesh_name=mesh_name,
-            mesh_id=mesh_id,
+            mpaso_id=mpaso_id,
+            omega_id=omega_id,
             replacements=replacements,
             resolution_for_cell_count=resolution_for_cell_count,
         )
