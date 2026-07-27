@@ -228,6 +228,11 @@ config:
     cvmix: [VertMix, Shear]
   options:
     config_use_cvmix_shear: Enable
-    config_cvmix_shear_PP_nu_zero: NuZero
-    config_cvmix_shear_PP_alpha: Alpha
-    config_cvmix_shear_PP_exp: Exponent
+    # Omega implements only the LMD94 (CVMix "KPP") shear form, so the
+    # Pacanowski-Philander options have no counterpart and
+    # config_cvmix_shear_mixing_scheme must be set to KPP on the
+    # MPAS-Ocean side
+    config_cvmix_shear_KPP_nu_zero: BaseShearValue
+    config_cvmix_shear_KPP_Ri_zero: RiCrit
+    config_cvmix_shear_KPP_exp: Exponent
+    config_cvmix_num_ri_smooth_loops: RiSmoothLoops
