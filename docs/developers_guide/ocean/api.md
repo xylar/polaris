@@ -748,6 +748,9 @@
 
    validate.Validate
    validate.Validate.run
+
+   viz.VizDynamicAdjustmentStep
+   viz.VizDynamicAdjustmentStep.run
 ```
 
 ### seamount
