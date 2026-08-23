@@ -36,6 +36,25 @@ nnodes="${#nodes[@]}"
 mkdir -p "${outdir}"
 export SPIKE_OUTDIR="${outdir}"
 export SPIKE_SLEEP="${sleep_seconds}"
+
+# Bash reads a script incrementally rather than all at once, so editing
+# these files while a job is running shifts the byte offsets underneath it
+# and it resumes mid-token.  That has already cost one Chrysalis run.
+# Re-exec from a snapshot instead, which also leaves every recorded run with
+# a copy of the exact scripts that produced it.
+if [ "${SPIKE_SNAPSHOT:-0}" != "1" ]; then
+    snapshot="${outdir}/scripts"
+    mkdir -p "${snapshot}"
+    cp "${here}/spike_pals.sh" "${here}/payload.sh" "${here}/mpi_payload.c" \
+       "${here}/summarize.py" "${snapshot}/"
+    chmod +x "${snapshot}/spike_pals.sh" "${snapshot}/payload.sh" \
+        "${snapshot}/summarize.py"
+    export SPIKE_SNAPSHOT=1
+    # git discovery for the load script has to keep pointing at the real
+    # worktree, not at the snapshot inside the results directory.
+    export SPIKE_REPO="${here}"
+    exec "${snapshot}/spike_pals.sh"
+fi
 # Required on Aurora so ranks can query the runtime for job information.
 export PALS_PMI="${PALS_PMI:-pmix}"
 
@@ -90,7 +109,7 @@ find_load_script () {
         printf '%s' "${SPIKE_LOAD_SCRIPT}"
         return 0
     fi
-    root="$(git -C "${here}" rev-parse --show-toplevel 2>/dev/null || true)"
+    root="$(git -C "${SPIKE_REPO:-${here}}" rev-parse --show-toplevel 2>/dev/null || true)"
     if [ -n "${root}" ]; then
         local own
         own="$(ls -1t "${root}"/load_polaris_*.sh 2>/dev/null | head -1 || true)"
@@ -107,7 +126,7 @@ find_load_script () {
             printf '%s' "${found}"
             return 0
         fi
-    done < <(git -C "${here}" worktree list --porcelain 2>/dev/null \
+    done < <(git -C "${SPIKE_REPO:-${here}}" worktree list --porcelain 2>/dev/null \
              | awk '/^worktree /{print $2}')
     return 1
 }
