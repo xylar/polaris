@@ -1,0 +1,117 @@
+=== Polaris launcher spike (Slurm) ===
+slurm version:  25.11.5
+placement:      overlap-exact
+job id:         5331238
+nodes:          2 (frontier[05802-05803])
+target node:    frontier05802
+cores on node:  56
+slots:          4 x 4 cpus
+mpi ranks:      2 per launch
+payload sleep:  15s
+results:        /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-launcher-spike/utils/launcher_spike/spike_results_5331238
+
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.2.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+Running "module reset". Resetting modules to system default. The following $MODULEPATH directories have been removed: None
+
+Lmod is automatically replacing "cce/18.0.1" with "gcc-native/13.2".
+
+
+Lmod is automatically replacing "PrgEnv-cray/8.6.0" with "PrgEnv-gnu/8.6.0".
+
+
+The following have been reloaded with a version change:
+  1) cray-dsmml/0.3.0 => cray-dsmml/0.3.1
+  2) cray-libsci/24.11.0 => cray-libsci/25.09.0
+  3) cray-mpich/8.1.31 => cray-mpich/9.0.1
+  4) cray-pmi/6.1.15 => cray-pmi/6.1.16
+  5) craype/2.7.33 => craype/2.7.35
+  6) darshan-runtime/3.4.6-mpi => darshan-runtime/3.4.7-mpi
+  7) perftools-base/24.11.0 => perftools-base/25.09.0
+
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+polaris env:    /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/main/load_polaris_frontier_craygnu-mphipcc_mpich.sh
+mpi payload:    mpicc (/autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-launcher-spike/utils/launcher_spike/spike_results_5331238/mpi_payload)
+
+--- A_sequential_plain: 10 sequential launches (no extra flags)
+    total 9.25s for 10 launches
+--- A_sequential_exact: 10 sequential launches (--exact)
+    total 5.59s for 10 launches
+--- B_concurrent_plain: 4 concurrent launches x 1 rank(s) (no extra flags)
+    done
+--- B_concurrent_exact: 4 concurrent launches x 1 rank(s) --exact
+    done
+--- B_concurrent_exact_gpu: 4 concurrent launches x 1 rank(s) --exact --gpus-per-task=1
+    done
+--- B_overlap_control: 4 concurrent launches x 1 rank(s) --overlap --exact
+    done
+--- C_concurrent_mpi_plain: 4 concurrent launches x 2 rank(s) (no extra flags)
+    done
+--- C_concurrent_mpi_exact: 4 concurrent launches x 2 rank(s) --exact
+    done
+--- D_concurrent_mpi_gpu: 4 concurrent launches x 2 rank(s) --exact --gpus-per-task=1
+    done
+
+=== summary ===
+  run: frontier / slurm job 5331238, 2 node(s), 56 cores/node
+       4 slot(s) x 2 rank(s) x 4 cpu(s), mpi payload mpicc
+       25.11.5
+
+  A_sequential_exact: 10 sequential launches, median 0.11s, max 2.41s -> ~521.7 launches/min
+  A_sequential_plain: 10 sequential launches, median 0.14s, max 2.30s -> ~444.4 launches/min
+  B_concurrent_exact: 4 slot(s) reported, peak concurrency 1, hosts ['frontier05802'], cores/rank [4]
+      GPUs: slot1=['0', '1', '2', '3', '4', '5', '6', '7'] slot2=['0', '1', '2', '3', '4', '5', '6', '7'] slot3=['0', '1', '2', '3', '4', '5', '6', '7'] slot4=['0', '1', '2', '3', '4', '5', '6', '7']
+      GPUs are disjoint across slots
+      cores are disjoint across slots
+  B_concurrent_exact_gpu: 4 slot(s) reported, peak concurrency 1, hosts ['frontier05802'], cores/rank [4]
+      GPUs: slot1=['4'] slot2=['4'] slot3=['4'] slot4=['4']
+      GPUs are disjoint across slots
+      cores are disjoint across slots
+  B_concurrent_plain: 4 slot(s) reported, peak concurrency 1, hosts ['frontier05802'], cores/rank [4]
+      GPUs: slot1=['0', '1', '2', '3', '4', '5', '6', '7'] slot2=['0', '1', '2', '3', '4', '5', '6', '7'] slot3=['0', '1', '2', '3', '4', '5', '6', '7'] slot4=['0', '1', '2', '3', '4', '5', '6', '7']
+      GPUs are disjoint across slots
+      cores are disjoint across slots
+  B_overlap_control: 4 slot(s) reported, peak concurrency 4, hosts ['frontier05802'], cores/rank [4]
+      GPUs: slot1=['0', '1', '2', '3', '4', '5', '6', '7'] slot2=['0', '1', '2', '3', '4', '5', '6', '7'] slot3=['0', '1', '2', '3', '4', '5', '6', '7'] slot4=['0', '1', '2', '3', '4', '5', '6', '7']
+      GPU COLLISIONS:
+        slots 1 and 2 overlapped in time and share GPU(s) ['0', '1', '2', '3', '4', '5', '6', '7']
+        slots 1 and 3 overlapped in time and share GPU(s) ['0', '1', '2', '3', '4', '5', '6', '7']
+        slots 1 and 4 overlapped in time and share GPU(s) ['0', '1', '2', '3', '4', '5', '6', '7']
+        slots 2 and 3 overlapped in time and share GPU(s) ['0', '1', '2', '3', '4', '5', '6', '7']
+        slots 2 and 4 overlapped in time and share GPU(s) ['0', '1', '2', '3', '4', '5', '6', '7']
+        slots 3 and 4 overlapped in time and share GPU(s) ['0', '1', '2', '3', '4', '5', '6', '7']
+      CORE COLLISIONS:
+        slots 1 and 2 overlapped in time and share cores [1, 2, 3, 4] on frontier05802
+        slots 1 and 3 overlapped in time and share cores [1, 2, 3, 4] on frontier05802
+        slots 1 and 4 overlapped in time and share cores [1, 2, 3, 4] on frontier05802
+        slots 2 and 3 overlapped in time and share cores [1, 2, 3, 4] on frontier05802
+        slots 2 and 4 overlapped in time and share cores [1, 2, 3, 4] on frontier05802
+        slots 3 and 4 overlapped in time and share cores [1, 2, 3, 4] on frontier05802
+  C_concurrent_mpi_exact: 4 slot(s) reported, peak concurrency 1, hosts ['frontier05802'], cores/rank [4]
+      GPUs: slot1=['0', '1', '2', '3', '4', '5', '6', '7'] slot2=['0', '1', '2', '3', '4', '5', '6', '7'] slot3=['0', '1', '2', '3', '4', '5', '6', '7'] slot4=['0', '1', '2', '3', '4', '5', '6', '7']
+      GPUs are disjoint across slots
+      cores are disjoint across slots
+  C_concurrent_mpi_plain: 4 slot(s) reported, peak concurrency 1, hosts ['frontier05802'], cores/rank [4]
+      GPUs: slot1=['0', '1', '2', '3', '4', '5', '6', '7'] slot2=['0', '1', '2', '3', '4', '5', '6', '7'] slot3=['0', '1', '2', '3', '4', '5', '6', '7'] slot4=['0', '1', '2', '3', '4', '5', '6', '7']
+      GPUs are disjoint across slots
+      cores are disjoint across slots
+  D_concurrent_mpi_gpu: 4 slot(s) reported, peak concurrency 1, hosts ['frontier05802'], cores/rank [4]
+      GPUs: slot1=['4', '5'] slot2=['4', '5'] slot3=['4', '5'] slot4=['4', '5']
+      GPUs are disjoint across slots
+      cores are disjoint across slots
+  scripts: no payload output -- launches probably failed
+
+Reading the results:
+  A sequential fast + B peak concurrency == slots  -> Tier A works, use --overlap --exact
+  A sequential fast + B peak concurrency == 1   -> job-step exclusivity; check B0 control and flags
+  A sequential slow (~1/min)                   -> genuine throttling; Tier A is out, evaluate Flux
+  C/D peak < slots or core collisions            -> placement is not enforced at MPI width
+
+To record these results on the branch, from a LOGIN node:
+  cd /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-launcher-spike/utils/launcher_spike/spike_results_5331238/scripts
+  ./record_results.sh /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-launcher-spike/utils/launcher_spike/spike_results_5331238 /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-launcher-spike/utils/launcher_spike/launcher_spike.o5331238
