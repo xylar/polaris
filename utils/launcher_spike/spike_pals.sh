@@ -80,19 +80,48 @@ echo
 # generates in the worktree.  Never hand-pick modules here: that script is
 # the only source of truth for what a machine is supposed to provide, and it
 # also exports POLARIS_MACHINE, which labels the recorded results.
-load_polaris_env () {
-    local root script prev
-    root="$(git -C "${here}" rev-parse --show-toplevel 2>/dev/null || true)"
-    script="${SPIKE_LOAD_SCRIPT:-}"
-    if [ -z "${script}" ] && [ -n "${root}" ]; then
-        script="$(ls -1 "${root}"/load_polaris_*.sh 2>/dev/null | head -1 || true)"
+# Deploying the spike worktree on every machine just to get a compiler is a
+# lot of build time for a throwaway branch, and a load script generated in
+# any worktree on this machine describes the same machine.  So look in this
+# worktree first, then across the repo's other worktrees, newest first.
+find_load_script () {
+    local root worktree
+    if [ -n "${SPIKE_LOAD_SCRIPT:-}" ]; then
+        printf '%s' "${SPIKE_LOAD_SCRIPT}"
+        return 0
     fi
+    root="$(git -C "${here}" rev-parse --show-toplevel 2>/dev/null || true)"
+    if [ -n "${root}" ]; then
+        local own
+        own="$(ls -1t "${root}"/load_polaris_*.sh 2>/dev/null | head -1 || true)"
+        if [ -n "${own}" ]; then
+            printf '%s' "${own}"
+            return 0
+        fi
+    fi
+    while read -r worktree; do
+        [ -n "${worktree}" ] || continue
+        local found
+        found="$(ls -1t "${worktree}"/load_polaris_*.sh 2>/dev/null | head -1 || true)"
+        if [ -n "${found}" ]; then
+            printf '%s' "${found}"
+            return 0
+        fi
+    done < <(git -C "${here}" worktree list --porcelain 2>/dev/null \
+             | awk '/^worktree /{print $2}')
+    return 1
+}
+
+load_polaris_env () {
+    local script prev
+    script="$(find_load_script || true)"
     if [ -z "${script}" ] || [ ! -f "${script}" ]; then
-        echo "ERROR: no load_polaris_*.sh found in ${root:-<not a git repo>}." >&2
-        echo "  The spike needs the real Polaris environment for a compiler," >&2
-        echo "  an MPI and POLARIS_MACHINE.  Run ./deploy.py in this worktree," >&2
-        echo "  or point SPIKE_LOAD_SCRIPT at another worktree's load script." >&2
-        echo "  Set SPIKE_NO_ENV=1 to run anyway (MPI tests will be degraded)." >&2
+        echo "ERROR: no load_polaris_*.sh found in this worktree or any" >&2
+        echo "  sibling worktree of this repo.  The spike needs the real" >&2
+        echo "  Polaris environment for a compiler, an MPI and" >&2
+        echo "  POLARIS_MACHINE.  Deploy any worktree on this machine with" >&2
+        echo "  ./deploy.py, or set SPIKE_LOAD_SCRIPT to a load script." >&2
+        echo "  Set SPIKE_NO_ENV=1 to run anyway (MPI tests degraded)." >&2
         return 1
     fi
     # The load script verifies that the polaris it can import matches the
@@ -117,7 +146,9 @@ if [ "${SPIKE_NO_ENV:-0}" != "1" ]; then
     if [ -n "${POLARIS_MACHINE:-}" ]; then
         sed -i "s|^machine=.*|machine=${POLARIS_MACHINE}|" "${outdir}/meta.kv"
     fi
-    echo "polaris_env=${SPIKE_LOAD_SCRIPT:-auto}" >> "${outdir}/meta.kv"
+    # The load script exports its own path; record what was actually used.
+    echo "polaris_env=${POLARIS_LOAD_SCRIPT:-${SPIKE_LOAD_SCRIPT:-unknown}}" \
+        >> "${outdir}/meta.kv"
 fi
 
 # Cray machines (Perlmutter, Frontier) wrap MPI in `cc`, not `mpicc`.
