@@ -222,6 +222,9 @@ def main():
             )
         )
         print(f'       {meta.get("scheduler_version", "?")}')
+        status = meta.get('status', 'unknown')
+        if status != 'complete':
+            print(f'       RUN STATUS: {status} -- this run did not finish')
         print()
 
     tests = sorted(

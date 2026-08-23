@@ -45,17 +45,34 @@ if [ -z "${results}" ]; then
 fi
 results="$(cd "${results}" && pwd)"
 
-if [ ! -f "${results}/meta.kv" ]; then
-    echo "ERROR: ${results}/meta.kv not found -- did the spike finish?" >&2
-    exit 1
+# A run that aborted early is exactly the one worth recording, so fall back
+# to whatever can be worked out rather than refusing.
+machine=""
+job_id=""
+status="unknown"
+if [ -f "${results}/meta.kv" ]; then
+    machine="$(awk -F= '/^machine=/ {print $2}' "${results}/meta.kv")"
+    job_id="$(awk -F= '/^job_id=/ {print $2}' "${results}/meta.kv")"
+    status="$(awk -F= '/^status=/ {print $2}' "${results}/meta.kv")"
+else
+    echo "WARNING: ${results}/meta.kv not found; the run probably aborted" >&2
+    echo "  before it could write one.  Recording what is there anyway." >&2
+    machine="${POLARIS_MACHINE:-${LMOD_SYSTEM_NAME:-}}"
+    # spike_results_<jobid> is the layout the job scripts use
+    case "$(basename "${results}")" in
+        spike_results_*) job_id="$(basename "${results}")"
+                         job_id="${job_id#spike_results_}" ;;
+    esac
+    status="aborted"
 fi
-
-machine="$(awk -F= '/^machine=/ {print $2}' "${results}/meta.kv")"
-job_id="$(awk -F= '/^job_id=/ {print $2}' "${results}/meta.kv")"
 # PBS job ids look like 12345.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov
 job_id="${job_id%%.*}"
-machine="${machine:-unknown}"
+machine="${SPIKE_MACHINE:-${machine:-unknown}}"
 job_id="${job_id:-$(date +%Y%m%d_%H%M%S)}"
+if [ "${machine}" = "unknown" ]; then
+    echo "NOTE: could not determine the machine name; recording under" >&2
+    echo "  'unknown'.  Set SPIKE_MACHINE=<name> to label it properly." >&2
+fi
 
 dest="${repo}/utils/launcher_spike/results/${machine}/${job_id}"
 if [ -e "${dest}" ]; then
@@ -74,6 +91,12 @@ if [ -n "${job_log}" ] && [ -f "${job_log}" ]; then
 fi
 
 python3 "${here}/summarize.py" "${results}" > "${dest}/summary.txt" 2>&1 || true
+if [ "${status}" != "complete" ]; then
+    {
+        echo
+        echo "RUN STATUS: ${status} -- this run did not finish; see job.log"
+    } >> "${dest}/summary.txt"
+fi
 
 echo
 echo "=== recorded summary ==="
@@ -86,7 +109,11 @@ if git -C "${repo}" diff --cached --quiet; then
     exit 0
 fi
 
-git -C "${repo}" commit -q -m "Record launcher spike results from ${machine} (job ${job_id})" \
+commit_subject="Record launcher spike results from ${machine} (job ${job_id})"
+if [ "${status}" != "complete" ]; then
+    commit_subject="Record ${status} launcher spike run from ${machine} (job ${job_id})"
+fi
+git -C "${repo}" commit -q -m "${commit_subject}" \
     -m "$(sed -n '1,12p' "${dest}/summary.txt")"
 echo "committed $(git -C "${repo}" log -1 --format=%h)"
 

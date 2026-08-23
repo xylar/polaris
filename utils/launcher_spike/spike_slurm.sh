@@ -70,6 +70,32 @@ echo "payload sleep:  ${sleep_seconds}s"
 echo "results:        ${outdir}"
 echo
 
+# Write the run metadata before anything that can fail, so that an aborted
+# run is still recordable.  The MPI payload and polaris env are appended
+# once they are known.
+{
+    echo "machine=${POLARIS_MACHINE:-${LMOD_SYSTEM_NAME:-$(hostname -s)}}"
+    echo "scheduler=slurm"
+    echo "scheduler_version=${slurm_version:-unknown}"
+    echo "placement_mode=${placement_mode}"
+    echo "job_id=${SLURM_JOB_ID}"
+    echo "hostname=$(hostname -f)"
+    echo "nodes=${nnodes}"
+    echo "nodelist=${SLURM_JOB_NODELIST}"
+    echo "target_node=${node}"
+    echo "cores_on_node=${SLURM_CPUS_ON_NODE:-unknown}"
+    echo "gpus_on_node=${SLURM_GPUS_ON_NODE:-0}"
+    echo "core_list=${core_spec}"
+    echo "slots=${slots}"
+    echo "ranks=${ranks}"
+    echo "cpus=${cpus}"
+    echo "sleep=${sleep_seconds}"
+    echo "seq_n=${seq_n}"
+    echo "started=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+    echo "status=incomplete"
+} > "${outdir}/meta.kv"
+
+
 # Build the MPI payload if we can; otherwise fall back to the shell payload
 # launched at MPI width (still exercises step creation and placement, but
 # not PMI bootstrap).
@@ -109,6 +135,13 @@ load_polaris_env () {
 
 if [ "${SPIKE_NO_ENV:-0}" != "1" ]; then
     load_polaris_env || exit 1
+    # POLARIS_MACHINE only exists once the load script has been sourced, and
+    # meta.kv is deliberately written before that so aborted runs are still
+    # recordable.  Correct the label now that the real name is known.
+    if [ -n "${POLARIS_MACHINE:-}" ]; then
+        sed -i "s|^machine=.*|machine=${POLARIS_MACHINE}|" "${outdir}/meta.kv"
+    fi
+    echo "polaris_env=${SPIKE_LOAD_SCRIPT:-auto}" >> "${outdir}/meta.kv"
 fi
 
 # Cray machines (Perlmutter, Frontier) wrap MPI in `cc`, not `mpicc`.
@@ -137,27 +170,9 @@ if [ "${mpi_kind}" = "shell-fallback" ] \
     exit 1
 fi
 echo "mpi payload:    ${mpi_kind} (${mpi_exe})"
+echo "mpi_payload=${mpi_kind}" >> "${outdir}/meta.kv"
 echo
 
-{
-    echo "machine=${POLARIS_MACHINE:-${LMOD_SYSTEM_NAME:-$(hostname -s)}}"
-    echo "scheduler=slurm"
-    echo "scheduler_version=$(srun --version 2>/dev/null || echo unknown)"
-    echo "job_id=${SLURM_JOB_ID}"
-    echo "hostname=$(hostname -f)"
-    echo "nodes=${nnodes}"
-    echo "nodelist=${SLURM_JOB_NODELIST}"
-    echo "target_node=${node}"
-    echo "cores_on_node=${SLURM_CPUS_ON_NODE:-unknown}"
-    echo "gpus_on_node=${SLURM_GPUS_ON_NODE:-0}"
-    echo "slots=${slots}"
-    echo "ranks=${ranks}"
-    echo "cpus=${cpus}"
-    echo "sleep=${sleep_seconds}"
-    echo "seq_n=${seq_n}"
-    echo "mpi_payload=${mpi_kind}"
-    echo "recorded=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
-} > "${outdir}/meta.kv"
 
 
 parse_core_list () {
@@ -315,6 +330,7 @@ else
     echo "--- D_concurrent_mpi_gpu: skipped (no GPUs detected)"
 fi
 
+sed -i "s/^status=incomplete$/status=complete/" "${outdir}/meta.kv"
 echo
 echo "=== summary ==="
 python3 "${here}/summarize.py" "${outdir}"
