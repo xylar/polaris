@@ -33,12 +33,33 @@ mapfile -t nodes < <(scontrol show hostnames "${SLURM_JOB_NODELIST}")
 node="${SPIKE_NODE:-${nodes[0]}}"
 nnodes="${#nodes[@]}"
 
+# --overlap and --exact were added in Slurm 20.11, along with the change that
+# made job steps exclusive by default.  Older sites (Chrysalis runs 20.02)
+# already let steps share a node, but reject those flags outright, so the
+# spike has to ask for concurrency and placement differently there.
+slurm_version="$(srun --version 2>/dev/null | awk '{print $2}')"
+slurm_major="${slurm_version%%.*}"
+slurm_rest="${slurm_version#*.}"
+slurm_minor="${slurm_rest%%.*}"
+if [ "${slurm_major:-0}" -gt 20 ] 2>/dev/null || {
+        [ "${slurm_major:-0}" -eq 20 ] && [ "${slurm_minor:-0}" -ge 11 ]
+   } 2>/dev/null; then
+    placement_mode="overlap-exact"
+    overlap_flags=(--overlap --exact)
+else
+    placement_mode="cpu-bind-mask"
+    overlap_flags=()
+fi
+
+core_spec="${SPIKE_CORE_LIST:-0-$(( ${SLURM_CPUS_ON_NODE:-1} - 1 ))}"
+
 mkdir -p "${outdir}"
 export SPIKE_OUTDIR="${outdir}"
 export SPIKE_SLEEP="${sleep_seconds}"
 
 echo "=== Polaris launcher spike (Slurm) ==="
-echo "slurm version:  $(srun --version 2>/dev/null || echo unknown)"
+echo "slurm version:  ${slurm_version:-unknown}"
+echo "placement:      ${placement_mode}"
 echo "job id:         ${SLURM_JOB_ID}"
 echo "nodes:          ${nnodes} (${SLURM_JOB_NODELIST})"
 echo "target node:    ${node}"
@@ -52,6 +73,44 @@ echo
 # Build the MPI payload if we can; otherwise fall back to the shell payload
 # launched at MPI width (still exercises step creation and placement, but
 # not PMI bootstrap).
+# The compiler and MPI for a Polaris machine come from mache.deploy, via the
+# load_polaris_<machine>_<compiler>_<mpi>.sh script that `./deploy.py`
+# generates in the worktree.  Never hand-pick modules here: that script is
+# the only source of truth for what a machine is supposed to provide, and it
+# also exports POLARIS_MACHINE, which labels the recorded results.
+load_polaris_env () {
+    local root script prev
+    root="$(git -C "${here}" rev-parse --show-toplevel 2>/dev/null || true)"
+    script="${SPIKE_LOAD_SCRIPT:-}"
+    if [ -z "${script}" ] && [ -n "${root}" ]; then
+        script="$(ls -1 "${root}"/load_polaris_*.sh 2>/dev/null | head -1 || true)"
+    fi
+    if [ -z "${script}" ] || [ ! -f "${script}" ]; then
+        echo "ERROR: no load_polaris_*.sh found in ${root:-<not a git repo>}." >&2
+        echo "  The spike needs the real Polaris environment for a compiler," >&2
+        echo "  an MPI and POLARIS_MACHINE.  Run ./deploy.py in this worktree," >&2
+        echo "  or point SPIKE_LOAD_SCRIPT at another worktree's load script." >&2
+        echo "  Set SPIKE_NO_ENV=1 to run anyway (MPI tests will be degraded)." >&2
+        return 1
+    fi
+    # The load script verifies that the polaris it can import matches the
+    # deployed version, so it has to be sourced from its own worktree.
+    prev="${PWD}"
+    cd "$(dirname "${script}")" || return 1
+    # Neither the generated load script nor the conda activate.d hooks it
+    # runs are written to be safe under `set -u`, so relax it while sourcing.
+    set +u
+    # shellcheck disable=SC1090
+    source "${script}"
+    set -u
+    cd "${prev}" || return 1
+    echo "polaris env:    ${script}"
+}
+
+if [ "${SPIKE_NO_ENV:-0}" != "1" ]; then
+    load_polaris_env || exit 1
+fi
+
 # Cray machines (Perlmutter, Frontier) wrap MPI in `cc`, not `mpicc`.
 mpi_exe="${here}/payload.sh"
 mpi_kind="shell-fallback"
@@ -65,6 +124,18 @@ for candidate in ${SPIKE_MPICC:-} mpicc cc; do
     fi
     echo "WARNING: ${candidate} failed, see ${outdir}/mpicc.log" >&2
 done
+
+# A shell fallback silently downgrades tests C and D from "does PMI bootstrap
+# survive concurrency" to "does step creation survive concurrency", so refuse
+# to run that way unless it is asked for explicitly.
+if [ "${mpi_kind}" = "shell-fallback" ] \
+        && [ "${SPIKE_ALLOW_FALLBACK:-0}" != "1" ]; then
+    echo "ERROR: could not build the MPI payload; see ${outdir}/mpicc.log" >&2
+    echo "  Tests C and D would not exercise MPI at all.  Check that the" >&2
+    echo "  polaris load script provided a compiler and MPI, or rerun with" >&2
+    echo "  SPIKE_ALLOW_FALLBACK=1 to accept the weaker result." >&2
+    exit 1
+fi
 echo "mpi payload:    ${mpi_kind} (${mpi_exe})"
 echo
 
@@ -88,6 +159,51 @@ echo
     echo "recorded=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
 } > "${outdir}/meta.kv"
 
+
+parse_core_list () {
+    local spec="$1"
+    local -a out=()
+    local chunk lo hi core
+    local IFS=','
+    for chunk in ${spec}; do
+        if [[ "${chunk}" == *-* ]]; then
+            lo="${chunk%%-*}"
+            hi="${chunk##*-}"
+            for ((core = lo; core <= hi; core++)); do
+                out+=("${core}")
+            done
+        else
+            out+=("${chunk}")
+        fi
+    done
+    printf '%s\n' "${out[@]}"
+}
+
+mapfile -t cores_avail < <(parse_core_list "${core_spec}")
+
+# Without --exact, a pre-20.11 job step takes every CPU on the node, so the
+# only way to give concurrent steps disjoint cores is an explicit mask.
+# Core numbers can exceed 64, so build the masks in Python rather than in
+# bash arithmetic.
+mask_cpu_for_slot () {
+    local slot="$1"
+    python3 -c '
+import sys
+slot, ranks, cpus = (int(v) for v in sys.argv[1:4])
+cores = [int(c) for c in sys.argv[4].split(",") if c]
+base = (slot - 1) * ranks * cpus
+need = base + ranks * cpus
+if need > len(cores):
+    sys.exit(f"need {need} cores, core list has {len(cores)}")
+masks = []
+for r in range(ranks):
+    mask = 0
+    for c in range(cpus):
+        mask |= 1 << cores[base + r * cpus + c]
+    masks.append(hex(mask))
+print("mask_cpu:" + ",".join(masks))
+' "${slot}" "${ranks}" "${cpus}" "$(IFS=,; echo "${cores_avail[*]}")"
+}
 
 elapsed () {
     awk -v a="$1" -v b="$2" 'BEGIN { printf "%.2f", b - a }'
@@ -169,3 +285,8 @@ fi
 echo
 echo "=== summary ==="
 python3 "${here}/summarize.py" "${outdir}"
+
+echo
+echo "To record these results on the branch, from a LOGIN node:"
+echo "  cd ${here}"
+echo "  ./record_results.sh ${outdir} ${SPIKE_JOB_LOG:-<job-log>}"

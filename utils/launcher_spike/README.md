@@ -25,6 +25,18 @@ fast, B serializes). Those have completely different fixes.
 
 ## Running it
 
+**First, deploy in this worktree** (`./deploy.py`), so that a
+`load_polaris_<machine>_<compiler>_<mpi>.sh` exists at the repo root. The
+drivers source it: it is what `mache.deploy` generated for the machine and
+is the only sanctioned source of the compiler, the MPI and
+`POLARIS_MACHINE`. The job scripts deliberately load no modules of their
+own. To borrow another worktree's deployment instead, set
+`SPIKE_LOAD_SCRIPT` to its load script.
+
+Note that the load script verifies that the Polaris it can import matches
+the deployed version, so it only works when sourced from its own worktree —
+the drivers handle that.
+
 There is a ready-made job script per machine, sized from the node counts and
 queue policies in mache's machine configs, so there should be no need to
 assemble an `salloc` or `qsub` by hand:
@@ -94,12 +106,18 @@ is not what we are unsure about.
 - **C or D worse than B, or core collisions reported** — placement is not
   actually enforced at MPI width, which is the case that matters most.
 
-A small MPI payload is built with `mpicc`, or with `cc` on the Cray machines
-(Perlmutter, Frontier) where that is the MPI wrapper. If neither works, the
-shell payload is launched at MPI width instead, which still exercises step
-creation and placement but not PMI bootstrap. The summary says which was
-used, so a `shell-fallback` result should be read as a weaker answer for
-tests C and D.
+A small MPI payload is built with `mpicc` from the loaded Polaris
+environment, or with `cc` on the Cray machines where that is the MPI
+wrapper. If neither works the run **aborts**, because falling back to the
+shell payload would quietly downgrade tests C and D from "does PMI bootstrap
+survive concurrency" to "does step creation survive concurrency". Pass
+`SPIKE_ALLOW_FALLBACK=1` to accept the weaker result deliberately, or
+`SPIKE_NO_ENV=1` to skip sourcing the Polaris environment altogether.
+
+On Slurm the driver detects the version: `--overlap --exact` on 20.11 and
+newer, and `--cpu-bind=mask_cpu` on older sites like Chrysalis, where those
+flags do not exist and steps already share a node by default. The `placement`
+line at the top of the output says which mode was used.
 
 Whatever happens, the scripts avoid polling the batch system — no `squeue`
 or `qstat` loops — because NERSC asks that batch-system queries stay to

@@ -19,29 +19,26 @@
 
 cd "${PBS_O_WORKDIR}"
 
-source /usr/share/lmod/8.7.59/init/bash
-export PATH=/opt/pbs/bin:$PATH
-module load cmake
+# No module loading here on purpose.  spike_pals.sh sources the worktree's
+# load_polaris_*.sh, which is what mache.deploy generated for this machine
+# and is the only sanctioned source of the compiler, MPI and
+# POLARIS_MACHINE.  It needs ./deploy.py to have been run in this worktree
+# (or set SPIKE_LOAD_SCRIPT to another worktree's load script).
+export SPIKE_JOB_LOG="${PBS_O_WORKDIR}/launcher_spike.o${PBS_JOBID%%.*}"
+export SPIKE_OUTDIR="${PBS_O_WORKDIR}/spike_results_${PBS_JOBID%%.*}"
+export SPIKE_SLEEP=15
 
 # Aurora reserves core 0 and cores 49-52, so the usable set is not
-# contiguous.  This matches the cpu_bind list in mache's aurora.cfg.
+# contiguous.  This matches the cpu_bind list in mache's aurora.cfg for the
+# oneapi-ifxgpu compiler.
 export SPIKE_CORE_LIST="1-48,53-100"
 
 # 4 x 2 x 8 = 64 of the 96 usable cores.
 export SPIKE_SLOTS=4
 export SPIKE_RANKS=2
 export SPIKE_CPUS=8
-export SPIKE_SLEEP=15
-export SPIKE_OUTDIR="${PBS_O_WORKDIR}/spike_results_${PBS_JOBID%%.*}"
 
 # The GPU test gives each slot one tile via ZE_AFFINITY_MASK, so the two
 # ranks in a slot share a tile.  That is fine for testing isolation; it is
 # not meant to be a performance configuration.
 ./spike_pals.sh
-
-# Compute nodes usually have no outbound network, so record from a login
-# node once the job finishes:
-echo
-echo "To record these results on the branch, from a LOGIN node:"
-echo "  cd ${PBS_O_WORKDIR}/utils/launcher_spike 2>/dev/null || cd ${PBS_O_WORKDIR}"
-echo "  ./record_results.sh ${SPIKE_OUTDIR} ${PBS_O_WORKDIR}/launcher_spike.o${PBS_JOBID%%.*}"

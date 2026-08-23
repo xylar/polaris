@@ -51,6 +51,44 @@ echo "payload sleep:  ${sleep_seconds}s"
 echo "results:        ${outdir}"
 echo
 
+# The compiler and MPI for a Polaris machine come from mache.deploy, via the
+# load_polaris_<machine>_<compiler>_<mpi>.sh script that `./deploy.py`
+# generates in the worktree.  Never hand-pick modules here: that script is
+# the only source of truth for what a machine is supposed to provide, and it
+# also exports POLARIS_MACHINE, which labels the recorded results.
+load_polaris_env () {
+    local root script prev
+    root="$(git -C "${here}" rev-parse --show-toplevel 2>/dev/null || true)"
+    script="${SPIKE_LOAD_SCRIPT:-}"
+    if [ -z "${script}" ] && [ -n "${root}" ]; then
+        script="$(ls -1 "${root}"/load_polaris_*.sh 2>/dev/null | head -1 || true)"
+    fi
+    if [ -z "${script}" ] || [ ! -f "${script}" ]; then
+        echo "ERROR: no load_polaris_*.sh found in ${root:-<not a git repo>}." >&2
+        echo "  The spike needs the real Polaris environment for a compiler," >&2
+        echo "  an MPI and POLARIS_MACHINE.  Run ./deploy.py in this worktree," >&2
+        echo "  or point SPIKE_LOAD_SCRIPT at another worktree's load script." >&2
+        echo "  Set SPIKE_NO_ENV=1 to run anyway (MPI tests will be degraded)." >&2
+        return 1
+    fi
+    # The load script verifies that the polaris it can import matches the
+    # deployed version, so it has to be sourced from its own worktree.
+    prev="${PWD}"
+    cd "$(dirname "${script}")" || return 1
+    # Neither the generated load script nor the conda activate.d hooks it
+    # runs are written to be safe under `set -u`, so relax it while sourcing.
+    set +u
+    # shellcheck disable=SC1090
+    source "${script}"
+    set -u
+    cd "${prev}" || return 1
+    echo "polaris env:    ${script}"
+}
+
+if [ "${SPIKE_NO_ENV:-0}" != "1" ]; then
+    load_polaris_env || exit 1
+fi
+
 # Cray machines (Perlmutter, Frontier) wrap MPI in `cc`, not `mpicc`.
 mpi_exe="${here}/payload.sh"
 mpi_kind="shell-fallback"
@@ -64,6 +102,18 @@ for candidate in ${SPIKE_MPICC:-} mpicc cc; do
     fi
     echo "WARNING: ${candidate} failed, see ${outdir}/mpicc.log" >&2
 done
+
+# A shell fallback silently downgrades tests C and D from "does PMI bootstrap
+# survive concurrency" to "does step creation survive concurrency", so refuse
+# to run that way unless it is asked for explicitly.
+if [ "${mpi_kind}" = "shell-fallback" ] \
+        && [ "${SPIKE_ALLOW_FALLBACK:-0}" != "1" ]; then
+    echo "ERROR: could not build the MPI payload; see ${outdir}/mpicc.log" >&2
+    echo "  Tests C and D would not exercise MPI at all.  Check that the" >&2
+    echo "  polaris load script provided a compiler and MPI, or rerun with" >&2
+    echo "  SPIKE_ALLOW_FALLBACK=1 to accept the weaker result." >&2
+    exit 1
+fi
 echo "mpi payload:    ${mpi_kind} (${mpi_exe})"
 echo
 
@@ -210,3 +260,8 @@ fi
 echo
 echo "=== summary ==="
 python3 "${here}/summarize.py" "${outdir}"
+
+echo
+echo "To record these results on the branch, from a LOGIN node:"
+echo "  cd ${here}"
+echo "  ./record_results.sh ${outdir} ${SPIKE_JOB_LOG:-<job-log>}"

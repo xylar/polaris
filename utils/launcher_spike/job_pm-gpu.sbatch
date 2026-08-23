@@ -2,8 +2,8 @@
 # Launcher spike on Perlmutter GPU.  Submit with:  sbatch job_pm-gpu.sbatch
 #
 # Same questions as pm-cpu, plus whether --gpus-per-task survives concurrent
-# job steps.  That combination is the one Phase 3 would need and is the
-# least exercised path in the existing Polaris work.
+# job steps.  That combination is what Phase 3 would need and is the least
+# exercised path in the existing Polaris work.
 #
 # 64 cores and 4 GPUs/node, account e3sm, qos debug (mache pm-gpu.cfg).
 # max_mpi_tasks_per_node is the GPU count, so one rank per slot keeps the
@@ -21,20 +21,19 @@
 
 cd "${SLURM_SUBMIT_DIR}"
 
-module load cray-python cmake
+# No module loading here on purpose.  spike_slurm.sh sources the worktree's
+# load_polaris_*.sh, which is what mache.deploy generated for this machine
+# and is the only sanctioned source of the compiler, MPI and POLARIS_MACHINE.
+# It needs ./deploy.py to have been run in this worktree (or set
+# SPIKE_LOAD_SCRIPT to another worktree's load script).
+export SPIKE_JOB_LOG="${SLURM_SUBMIT_DIR}/launcher_spike.o${SLURM_JOB_ID}"
+export SPIKE_OUTDIR="${SLURM_SUBMIT_DIR}/spike_results_${SLURM_JOB_ID}"
+export SPIKE_SLEEP=15
 
 # 4 x 1 x 8 = 32 of 64 cores; 4 slots x 1 GPU = 4 of 4 GPUs.
 export SPIKE_SLOTS=4
 export SPIKE_RANKS=1
 export SPIKE_CPUS=8
-export SPIKE_SLEEP=15
-export SPIKE_OUTDIR="${SLURM_SUBMIT_DIR}/spike_results_${SLURM_JOB_ID}"
+export SPIKE_CORE_LIST="0-63"
 
 ./spike_slurm.sh
-
-# Compute nodes usually have no outbound network, so record from a login
-# node once the job finishes:
-echo
-echo "To record these results on the branch, from a LOGIN node:"
-echo "  cd ${SLURM_SUBMIT_DIR}/utils/launcher_spike 2>/dev/null || cd ${SLURM_SUBMIT_DIR}"
-echo "  ./record_results.sh ${SPIKE_OUTDIR} ${SLURM_SUBMIT_DIR}/launcher_spike.o${SLURM_JOB_ID}"
