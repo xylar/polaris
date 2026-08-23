@@ -68,6 +68,13 @@ def main():
     support = meta.get('placement_support', 'unknown')
     print_meta(meta)
 
+    if meta.get('dry_run') == 'true':
+        print()
+        print('This was a dry run: the commands were rendered but nothing')
+        print('was launched, so there is nothing to read back.  The commands')
+        print(f'are in {os.path.join(root, "commands.txt")}.')
+        return 0
+
     checks = sorted(
         name
         for name in os.listdir(root)
@@ -298,12 +305,12 @@ def print_meta(meta):
         return
     print(
         '  run: {machine} / {scheduler} job {job_id}, {nodes} node(s), '
-        '{cores_on_node} cores/node, {gpus_on_node} gpu(s)/node'.format(
+        '{usable} usable core(s)/node, {gpus_on_node} gpu(s)/node'.format(
             machine=meta.get('machine', '?'),
             scheduler=meta.get('scheduler', '?'),
             job_id=meta.get('job_id', '?'),
             nodes=meta.get('nodes', '?'),
-            cores_on_node=meta.get('cores_on_node', '?'),
+            usable=meta.get('usable_cores', meta.get('cores_on_node', '?')),
             gpus_on_node=meta.get('gpus_on_node', '?'),
         )
     )

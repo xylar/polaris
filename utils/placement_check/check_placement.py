@@ -29,6 +29,7 @@ import time
 from dataclasses import dataclass
 from typing import List, Sequence
 
+import mache
 from mache.parallel import (
     PlacementSupport,
     ResourcePlacement,
@@ -133,7 +134,10 @@ def main():
     print()
     print(f'results: {args.outdir}')
     if failures > 0:
+        # the job's exit code is the first thing anyone looks at, and a job
+        # in CG state has ended rather than succeeded
         print(f'{failures} launch(es) returned nonzero; see the .err files')
+        return 1
     return 0
 
 
@@ -505,12 +509,12 @@ def write_meta(
     An aborted run is still worth recording, so this goes out first and the
     status is corrected at the end.
     """
-    import mache
-
-    scheduler = 'slurm'
+    # the batch system is what the machine config says it is, not whichever
+    # environment variable happens to be missing
+    scheduler = parallel_system.get_config('system', 'unknown')
     job_id = os.environ.get('SLURM_JOB_ID', '')
     if job_id == '':
-        scheduler = 'pbs'
+        # PBS job ids look like 12345.aurora-pbs-0001.hostmgmt...
         job_id = os.environ.get('PBS_JOBID', '').split('.')[0]
 
     lines = {
@@ -529,6 +533,7 @@ def write_meta(
         'nodelist': ','.join(nodes),
         'target_node': nodes[0],
         'cores_on_node': f'{parallel_system.cores_per_node}',
+        'usable_cores': f'{len(cores)}',
         'gpus_on_node': f'{gpus_per_node}',
         'core_list': ','.join(f'{core}' for core in cores),
         'slots': f'{args.slots}',
@@ -537,6 +542,7 @@ def write_meta(
         'gpus_per_slot': f'{gpus_per_slot}',
         'sleep': f'{args.sleep}',
         'payload': os.path.basename(args.payload),
+        'dry_run': 'true' if args.dry_run else 'false',
         'started': time.strftime('%Y-%m-%dT%H:%M:%SZ', time.gmtime()),
         'status': 'incomplete',
     }
