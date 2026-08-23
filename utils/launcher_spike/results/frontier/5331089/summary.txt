@@ -1,0 +1,38 @@
+  run: frontier / slurm job 5331089, 2 node(s), 56 cores/node
+       4 slot(s) x 2 rank(s) x 4 cpu(s), mpi payload mpicc
+       slurm 25.11.5
+
+  A0_sequential_plain: 10 sequential launches, median 0.11s, max 2.19s -> ~545.5 launches/min
+  A_sequential_overlap: 10 sequential launches, median 0.12s, max 2.25s -> ~500.0 launches/min
+  B0_concurrent_plain: 4 slot(s) reported, peak concurrency 1, hosts ['frontier07191'], cores/rank [4]
+      CORE COLLISIONS:
+        slot 2 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['1']
+        slot 3 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['2']
+        slot 4 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['3']
+  B_concurrent_overlap: 4 slot(s) reported, peak concurrency 4, hosts ['frontier07191'], cores/rank [4]
+      CORE COLLISIONS:
+        slot 2 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['1']
+        slot 3 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['2']
+        slot 4 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['3']
+  C_concurrent_mpi: 4 slot(s) reported, peak concurrency 4, hosts ['frontier07191'], cores/rank [4]
+      CORE COLLISIONS:
+        slot 2 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['1']
+        slot 2 shares cores [9, 10, 11, 12] on frontier07191 with slot(s) ['1']
+        slot 3 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['2']
+        slot 3 shares cores [9, 10, 11, 12] on frontier07191 with slot(s) ['2']
+        slot 4 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['3']
+        slot 4 shares cores [9, 10, 11, 12] on frontier07191 with slot(s) ['3']
+  D_concurrent_mpi_gpu: 4 slot(s) reported, peak concurrency 4, hosts ['frontier07191'], cores/rank [4]
+      CORE COLLISIONS:
+        slot 2 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['1']
+        slot 2 shares cores [9, 10, 11, 12] on frontier07191 with slot(s) ['1']
+        slot 3 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['2']
+        slot 3 shares cores [9, 10, 11, 12] on frontier07191 with slot(s) ['2']
+        slot 4 shares cores [1, 2, 3, 4] on frontier07191 with slot(s) ['3']
+        slot 4 shares cores [9, 10, 11, 12] on frontier07191 with slot(s) ['3']
+
+Reading the results:
+  A sequential fast + B peak concurrency == slots  -> Tier A works, use --overlap --exact
+  A sequential fast + B peak concurrency == 1   -> job-step exclusivity; check B0 control and flags
+  A sequential slow (~1/min)                   -> genuine throttling; Tier A is out, evaluate Flux
+  C/D peak < slots or core collisions            -> placement is not enforced at MPI width
