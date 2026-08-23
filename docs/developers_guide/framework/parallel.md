@@ -70,6 +70,18 @@ Not every machine can confine a launch.  `mache` reports which mechanism a
 machine has through `ParallelSystem.placement_support`, decided at run time
 from the launcher that is actually installed rather than from configuration.
 
+Placement is not in a released `mache` yet, so Polaris has to be deployed
+against the branch that adds it:
+
+```bash
+./deploy.py --mache-fork xylar/mache --mache-branch parallel-placement
+```
+
+Setup refuses to go any further against a `mache` that cannot place, rather
+than letting a run fail partway through with a `TypeError` from inside the
+launcher.  This will become an ordinary version requirement once the change
+is released.
+
 ## Memory
 
 A step can say how much memory it needs, as `max_memory` (the target) and
