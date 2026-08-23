@@ -82,14 +82,28 @@ def parse_args():
 
 
 def get_compilers(machine):
-    """Get the compilers a machine gives its own parallel options."""
+    """
+    Get every compiler a machine can actually be deployed with.
+
+    Taken from the ``mpi_<compiler>`` options in ``[deploy]``, which define
+    the valid combinations, plus any compiler with parallel options of its
+    own.  Listing only the latter would miss the case that matters most: a
+    compiler with no ``[parallel.<compiler>]`` section falls back to the base
+    ``[parallel]``, and on pm-gpu that fallback is the deployment with the
+    GPUs.
+    """
     config = build_raw_config(machine)
-    compilers = [
-        section[len('parallel.') :]
-        for section in config.sections()
-        if section.startswith('parallel.')
-    ]
-    return compilers if len(compilers) > 0 else ['']
+    compilers = set()
+    if config.has_section('deploy'):
+        for option in config.options('deploy'):
+            if option.startswith('mpi_'):
+                compilers.add(option[len('mpi_') :])
+    for section in config.sections():
+        if section.startswith('parallel.'):
+            compilers.add(section[len('parallel.') :])
+    if len(compilers) == 0:
+        compilers.add('')
+    return sorted(compilers)
 
 
 def build_raw_config(machine, compiler=''):
