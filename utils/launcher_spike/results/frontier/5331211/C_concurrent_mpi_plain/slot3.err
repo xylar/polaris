@@ -1,0 +1,8 @@
+srun: Step created for StepId=5331211.34
+MPICH ERROR [Rank unknown] [Sun Aug 23 10:57:58 2026] [frontier00651] - Abort(-1): MPIDI_CRAY_init: GPU_SUPPORT_ENABLED is requested, but GTL library is not linked
+ (Other MPI error)
+
+srun: error: frontier00651: task 0: Exited with exit code 255
+srun: Terminating StepId=5331211.34
+[2026-08-23T10:57:58.195] error: *** STEP 5331211.34 ON frontier00651 CANCELLED AT 2026-08-23T10:57:58 DUE TO TASK FAILURE ***
+srun: error: frontier00651: task 1: Segmentation fault (core dumped)
