@@ -436,18 +436,17 @@ if [ "${placement_mode}" = "overlap-exact" ]; then
     run_concurrent B_overlap_control "${here}/payload.sh" 1 nomask \
         --overlap --exact
 
-    # The combination we have not tried.  --overlap is what actually buys
-    # concurrency here, and Chrysalis showed --cpu-bind=mask_cpu enforces
-    # placement on its own, so let the launcher stop policing resources and
-    # police them ourselves.
-    run_concurrent B_overlap_mask "${here}/payload.sh" 1 mask \
-        --overlap
-    run_concurrent C_overlap_mask "${mpi_exe}" "${ranks}" mask \
-        --overlap
+    # The --overlap + --cpu-bind=mask_cpu route is retired on modern Slurm.
+    # It failed on both pm-gpu and Frontier with "Unable to satisfy cpu bind
+    # request": -c N already restricts the step to a Slurm-chosen CPU set,
+    # and the explicit mask then names CPUs outside it.  It is not needed
+    # either -- --exact --gpus=N gives concurrency, disjoint cores and
+    # disjoint GPUs with the scheduler doing the enforcing.  The mask route
+    # stays in the pre-20.11 branch, where it is the only option.
 
     run_concurrent C_concurrent_mpi_exact "${mpi_exe}" "${ranks}" nomask --exact
-    gpu_mode="mask+gpu"
-    gpu_flags=(--overlap)
+    gpu_mode="nomask"
+    gpu_flags=(--exact "--gpus=${ranks}")
 else
     # Pre-20.11: --overlap and --exact do not exist, steps already share a
     # node by default, and the only way to get disjoint cores is an explicit

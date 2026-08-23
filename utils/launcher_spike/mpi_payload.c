@@ -52,6 +52,7 @@ int main(int argc, char **argv)
     const char *outdir = getenv("SPIKE_OUTDIR");
     const char *sleep_s = getenv("SPIKE_SLEEP");
     const char *gpu = getenv("ZE_AFFINITY_MASK");
+    const char *step_gpus;
     FILE *out;
 
     MPI_Init(&argc, &argv);
@@ -106,7 +107,12 @@ int main(int argc, char **argv)
     }
     fprintf(out, "test=%s\nslot=%s\nrank=%d\nsize=%d\nhost=%s\n", test, slot,
             rank, size, host);
+    step_gpus = getenv("SLURM_STEP_GPUS");
+    if (!step_gpus) {
+        step_gpus = "";
+    }
     fprintf(out, "cpus_allowed=%s\ngpu_env=%s\n", cpus, gpu);
+    fprintf(out, "step_gpus=%s\n", step_gpus);
     fprintf(out, "t_start=%.6f\nt_end=%.6f\n", start, end);
     fclose(out);
 

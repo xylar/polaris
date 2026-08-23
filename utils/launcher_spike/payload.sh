@@ -27,6 +27,12 @@ for var in CUDA_VISIBLE_DEVICES ROCR_VISIBLE_DEVICES ZE_AFFINITY_MASK; do
     fi
 done
 
+# CUDA_VISIBLE_DEVICES is renumbered relative to each step's own GRES
+# allocation, so four steps on four different GPUs all report "0".
+# SLURM_STEP_GPUS carries the global ids and is what distinguishes them.
+step_gpus="${SLURM_STEP_GPUS:-}"
+job_gpus="${SLURM_JOB_GPUS:-}"
+
 mkdir -p "${outdir}/${test_name}"
 out="${outdir}/${test_name}/slot${slot}_rank${rank}.kv"
 
@@ -44,6 +50,8 @@ end="$(date +%s.%N)"
     echo "mems_allowed=${mems_allowed}"
     echo "nproc=${ncpus}"
     echo "gpu_env=${gpu_env}"
+    echo "step_gpus=${step_gpus}"
+    echo "job_gpus=${job_gpus}"
     echo "t_start=${start}"
     echo "t_end=${end}"
 } > "${out}"

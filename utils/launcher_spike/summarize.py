@@ -158,7 +158,13 @@ def build_slot_runs(slots):
             cores_by_host.setdefault(host, set()).update(
                 parse_cpu_list(rank.get('cpus_allowed', ''))
             )
-            gpus |= parse_gpu_env(rank.get('gpu_env', ''))
+            # Prefer Slurm's global ids: CUDA_VISIBLE_DEVICES is
+            # renumbered per step, so distinct GPUs all look like "0".
+            step_gpus = rank.get('step_gpus', '')
+            if step_gpus:
+                gpus |= parse_gpu_env(step_gpus)
+            else:
+                gpus |= parse_gpu_env(rank.get('gpu_env', ''))
         runs.append(SlotRun(slot, min(starts), max(ends), cores_by_host, gpus))
     return runs
 
