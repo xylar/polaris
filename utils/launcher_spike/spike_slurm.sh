@@ -195,6 +195,14 @@ if [ "${SPIKE_NO_ENV:-0}" != "1" ]; then
         >> "${outdir}/meta.kv"
 fi
 
+# The Polaris environment on GPU machines sets MPICH_GPU_SUPPORT_ENABLED=1,
+# which makes Cray MPICH abort unless the binary is linked against the GTL
+# library.  The spike payload deliberately does no GPU work -- it only
+# reports where it landed -- so turn GPU-aware MPI off for it rather than
+# linking a library we have no use for.  Test D still requests GPUs through
+# the launcher; this only affects what MPICH expects of the binary.
+export MPICH_GPU_SUPPORT_ENABLED=0
+
 # Cray machines (Perlmutter, Frontier) wrap MPI in `cc`, not `mpicc`.
 mpi_exe="${here}/payload.sh"
 mpi_kind="shell-fallback"
@@ -344,6 +352,14 @@ run_concurrent () {
 # reintroduces collisions.  So the plain and --exact variants are the
 # candidates now, and --overlap is kept only as a control.
 
+has_gpu=0
+if [ "${SPIKE_SKIP_GPU:-0}" != "1" ] \
+        && { [ -n "${SLURM_GPUS_ON_NODE:-}" ] \
+             || command -v nvidia-smi >/dev/null 2>&1 \
+             || command -v rocm-smi >/dev/null 2>&1; }; then
+    has_gpu=1
+fi
+
 run_sequential A_sequential_plain
 
 if [ "${placement_mode}" = "overlap-exact" ]; then
@@ -351,6 +367,15 @@ if [ "${placement_mode}" = "overlap-exact" ]; then
 
     run_concurrent B_concurrent_plain "${here}/payload.sh" 1 nomask
     run_concurrent B_concurrent_exact "${here}/payload.sh" 1 nomask --exact
+    # Round 3 showed pm-cpu (no GPUs) runs plain steps concurrently while
+    # pm-gpu and Frontier (GPUs present) serialize them.  A step reserves
+    # GRES exclusively unless told what it needs, so all four may be
+    # queueing on the node's GPUs rather than on its cores.  This isolates
+    # that from anything to do with MPI.
+    if [ "${has_gpu}" = "1" ]; then
+        run_concurrent B_concurrent_exact_gpu "${here}/payload.sh" 1 nomask \
+            --exact --gpus-per-task=1
+    fi
     # Control: expected to show core collisions.  If it does not, the
     # meaning of --overlap on this site is not what we think it is.
     run_concurrent B_overlap_control "${here}/payload.sh" 1 nomask \
@@ -372,8 +397,7 @@ fi
 
 if [ "${SPIKE_SKIP_GPU:-0}" = "1" ]; then
     echo "--- D_concurrent_mpi_gpu: skipped (SPIKE_SKIP_GPU=1)"
-elif [ -n "${SLURM_GPUS_ON_NODE:-}" ] || command -v nvidia-smi >/dev/null 2>&1 \
-        || command -v rocm-smi >/dev/null 2>&1; then
+elif [ "${has_gpu}" = "1" ]; then
     if [ "${placement_mode}" = "overlap-exact" ]; then
         run_concurrent D_concurrent_mpi_gpu "${mpi_exe}" "${ranks}" nomask \
             "${gpu_flags[@]}"

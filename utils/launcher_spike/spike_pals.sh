@@ -170,6 +170,14 @@ if [ "${SPIKE_NO_ENV:-0}" != "1" ]; then
         >> "${outdir}/meta.kv"
 fi
 
+# The Polaris environment on GPU machines sets MPICH_GPU_SUPPORT_ENABLED=1,
+# which makes Cray MPICH abort unless the binary is linked against the GTL
+# library.  The spike payload deliberately does no GPU work -- it only
+# reports where it landed -- so turn GPU-aware MPI off for it rather than
+# linking a library we have no use for.  Test D still requests GPUs through
+# the launcher; this only affects what MPICH expects of the binary.
+export MPICH_GPU_SUPPORT_ENABLED=0
+
 # Cray machines (Perlmutter, Frontier) wrap MPI in `cc`, not `mpicc`.
 mpi_exe="${here}/payload.sh"
 mpi_kind="shell-fallback"
