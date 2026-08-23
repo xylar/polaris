@@ -1,0 +1,45 @@
+#!/bin/bash
+# Placement check on Aurora.  Submit with:  qsub job_aurora.pbs
+#
+# PALS reserves nothing, so mache confines a launch by naming hosts and cores
+# and by setting ZE_AFFINITY_MASK.  Two things are worth watching here that
+# the Slurm machines cannot tell us:
+#
+#   1. The cores a launch is given should come back *exactly* as asked, since
+#      the binding is explicit rather than a count the scheduler satisfies.
+#   2. For a launch asking for no GPUs, mache emits --env=ZE_AFFINITY_MASK= .
+#      An empty CUDA_VISIBLE_DEVICES means "no devices", but Level Zero may
+#      read an empty mask as "no mask", which is every tile.  Check what
+#      B_placed_alone actually reports; that is the one open question this
+#      run can settle.  Nothing on PALS serializes on a GPU claim, so it is
+#      safe either way -- it is the explicitness that is in doubt.
+#
+# IMPORTANT: deploy with --compiler oneapi-ifxgpu.  The machine default
+# (oneapi-ifx) has gpus_per_node = 0 in mache's config and the GPU checks
+# would be skipped.
+#
+# account E3SM_Dec, debug queue allows 2 nodes for an hour, filesystems
+# home:flare (mache aurora.cfg).  Aurora reserves core 0 and cores 49-52; the
+# check reads the usable set from the cpu_bind list in mache's aurora.cfg
+# rather than being told, so there is no core list to keep in step here.
+
+#PBS -N placement_check
+#PBS -A E3SM_Dec
+#PBS -l select=1
+#PBS -l walltime=00:30:00
+#PBS -V
+#PBS -q debug
+#PBS -l filesystems=home:flare
+
+cd "${PBS_O_WORKDIR}"
+
+export PLACE_JOB_LOG="${PBS_O_WORKDIR}/placement_check.o${PBS_JOBID%%.*}"
+export PLACE_OUTDIR="${PBS_O_WORKDIR}/placement_results_${PBS_JOBID%%.*}"
+
+# 4 x 2 x 4 = 32 of the 96 usable cores; 4 slots x 3 tiles = the node's 12.
+export PLACE_SLOTS=4
+export PLACE_NTASKS=2
+export PLACE_CPUS=4
+export PLACE_SLEEP=15
+
+./run_check.sh
