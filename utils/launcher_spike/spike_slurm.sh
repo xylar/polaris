@@ -232,19 +232,29 @@ run_sequential () {
     echo "    total $(elapsed "${t0}" "${t1}")s for ${seq_n} launches"
 }
 
+# use_mask="mask" adds a per-slot --cpu-bind=mask_cpu:, which is how a
+# pre-20.11 site has to express placement.
 run_concurrent () {
     local test_name="$1"; shift
     local exe="$1"; shift
     local nranks="$1"; shift
+    local use_mask="$1"; shift
     local -a extra=("$@")
-    echo "--- ${test_name}: ${slots} concurrent launches x ${nranks} rank(s)"
+    echo "--- ${test_name}: ${slots} concurrent launches x ${nranks} rank(s)" \
+         "${extra[*]:-(no extra flags)}"
     mkdir -p "${outdir}/${test_name}"
     local pids=()
     for slot in $(seq 1 "${slots}"); do
         (
             export SPIKE_TEST="${test_name}"
             export SPIKE_SLOT="${slot}"
-            timeout "${launch_timeout}" srun "${extra[@]}" \
+            local -a slot_flags=("${extra[@]}")
+            if [ "${use_mask}" = "mask" ]; then
+                local mask
+                mask="$(mask_cpu_for_slot "${slot}")" || exit 1
+                slot_flags+=("--cpu-bind=${mask}")
+            fi
+            timeout "${launch_timeout}" srun "${slot_flags[@]}" \
                 -N 1 -n "${nranks}" -c "${cpus}" -w "${node}" "${exe}" \
                 >"${outdir}/${test_name}/slot${slot}.out" \
                 2>"${outdir}/${test_name}/slot${slot}.err"
@@ -258,26 +268,49 @@ run_concurrent () {
     echo "    done"
 }
 
-# Test A: is srun itself throttled?  Sequential, one at a time.
-run_sequential A_sequential_overlap --overlap --exact
-run_sequential A0_sequential_plain
+# Round 1 on Perlmutter (Slurm 25.11) showed that --overlap is the wrong
+# flag: without it, concurrent steps already run and Slurm hands each one
+# disjoint cores, while --overlap explicitly lets steps share CPUs and
+# reintroduces collisions.  So the plain and --exact variants are the
+# candidates now, and --overlap is kept only as a control.
 
-# Test B: do concurrent placed steps coexist?
-run_concurrent B_concurrent_overlap "${here}/payload.sh" 1 --overlap --exact
-# Test B0 is the control: same thing without --overlap.  Expect this one to
-# serialize or emit "step creation temporarily disabled" on Slurm >= 20.11.
-run_concurrent B0_concurrent_plain "${here}/payload.sh" 1
+run_sequential A_sequential_plain
 
-# Test C: the Phase 3 primitive -- concurrent launches at MPI width.
-run_concurrent C_concurrent_mpi "${mpi_exe}" "${ranks}" --overlap --exact
+if [ "${placement_mode}" = "overlap-exact" ]; then
+    run_sequential A_sequential_exact --exact
 
-# Test D: same with GPUs, if this allocation has any.
+    run_concurrent B_concurrent_plain "${here}/payload.sh" 1 nomask
+    run_concurrent B_concurrent_exact "${here}/payload.sh" 1 nomask --exact
+    # Control: expected to show core collisions.  If it does not, the
+    # meaning of --overlap on this site is not what we think it is.
+    run_concurrent B_overlap_control "${here}/payload.sh" 1 nomask \
+        --overlap --exact
+
+    run_concurrent C_concurrent_mpi_plain "${mpi_exe}" "${ranks}" nomask
+    run_concurrent C_concurrent_mpi_exact "${mpi_exe}" "${ranks}" nomask --exact
+    gpu_flags=(--exact --gpus-per-task=1)
+else
+    # Pre-20.11: --overlap and --exact do not exist, steps already share a
+    # node by default, and the only way to get disjoint cores is an explicit
+    # mask.  B_concurrent_plain is expected to show every slot seeing every
+    # core; B_concurrent_mask is the one that matters.
+    run_concurrent B_concurrent_plain "${here}/payload.sh" 1 nomask
+    run_concurrent B_concurrent_mask "${here}/payload.sh" 1 mask
+    run_concurrent C_concurrent_mpi_mask "${mpi_exe}" "${ranks}" mask
+    gpu_flags=(--gpus-per-task=1)
+fi
+
 if [ "${SPIKE_SKIP_GPU:-0}" = "1" ]; then
     echo "--- D_concurrent_mpi_gpu: skipped (SPIKE_SKIP_GPU=1)"
 elif [ -n "${SLURM_GPUS_ON_NODE:-}" ] || command -v nvidia-smi >/dev/null 2>&1 \
         || command -v rocm-smi >/dev/null 2>&1; then
-    run_concurrent D_concurrent_mpi_gpu "${mpi_exe}" "${ranks}" \
-        --overlap --exact --gpus-per-task=1
+    if [ "${placement_mode}" = "overlap-exact" ]; then
+        run_concurrent D_concurrent_mpi_gpu "${mpi_exe}" "${ranks}" nomask \
+            "${gpu_flags[@]}"
+    else
+        run_concurrent D_concurrent_mpi_gpu "${mpi_exe}" "${ranks}" mask \
+            "${gpu_flags[@]}"
+    fi
 else
     echo "--- D_concurrent_mpi_gpu: skipped (no GPUs detected)"
 fi
