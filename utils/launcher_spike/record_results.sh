@@ -85,9 +85,25 @@ mkdir -p "${dest}"
 (cd "${results}" && find . -type f ! -name 'mpi_payload' \
     -exec cp --parents {} "${dest}/" \;)
 
+# An aborted run has no test output at all, so the job log is the only
+# evidence of why.  Find it rather than relying on it being passed in.
+if [ -z "${job_log}" ]; then
+    for candidate in \
+            "$(dirname "${results}")/launcher_spike.o${job_id}" \
+            "${PWD}/launcher_spike.o${job_id}" \
+            "${here}/launcher_spike.o${job_id}"; do
+        if [ -f "${candidate}" ]; then
+            job_log="${candidate}"
+            break
+        fi
+    done
+fi
 if [ -n "${job_log}" ] && [ -f "${job_log}" ]; then
     cp "${job_log}" "${dest}/job.log"
     echo "captured job log: ${job_log}"
+else
+    echo "WARNING: no job log found for job ${job_id}; pass it as the second" >&2
+    echo "  argument if you want the failure reason recorded." >&2
 fi
 
 python3 "${here}/summarize.py" "${results}" > "${dest}/summary.txt" 2>&1 || true
