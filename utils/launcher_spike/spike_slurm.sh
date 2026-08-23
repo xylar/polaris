@@ -45,11 +45,12 @@ if [ "${slurm_major:-0}" -gt 20 ] 2>/dev/null || {
         [ "${slurm_major:-0}" -eq 20 ] && [ "${slurm_minor:-0}" -ge 11 ]
    } 2>/dev/null; then
     placement_mode="overlap-exact"
-    overlap_flags=(--overlap --exact)
 else
     placement_mode="cpu-bind-mask"
-    overlap_flags=()
 fi
+# Override for exercising the other branch on a machine that would not
+# normally take it.  Only useful for checking the script itself.
+placement_mode="${SPIKE_PLACEMENT_MODE:-${placement_mode}}"
 
 core_spec="${SPIKE_CORE_LIST:-0-$(( ${SLURM_CPUS_ON_NODE:-1} - 1 ))}"
 
@@ -286,8 +287,12 @@ run_concurrent () {
     local nranks="$1"; shift
     local use_mask="$1"; shift
     local -a extra=("$@")
+    local label="${extra[*]:-(no extra flags)}"
+    if [ "${use_mask}" = "mask" ]; then
+        label="${extra[*]:-} --cpu-bind=mask_cpu:<per slot>"
+    fi
     echo "--- ${test_name}: ${slots} concurrent launches x ${nranks} rank(s)" \
-         "${extra[*]:-(no extra flags)}"
+         "${label}"
     mkdir -p "${outdir}/${test_name}"
     local pids=()
     for slot in $(seq 1 "${slots}"); do
