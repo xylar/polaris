@@ -381,3 +381,116 @@ def test_the_whole_harness_runs_and_reads_back(tmp_path, capsys):
     assert 'HONORED: exactly the cores asked for' in out
     assert 'cores are disjoint across overlapping launches' in out
     assert 'COLLISIONS' not in out
+
+
+class MemorySystem(FakeSystem):
+    """A fake system that reports which batch system it is."""
+
+    def __init__(self, system):
+        super().__init__(cores_per_node=64, config={'system': system})
+
+
+def test_the_memory_check_asks_for_an_allowance_mache_will_not_render():
+    """
+    mache deliberately carries no memory, so this one flag is added here.
+
+    The question is what the batch system does, not what mache emits, and
+    that is the only reason a check may reach past the renderer.
+    """
+    check = check_placement.build_memory_check(
+        node='node0001',
+        cores=list(range(64)),
+        cpus_per_task=4,
+        parallel_system=MemorySystem('slurm'),
+        payload='mem_payload.sh',
+        allowance_mb=1024,
+        target_mb=4096,
+    )
+    assert check is not None
+    assert list(check.extra_args) == ['--mem=1024M']
+    assert check.ntasks == 1
+    assert check.placements[0].gpus == 0
+    assert len(check.placements[0].cores) == 4
+
+
+def test_being_killed_is_a_result_not_a_failed_run():
+    """A launch stopped for exceeding its allowance is the finding."""
+    check = check_placement.build_memory_check(
+        node='node0001',
+        cores=list(range(64)),
+        cpus_per_task=4,
+        parallel_system=MemorySystem('slurm'),
+        payload='mem_payload.sh',
+        allowance_mb=1024,
+        target_mb=4096,
+    )
+    assert check.failure_is_a_result
+
+
+def test_no_memory_check_where_a_launch_cannot_ask_for_memory():
+    """PALS takes no per-launch memory request, so there is nothing to ask."""
+    for system in ('pbs', 'single_node'):
+        check = check_placement.build_memory_check(
+            node='node0001',
+            cores=list(range(64)),
+            cpus_per_task=4,
+            parallel_system=MemorySystem(system),
+            payload='mem_payload.sh',
+            allowance_mb=1024,
+            target_mb=4096,
+        )
+        assert check is None, system
+
+
+def test_a_completed_allocation_reads_as_not_enforced(tmp_path, capsys):
+    _write_memory_run(tmp_path, reached=4096, completed=True, returncode=0)
+    summarize.report_memory_check(
+        str(tmp_path / 'F_memory_limit'), 'F_memory_limit'
+    )
+    out = capsys.readouterr().out
+    assert 'NOT ENFORCED' in out
+
+
+def test_stopping_short_reads_as_enforced(tmp_path, capsys):
+    _write_memory_run(tmp_path, reached=1024, completed=False, returncode=137)
+    summarize.report_memory_check(
+        str(tmp_path / 'F_memory_limit'), 'F_memory_limit'
+    )
+    out = capsys.readouterr().out
+    assert 'ENFORCED' in out
+    assert 'NOT ENFORCED' not in out
+
+
+def test_reaching_the_target_without_finishing_is_not_called_enforced(
+    tmp_path, capsys
+):
+    """Killed after allocating everything it asked for proves nothing."""
+    _write_memory_run(tmp_path, reached=4096, completed=False, returncode=1)
+    summarize.report_memory_check(
+        str(tmp_path / 'F_memory_limit'), 'F_memory_limit'
+    )
+    out = capsys.readouterr().out
+    assert 'UNCLEAR' in out
+    assert 'ENFORCED' not in out.replace('NOT ENFORCED', '')
+
+
+def _write_memory_run(tmp_path, reached, completed, returncode):
+    """Write a memory check directory as a real run would leave it."""
+    test_dir = tmp_path / 'F_memory_limit'
+    test_dir.mkdir()
+    lines = [
+        'test=F_memory_limit',
+        'slot=1',
+        'rank=0',
+        'host=node0001',
+        'payload=memory',
+        'allowance_mb=1024',
+        'target_mb=4096',
+        't_start=100.0',
+        f'reached_mb={reached}',
+    ]
+    if completed:
+        lines.append('completed=true')
+    (test_dir / 'slot1_rank0.kv').write_text('\n'.join(lines) + '\n')
+    (test_dir / 'slot1.rc').write_text(f'{returncode}\n')
+    (test_dir / 'slot1.err').write_text('')

@@ -23,10 +23,35 @@ Each check launches a payload that records the cores and GPUs it can actually se
 | `C_placed_alone_gpu` | one placed launch, `gpus=N` | does a GPU placement confine a launch to those GPUs? (GPU machines only) |
 | `D_concurrent` | four placed launches at once, `gpus=0` | do they overlap in time, on disjoint cores? |
 | `E_concurrent_gpu` | four placed launches at once, `gpus=N` | the same, with disjoint GPUs too (GPU machines only) |
+| `F_memory_limit` | one placed launch allowed 1 GB, allocating 4 GB | does anything actually enforce a memory allowance? |
 
 The single-launch checks come first on purpose. A concurrency verdict is meaningless until placement is known to be honored, because launches that never overlapped trivially have disjoint cores. That mistake was made once already during the earlier launcher spike.
 
 All four concurrent slots share one node, also on purpose: sharing a node is the hard case, and spreading across nodes is not what anyone is unsure about.
+
+## The memory question, and why it rides along
+
+Polaris does not hand memory to the launcher, and the design says it should not: asking for memory was measured to change nothing observable. But that evidence shows memory was not what serialized concurrent steps. It does not show that a memory request is *inert*, and nobody has checked whether exceeding an allowance gets a step killed. Those lead to different designs, so `F_memory_limit` settles it while these machines are being visited anyway.
+
+It launches one placed step with `--mem=1024M`, has it allocate 4 GB, and records how far it got. Two answers, both useful:
+
+- **Nothing enforces.** Memory is a budget Polaris keeps and nothing below it will help. The design is on the right footing.
+- **Something enforces.** Then a step can be capped on that machine, and -- by exactly the argument that applies to GPUs -- a launch that says nothing about memory may be read as claiming all of it. That would be the same trap in a second place, and worth chasing.
+
+Two things about this check are deliberate and worth knowing before reading the code:
+
+- **It adds a flag `mache` does not render.** Every other check runs exactly what `mache` produced; this one appends `--mem` itself. `mache` carries no memory on purpose, and the question here is what the batch system does rather than what `mache` emits. It is the only place the harness reaches past the renderer.
+- **Being killed is a result, not a failed run.** A launch stopped for exceeding its allowance is the finding, so it does not count towards the job's exit code. Everything else still does.
+
+The payload writes its progress out and flushes after every 64 MB, because a process killed for exceeding a limit dies without warning and anything left in a buffer is exactly the evidence that would be lost.
+
+On PBS with PALS there is no per-launch memory request to make, so the check is skipped and says so.
+
+## While we are there: what a node's memory is
+
+Every run records what the site says a node's memory is -- `sinfo -o "%m"` on Slurm, `pbsnodes` on PBS -- into `meta.kv` as `memory_per_node_mb`, with the source beside it. Those are the numbers `mache` needs for its `memory_per_node` config option, and collecting them costs one query on a machine somebody is already standing on. Chrysalis reports 253000 MB.
+
+It is the site's figure and not the kernel's on purpose: what belongs in a config is the memory a job may actually use, which is a few percent below what the hardware has, and the smaller number is the one a caller must not exceed. Where neither command works the run falls back to `MemTotal` and labels it, so that nobody copies it into a config believing it is the other thing.
 
 ## Before submitting anything: read the commands
 
@@ -118,7 +143,7 @@ For a launch asking for no GPUs on PALS, `mache` emits `--env=ZE_AFFINITY_MASK=`
 
 ## Knobs
 
-All optional, all read by `run_check.sh`: `PLACE_SLOTS` (concurrency, default 4), `PLACE_NTASKS` (MPI ranks per launch, 2), `PLACE_CPUS` (cores per rank, 4), `PLACE_SLEEP` (payload seconds, 15), `PLACE_OUTDIR`, `PLACE_CORE_LIST` (the usable cores on a node, normally read from the machine config), `PLACE_SKIP_GPU`, `PLACE_DRY_RUN` (render and write out the commands, launch nothing), `PLACE_MPICC`, `PLACE_ALLOW_FALLBACK` (accept the shell payload if the MPI one will not build), and `PLACE_LOAD_SCRIPT`.
+All optional, all read by `run_check.sh`: `PLACE_SLOTS` (concurrency, default 4), `PLACE_NTASKS` (MPI ranks per launch, 2), `PLACE_CPUS` (cores per rank, 4), `PLACE_SLEEP` (payload seconds, 15), `PLACE_OUTDIR`, `PLACE_CORE_LIST` (the usable cores on a node, normally read from the machine config), `PLACE_SKIP_GPU`, `PLACE_SKIP_MEMORY`, `PLACE_MEM_ALLOWANCE_MB` (1024), `PLACE_MEM_TARGET_MB` (4096), `PLACE_DRY_RUN` (render and write out the commands, launch nothing), `PLACE_MPICC`, `PLACE_ALLOW_FALLBACK` (accept the shell payload if the MPI one will not build), and `PLACE_LOAD_SCRIPT`.
 
 The MPI payload is built with `mpicc`, or with `cc` on the Cray machines where that is the MPI wrapper. If neither works the run **aborts**, because falling back to the shell payload would quietly downgrade the concurrent checks from "does an MPI job survive concurrency" to "does step creation survive concurrency".
 

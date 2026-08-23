@@ -53,11 +53,45 @@ class Launch:
 
 @dataclass(frozen=True)
 class Check:
-    """A set of launches to start at the same moment."""
+    """
+    A set of launches to start at the same moment.
+
+    Attributes
+    ----------
+    name : str
+        The check's name, which is also its results directory.
+
+    description : str
+        What the check is asking, printed above its commands.
+
+    placements : sequence
+        One placement per launch, or ``None`` for an unplaced launch.
+
+    payload : str or None
+        An executable to run instead of the run's usual payload.
+
+    extra_args : sequence of str
+        Launcher arguments mache does not render, added after the ones it
+        does. Only the memory check uses this, and only because the question
+        it asks is what the batch system does rather than what mache emits.
+
+    ntasks : int or None
+        A task count for this check alone, where the run's default does not
+        suit it.
+
+    failure_is_a_result : bool
+        Whether a nonzero exit is an answer rather than a fault. A launch
+        killed for exceeding a memory allowance is the finding, not a
+        broken run, and must not make the job look failed.
+    """
 
     name: str
     description: str
     placements: Sequence[ResourcePlacement | None]
+    payload: str | None = None
+    extra_args: Sequence[str] = ()
+    ntasks: int | None = None
+    failure_is_a_result: bool = False
 
 
 def main():
@@ -93,6 +127,8 @@ def main():
 
     gpu_ids_needed = needs_explicit_gpu_ids(parallel_system)
 
+    memory_mb, memory_source = get_memory_per_node(parallel_system, nodes[0])
+
     os.makedirs(args.outdir, exist_ok=True)
     _print_header(
         machine=machine,
@@ -102,6 +138,8 @@ def main():
         cores=cores,
         gpus_per_node=gpus_per_node,
         gpus_per_slot=gpus_per_slot,
+        memory_mb=memory_mb,
+        memory_source=memory_source,
         args=args,
     )
     write_meta(
@@ -113,6 +151,8 @@ def main():
         cores=cores,
         gpus_per_node=gpus_per_node,
         gpus_per_slot=gpus_per_slot,
+        memory_mb=memory_mb,
+        memory_source=memory_source,
         args=args,
     )
 
@@ -125,6 +165,24 @@ def main():
         gpus_per_slot=gpus_per_slot,
         gpu_ids_needed=gpu_ids_needed,
     )
+
+    if not args.skip_memory:
+        memory_check = build_memory_check(
+            node=nodes[0],
+            cores=cores,
+            cpus_per_task=args.cpus_per_task,
+            parallel_system=parallel_system,
+            payload=args.mem_payload,
+            allowance_mb=args.mem_allowance_mb,
+            target_mb=args.mem_target_mb,
+        )
+        if memory_check is not None:
+            checks.append(memory_check)
+        else:
+            print()
+            print('--- F_memory_limit: skipped, this launcher takes no')
+            print('    per-launch memory request, so there is nothing that')
+            print('    could enforce one')
 
     failures = 0
     for check in checks:
@@ -149,6 +207,11 @@ def parse_args():
     )
     parser.add_argument(
         '--payload', required=True, help='the executable each launch runs'
+    )
+    parser.add_argument(
+        '--mem-payload',
+        default=None,
+        help='the executable the memory check runs',
     )
     parser.add_argument(
         '--machine', default=None, help='the machine name known to mache'
@@ -185,6 +248,21 @@ def parse_args():
     )
     parser.add_argument(
         '--skip-gpu', action='store_true', help='skip the GPU checks'
+    )
+    parser.add_argument(
+        '--mem-allowance-mb',
+        type=int,
+        default=1024,
+        help='the memory allowance the enforcement check asks for',
+    )
+    parser.add_argument(
+        '--mem-target-mb',
+        type=int,
+        default=4096,
+        help='how much the enforcement check tries to allocate',
+    )
+    parser.add_argument(
+        '--skip-memory', action='store_true', help='skip the memory check'
     )
     parser.add_argument(
         '--dry-run',
@@ -422,6 +500,93 @@ def build_checks(
     return checks
 
 
+def build_memory_check(
+    node,
+    cores,
+    cpus_per_task,
+    parallel_system,
+    payload,
+    allowance_mb,
+    target_mb,
+):
+    """
+    Build the check that asks whether a memory allowance is enforced.
+
+    Nothing in the design asks the batch system to limit a step's memory, on
+    the evidence that requesting memory changed nothing observable.  That
+    evidence shows memory was not what serialized concurrent steps; it does
+    not show that a memory request is inert.  The two answers lead different
+    places, so it is worth the one launch it costs while these machines are
+    being visited anyway.
+
+    The memory flag is added by this check rather than rendered by mache, on
+    purpose: mache deliberately carries no memory, and the question here is
+    what the batch system does, not what mache emits.
+
+    Returns
+    -------
+    check : Check or None
+        ``None`` where the launcher takes no per-launch memory request, in
+        which case there is nothing to enforce and nothing to ask.
+    """
+    system_name = parallel_system.get_config('system', '')
+    if system_name != 'slurm':
+        return None
+
+    placement = ResourcePlacement(
+        nodes=(node,), cores=tuple(cores[:cpus_per_task]), gpus=0
+    )
+    return Check(
+        name='F_memory_limit',
+        description=(
+            f'one placed launch allowed {allowance_mb} MB, allocating '
+            f'{target_mb} MB -- is it killed?'
+        ),
+        placements=[placement],
+        payload=payload,
+        extra_args=[f'--mem={allowance_mb}M'],
+        ntasks=1,
+        failure_is_a_result=True,
+    )
+
+
+def get_memory_per_node(parallel_system, node):
+    """
+    Get what this site says a node's memory is, in MB, and where that came
+    from.
+
+    The site's figure rather than the operating system's.  What belongs in a
+    config is the memory a job may actually use, which is several percent
+    below the hardware capacity, and the smaller number is the one a caller
+    must not exceed.  Falling back to the kernel's figure is better than
+    nothing but is labelled so that nobody copies it into a config believing
+    it is the other thing.
+
+    Returns
+    -------
+    memory_mb : int or None
+        The memory per node in MB, or ``None`` if it could not be determined.
+
+    source : str
+        Where the figure came from, for recording beside it.
+    """
+    system_name = parallel_system.get_config('system', '')
+
+    if system_name == 'slurm':
+        memory_mb = _first_int(['sinfo', '-h', '-o', '%m', '-n', node])
+        if memory_mb is not None:
+            return memory_mb, 'sinfo %m'
+    elif system_name == 'pbs':
+        memory_mb = _pbs_memory_mb(node)
+        if memory_mb is not None:
+            return memory_mb, 'pbsnodes resources_available.mem'
+
+    memory_mb = _proc_meminfo_mb()
+    if memory_mb is not None:
+        return memory_mb, 'MemTotal (kernel, not the site figure)'
+    return None, 'unknown'
+
+
 def run_check(parallel_system, check, args):
     """Render a check's commands, start them together and wait for them."""
     test_dir = os.path.join(args.outdir, check.name)
@@ -430,15 +595,22 @@ def run_check(parallel_system, check, args):
     print()
     print(f'--- {check.name}: {check.description}')
 
+    payload = check.payload if check.payload is not None else args.payload
+    ntasks = check.ntasks if check.ntasks is not None else args.ntasks
+
     launches = []
     for slot, placement in enumerate(check.placements, start=1):
         try:
+            # rendered with no program, so that anything mache does not
+            # render can be added after its flags and before the payload
             command = parallel_system.get_parallel_command(
-                args=[args.payload],
-                ntasks=args.ntasks,
+                args=[],
+                ntasks=ntasks,
                 cpus_per_task=args.cpus_per_task,
                 placement=placement,
             )
+            command.extend(check.extra_args)
+            command.append(payload)
         except ValueError as exception:
             # A machine that cannot render a placement is a result, not a
             # crash: pre-20.11 Slurm refuses GPU placement, for instance.
@@ -457,7 +629,11 @@ def run_check(parallel_system, check, args):
     if args.dry_run:
         return 0
 
-    return _start_and_wait(launches, check, args, test_dir)
+    failures = _start_and_wait(launches, check, args, test_dir)
+    if check.failure_is_a_result:
+        # being killed is the finding here, not a broken run
+        return 0
+    return failures
 
 
 def write_launches(test_dir, launches, outdir, check_name):
@@ -501,6 +677,8 @@ def write_meta(
     cores,
     gpus_per_node,
     gpus_per_slot,
+    memory_mb,
+    memory_source,
     args,
 ):
     """
@@ -535,6 +713,8 @@ def write_meta(
         'cores_on_node': f'{parallel_system.cores_per_node}',
         'usable_cores': f'{len(cores)}',
         'gpus_on_node': f'{gpus_per_node}',
+        'memory_per_node_mb': '' if memory_mb is None else f'{memory_mb}',
+        'memory_per_node_source': memory_source,
         'core_list': ','.join(f'{core}' for core in cores),
         'slots': f'{args.slots}',
         'ntasks': f'{args.ntasks}',
@@ -620,6 +800,8 @@ def _print_header(
     cores,
     gpus_per_node,
     gpus_per_slot,
+    memory_mb,
+    memory_source,
     args,
 ):
     """Print what this run is about to do."""
@@ -638,6 +820,7 @@ def _print_header(
     print(f'target node:        {nodes[0]}')
     print(f'usable cores:       {len(cores)}')
     print(f'gpus per node:      {gpus_per_node}')
+    print(f'memory per node:    {memory_mb} MB ({memory_source})')
     if gpus_per_slot == 0 and not args.skip_gpu:
         print('  No GPU checks will run.  On the GPU machines the GPU count')
         print('  lives in [parallel.<compiler>], so a deployment with the')
@@ -664,6 +847,53 @@ def _set_meta_status(outdir, status):
                 handle.write(f'status={status}\n')
             else:
                 handle.write(line)
+
+
+def _first_int(command):
+    """Run a command and return the first integer it prints, or None."""
+    try:
+        output = subprocess.check_output(command, text=True, timeout=30)
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in output.splitlines():
+        line = line.strip().rstrip('+')
+        if line.isdigit():
+            return int(line)
+    return None
+
+
+def _pbs_memory_mb(node):
+    """Get a PBS node's available memory in MB, or None."""
+    try:
+        output = subprocess.check_output(
+            ['pbsnodes', node], text=True, timeout=30
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for line in output.splitlines():
+        key, _, value = line.partition('=')
+        if key.strip() != 'resources_available.mem':
+            continue
+        value = value.strip().lower()
+        if value.endswith('kb'):
+            return int(value[:-2]) // 1024
+        if value.endswith('mb'):
+            return int(value[:-2])
+        if value.endswith('gb'):
+            return int(value[:-2]) * 1024
+    return None
+
+
+def _proc_meminfo_mb():
+    """Get this node's total memory in MB from the kernel, or None."""
+    try:
+        with open('/proc/meminfo') as handle:
+            for line in handle:
+                if line.startswith('MemTotal:'):
+                    return int(line.split()[1]) // 1024
+    except (OSError, ValueError, IndexError):
+        return None
+    return None
 
 
 if __name__ == '__main__':

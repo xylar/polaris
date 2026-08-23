@@ -18,6 +18,9 @@ import sys
 
 # lines in a launcher's stderr that are worth surfacing in the summary
 RETRY_MARKERS = (
+    'exceeded memory limit',
+    'oom-kill',
+    'Out Of Memory',
     'step creation temporarily disabled',
     'Requested nodes are busy',
     'Requested node configuration is not available',
@@ -85,7 +88,11 @@ def main():
         return 1
 
     for name in checks:
-        report_check(os.path.join(root, name), name, support)
+        path = os.path.join(root, name)
+        if name.endswith('memory_limit'):
+            report_memory_check(path, name)
+        else:
+            report_check(path, name, support)
 
     print()
     print('Reading the results:')
@@ -266,6 +273,67 @@ def overlapping_pairs(runs):
                 yield first, second
 
 
+def report_memory_check(test_dir, name):
+    """
+    Say whether a memory allowance was enforced.
+
+    Read from what the payload managed to write rather than from whether it
+    finished: a process killed for exceeding a limit dies without warning,
+    so the last figure it flushed is the whole of the evidence.
+    """
+    print()
+    print(f'{name}:')
+
+    records = [
+        parse_kv(os.path.join(test_dir, entry))
+        for entry in sorted(os.listdir(test_dir))
+        if entry.endswith('.kv') and entry != 'expected.kv'
+    ]
+    if len(records) == 0:
+        print('  no payload output -- the launch probably failed to start')
+        _report_messages(test_dir)
+        return
+
+    record = records[0]
+    allowance = record.get('allowance_mb', '?')
+    target = record.get('target_mb', '?')
+    reached = record.get('reached_mb', '0')
+    completed = record.get('completed') == 'true'
+    returncode = _read_rc(test_dir, record.get('slot', '1'))
+
+    print(
+        f'  allowed {allowance} MB, tried to allocate {target} MB, '
+        f'reached {reached} MB'
+    )
+
+    stopped_short = _as_int(reached) < _as_int(target)
+
+    if completed and returncode == 0:
+        print('  NOT ENFORCED: the launch allocated several times its')
+        print('    allowance and was left alone.  A memory request does')
+        print('    nothing here, so Polaris keeping its own budget is the')
+        print('    whole of the answer.')
+    elif not completed and stopped_short:
+        print(
+            f'  ENFORCED: the launch stopped at {reached} MB, short of the '
+            f'{target} MB it tried for, having been allowed {allowance} MB'
+        )
+        print(f'    (exit code {returncode})')
+        print('    Two things follow: a step can be capped on this machine,')
+        print('    and -- by the same argument that applies to GPUs -- a')
+        print('    launch that says nothing about memory may be read as')
+        print('    claiming all of it.  Worth chasing.')
+    else:
+        print(
+            f'  UNCLEAR: reached {reached} of {target} MB, '
+            f'completed={completed}, exit code {returncode}.'
+        )
+        print('    Not a clean answer either way; read the .err file before')
+        print('    concluding anything.')
+
+    _report_messages(test_dir)
+
+
 def report_check(test_dir, name, support):
     """Print everything worth saying about one check."""
     print()
@@ -437,6 +505,24 @@ def _report_collisions(runs):
                 print(f'    {hit}')
         else:
             print('  GPUs are disjoint across overlapping launches')
+
+
+def _as_int(value):
+    """Parse an integer that may be missing or malformed, as -1."""
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return -1
+
+
+def _read_rc(test_dir, slot):
+    """Read a launch's recorded exit code, or None."""
+    path = os.path.join(test_dir, f'slot{slot}.rc')
+    try:
+        with open(path) as handle:
+            return int(handle.read().strip())
+    except (OSError, ValueError):
+        return None
 
 
 def _report_messages(test_dir):

@@ -16,6 +16,10 @@ slots="${PLACE_SLOTS:-4}"
 ntasks="${PLACE_NTASKS:-2}"
 cpus="${PLACE_CPUS:-4}"
 sleep_seconds="${PLACE_SLEEP:-15}"
+# The memory-enforcement question: allow a little, try to use several times
+# it.  Both are small enough to be harmless on any node these run on.
+mem_allowance_mb="${PLACE_MEM_ALLOWANCE_MB:-1024}"
+mem_target_mb="${PLACE_MEM_TARGET_MB:-4096}"
 outdir="${PLACE_OUTDIR:-${PWD}/placement_results_$(date +%Y%m%d_%H%M%S)}"
 
 mkdir -p "${outdir}"
@@ -30,8 +34,9 @@ if [ "${PLACE_SNAPSHOT:-0}" != "1" ]; then
     mkdir -p "${snapshot}"
     cp "${here}/run_check.sh" "${here}/check_placement.py" \
        "${here}/payload.sh" "${here}/mpi_payload.c" \
-       "${here}/summarize.py" "${snapshot}/"
+       "${here}/mem_payload.sh" "${here}/summarize.py" "${snapshot}/"
     chmod +x "${snapshot}/run_check.sh" "${snapshot}/payload.sh" \
+        "${snapshot}/mem_payload.sh" \
         "${snapshot}/check_placement.py" "${snapshot}/summarize.py"
     export PLACE_SNAPSHOT=1
     export PLACE_OUTDIR="${outdir}"
@@ -126,12 +131,16 @@ echo
 python "${here}/check_placement.py" \
     --outdir "${outdir}" \
     --payload "${payload}" \
+    --mem-payload "${here}/mem_payload.sh" \
+    --mem-allowance-mb "${mem_allowance_mb}" \
+    --mem-target-mb "${mem_target_mb}" \
     --slots "${slots}" \
     --ntasks "${ntasks}" \
     --cpus-per-task "${cpus}" \
     --sleep "${sleep_seconds}" \
     ${PLACE_CORE_LIST:+--core-list "${PLACE_CORE_LIST}"} \
     ${PLACE_SKIP_GPU:+--skip-gpu} \
+    ${PLACE_SKIP_MEMORY:+--skip-memory} \
     ${PLACE_DRY_RUN:+--dry-run}
 status=$?
 
