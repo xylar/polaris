@@ -1,0 +1,26 @@
+  run: chrysalis / slurm job 1273942, 2 node(s), 128 cores/node
+       4 slot(s) x 2 rank(s) x 4 cpu(s), mpi payload mpicc
+       20.02.4
+       RUN STATUS: incomplete -- this run did not finish
+
+  A_sequential_plain: 10 sequential launches, median 0.13s, max 0.14s -> ~461.5 launches/min
+  B_concurrent_mask: 4 slot(s) reported, peak concurrency 4, hosts ['chr-0493'], cores/rank [4]
+      cores are disjoint across slots
+  B_concurrent_plain: 4 slot(s) reported, peak concurrency 4, hosts ['chr-0493'], cores/rank [128]
+      CORE COLLISIONS:
+        slots 1 and 2 overlapped in time and share cores [0, 1, 2, 3, 4, 5] on chr-0493
+        slots 1 and 3 overlapped in time and share cores [0, 1, 2, 3, 4, 5] on chr-0493
+        slots 1 and 4 overlapped in time and share cores [0, 1, 2, 3, 4, 5] on chr-0493
+        slots 2 and 3 overlapped in time and share cores [0, 1, 2, 3, 4, 5] on chr-0493
+        slots 2 and 4 overlapped in time and share cores [0, 1, 2, 3, 4, 5] on chr-0493
+        slots 3 and 4 overlapped in time and share cores [0, 1, 2, 3, 4, 5] on chr-0493
+  C_concurrent_mpi_mask: 4 slot(s) reported, peak concurrency 4, hosts ['chr-0493'], cores/rank [4]
+      cores are disjoint across slots
+
+Reading the results:
+  A sequential fast + B peak concurrency == slots  -> Tier A works, use --overlap --exact
+  A sequential fast + B peak concurrency == 1   -> job-step exclusivity; check B0 control and flags
+  A sequential slow (~1/min)                   -> genuine throttling; Tier A is out, evaluate Flux
+  C/D peak < slots or core collisions            -> placement is not enforced at MPI width
+
+RUN STATUS: incomplete -- this run did not finish; see job.log

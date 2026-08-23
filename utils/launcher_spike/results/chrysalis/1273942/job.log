@@ -1,0 +1,40 @@
+=== Polaris launcher spike (Slurm) ===
+slurm version:  20.02.4
+placement:      cpu-bind-mask
+job id:         1273942
+nodes:          2 (chr-[0493-0494])
+target node:    chr-0493
+cores on node:  128
+slots:          4 x 4 cpus
+mpi ranks:      2 per launch
+payload sleep:  15s
+results:        /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-launcher-spike/utils/launcher_spike/spike_results_1273942
+
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.2.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+
+The following have been reloaded with a version change:
+  1) perl/5.38.0-annnuds => perl/5.32.0-bsnc6lt
+
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+polaris env:    /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/main/load_polaris_chrysalis_gnu_openmpi.sh
+mpi payload:    mpicc (/gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-launcher-spike/utils/launcher_spike/spike_results_1273942/mpi_payload)
+
+--- A_sequential_plain: 10 sequential launches (no extra flags)
+    total 1.36s for 10 launches
+--- B_concurrent_plain: 4 concurrent launches x 1 rank(s) (no extra flags)
+    done
+--- B_concurrent_mask: 4 concurrent launches x 1 rank(s) (no extra flags)
+    done
+--- C_concurrent_mpi_mask: 4 concurrent launches x 2 rank(s) (no extra flags)
+    done
+./spike_slurm.sh: line 348: k: command not found
+--- C_concurrent_mpi_mask: 4 concurrent launches x 2 rank(s) (no extra flags)
+    done
+./spike_slurm.sh: line 351: syntax error near unexpected token `fi'
+./spike_slurm.sh: line 351: `fi'
