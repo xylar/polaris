@@ -129,7 +129,10 @@ commit_subject="Record launcher spike results from ${machine} (job ${job_id})"
 if [ "${status}" != "complete" ]; then
     commit_subject="Record ${status} launcher spike run from ${machine} (job ${job_id})"
 fi
-git -C "${repo}" commit -q -m "${commit_subject}" \
+# --no-verify because the hooks rewrite files: trailing-whitespace was
+# editing recorded .err output from srun.  Recorded results are evidence
+# and must land byte-for-byte as the machine produced them.
+git -C "${repo}" commit -q --no-verify -m "${commit_subject}" \
     -m "$(sed -n '1,12p' "${dest}/summary.txt")"
 echo "committed $(git -C "${repo}" log -1 --format=%h)"
 

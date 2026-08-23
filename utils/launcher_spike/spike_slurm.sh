@@ -419,6 +419,17 @@ if [ "${placement_mode}" = "overlap-exact" ]; then
         # concurrently, the GPU claim is what serializes them.
         run_concurrent B_exact_gres_none "${here}/payload.sh" 1 nomask \
             --exact --gres=none
+
+        # pm-gpu proved the GPU claim is what serializes: --gres=none runs
+        # four concurrent steps with disjoint cores.  So a step that really
+        # wants a GPU has to name its share.  --gpus-per-task=1 did not work
+        # on Frontier, so try a per-step total as well and compare.
+        run_concurrent B_exact_gpus1 "${here}/payload.sh" 1 nomask \
+            --exact --gpus=1
+        run_concurrent D_exact_gpus_per_task "${mpi_exe}" "${ranks}" nomask \
+            --exact --gpus-per-task=1
+        run_concurrent D_exact_gpus_total "${mpi_exe}" "${ranks}" nomask \
+            --exact "--gpus=${ranks}"
     fi
 
     # Control: concurrency, but sharing everything.
@@ -430,13 +441,13 @@ if [ "${placement_mode}" = "overlap-exact" ]; then
     # placement on its own, so let the launcher stop policing resources and
     # police them ourselves.
     run_concurrent B_overlap_mask "${here}/payload.sh" 1 mask \
-        --overlap --exact
+        --overlap
     run_concurrent C_overlap_mask "${mpi_exe}" "${ranks}" mask \
-        --overlap --exact
+        --overlap
 
     run_concurrent C_concurrent_mpi_exact "${mpi_exe}" "${ranks}" nomask --exact
     gpu_mode="mask+gpu"
-    gpu_flags=(--overlap --exact)
+    gpu_flags=(--overlap)
 else
     # Pre-20.11: --overlap and --exact do not exist, steps already share a
     # node by default, and the only way to get disjoint cores is an explicit
