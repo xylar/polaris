@@ -201,13 +201,18 @@ def gpu_collisions(runs):
     return found
 
 
-def print_collisions(label, found, ok_message, many):
+def print_collisions(label, found, ok_message, concurrent):
     if found:
         print(f'      {label}:')
         for collision in found[:6]:
             print(f'        {collision}')
-    elif many:
+    elif concurrent:
         print(f'      {ok_message}')
+    else:
+        print(
+            f'      (no {label.split()[0].lower()} verdict -- slots never '
+            f'ran at the same time)'
+        )
 
 
 def report_concurrent(test_dir, name):
@@ -240,13 +245,13 @@ def report_concurrent(test_dir, name):
             'GPU COLLISIONS',
             gpu_collisions(runs),
             'GPUs are disjoint across slots',
-            len(runs) > 1,
+            peak > 1,
         )
     print_collisions(
         'CORE COLLISIONS',
         core_collisions(runs),
         'cores are disjoint across slots',
-        len(runs) > 1,
+        peak > 1,
     )
 
 
@@ -306,7 +311,7 @@ def main():
     tests = sorted(
         name
         for name in os.listdir(root)
-        if os.path.isdir(os.path.join(root, name))
+        if os.path.isdir(os.path.join(root, name)) and name != 'scripts'
     )
     if not tests:
         print('no test directories found')
