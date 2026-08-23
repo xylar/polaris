@@ -95,16 +95,33 @@ is not what we are unsure about.
 
 ## Reading the results
 
-- **A fast, B peak concurrency == slots** — Tier A works. Add
-  `--overlap --exact` (Slurm) / `--cpu-bind list:` + `--hosts` (PALS) to the
-  mache launcher and the rest of the design follows.
-- **A fast, B peak concurrency == 1** — job-step exclusivity. Compare against
-  the B0 control and check whether the flags reached `srun`.
+- **A fast (>60 launches/min)** — `srun` is not rate limited, so the "one
+  launch a minute" symptom is about concurrency, not launch rate.
 - **A slow (~1 launch/min)** — genuine throttling. Tier A is out on that
-  machine; this is the case where Flux as a nested scheduler is worth the
-  dependency.
-- **C or D worse than B, or core collisions reported** — placement is not
-  actually enforced at MPI width, which is the case that matters most.
+  machine; this is where Flux as a nested scheduler earns its dependency.
+- **B/C peak concurrency == slots and cores disjoint** — that flag set is
+  the one to put in mache's launcher.
+- **B/C peak concurrency == 1** — steps serialized; that flag set reserves
+  more than it asked for.
+- **B/C core collisions** — steps overlapped in time on the same cores, so
+  that flag set oversubscribes rather than places.
+
+Round 1 showed the three machines disagree, which is the whole reason the
+flag choice cannot be guessed:
+
+| machine | Slurm | plain `srun` | `--overlap --exact` |
+| --- | --- | --- | --- |
+| Perlmutter | 25.11.7 | concurrent, disjoint cores | concurrent, **collides** |
+| Frontier | 25.11.5 | **serializes** (peak 1) | concurrent, **collides** |
+| Chrysalis | 20.02.4 | concurrent, no isolation (all 128 cores) | flags rejected |
+
+`--overlap` is precisely a request to *share* CPUs with other steps, so it
+buys concurrency at the cost of placement. Plain `srun` gets both right on
+Perlmutter but serializes on Frontier, where a step reserves the whole
+allocation unless told otherwise. That points at `--exact` **without**
+`--overlap` as the flag set that should satisfy both, which is what round 2
+tests. On Chrysalis neither flag exists and placement has to come from an
+explicit `--cpu-bind=mask_cpu`.
 
 A small MPI payload is built with `mpicc` from the loaded Polaris
 environment, or with `cc` on the Cray machines where that is the MPI

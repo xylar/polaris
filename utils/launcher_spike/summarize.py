@@ -118,27 +118,38 @@ def report_concurrent(test_dir, name):
         return
 
     intervals: list[tuple[float, float]] = []
-    per_host_cores: dict[str, dict[int, str]] = {}
     collisions: list[str] = []
+    per_slot: list[tuple[str, float, float, dict[str, set[int]]]] = []
+
     for slot, ranks in sorted(slots.items(), key=lambda item: int(item[0])):
         starts = [float(r['t_start']) for r in ranks if 't_start' in r]
         ends = [float(r['t_end']) for r in ranks if 't_end' in r]
         if not starts or not ends:
             continue
-        intervals.append((min(starts), max(ends)))
+        start, end = min(starts), max(ends)
+        intervals.append((start, end))
+        by_host: dict[str, set[int]] = {}
         for rank in ranks:
             host = rank.get('host', '?')
             cores = parse_cpu_list(rank.get('cpus_allowed', ''))
-            seen = per_host_cores.setdefault(host, {})
-            overlap = cores & set(seen)
-            if overlap:
-                others = sorted({seen[core] for core in overlap})
-                collisions.append(
-                    f'slot {slot} shares cores {sorted(overlap)[:6]} '
-                    f'on {host} with slot(s) {others}'
-                )
-            for core in cores:
-                seen[core] = slot
+            by_host.setdefault(host, set()).update(cores)
+        per_slot.append((slot, start, end, by_host))
+
+    # Only slots that were actually running at the same time can collide.
+    # Steps that serialized reuse the same cores harmlessly, and reporting
+    # that as a collision hides the far more important fact that they never
+    # overlapped.
+    for i, (slot_a, start_a, end_a, hosts_a) in enumerate(per_slot):
+        for slot_b, start_b, end_b, hosts_b in per_slot[i + 1 :]:
+            if min(end_a, end_b) <= max(start_a, start_b):
+                continue
+            for host, cores_a in hosts_a.items():
+                shared = cores_a & hosts_b.get(host, set())
+                if shared:
+                    collisions.append(
+                        f'slots {slot_a} and {slot_b} overlapped in time and '
+                        f'share cores {sorted(shared)[:6]} on {host}'
+                    )
 
     peak = max_overlap(intervals) if intervals else 0
     hosts = sorted(
