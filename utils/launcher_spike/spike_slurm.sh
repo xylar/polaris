@@ -53,6 +53,7 @@ fi
 placement_mode="${SPIKE_PLACEMENT_MODE:-${placement_mode}}"
 
 core_spec="${SPIKE_CORE_LIST:-0-$(( ${SLURM_CPUS_ON_NODE:-1} - 1 ))}"
+mem_per_cpu="${SPIKE_MEM_PER_CPU:-1G}"
 
 mkdir -p "${outdir}"
 export SPIKE_OUTDIR="${outdir}"
@@ -279,6 +280,27 @@ print("mask_cpu:" + ",".join(masks))
 ' "${slot}" "${ranks}" "${cpus}" "$(IFS=,; echo "${cores_avail[*]}")"
 }
 
+gpu_var="CUDA_VISIBLE_DEVICES"
+if command -v rocm-smi >/dev/null 2>&1; then
+    gpu_var="ROCR_VISIBLE_DEVICES"
+fi
+
+# Contiguous share of the node's GPUs for one slot, as a comma list.
+gpus_for_slot () {
+    local slot="$1"
+    awk -v slot="${slot}" -v slots="${slots}" \
+        -v total="${SLURM_GPUS_ON_NODE:-0}" 'BEGIN {
+        per = int(total / slots)
+        if (per < 1) { per = 1 }
+        out = ""
+        for (i = 0; i < per; i++) {
+            gpu = ((slot - 1) * per + i) % (total > 0 ? total : 1)
+            out = (i == 0) ? gpu : out "," gpu
+        }
+        printf "%s", out
+    }'
+}
+
 elapsed () {
     awk -v a="$1" -v b="$2" 'BEGIN { printf "%.2f", b - a }'
 }
@@ -315,9 +337,15 @@ run_concurrent () {
     local use_mask="$1"; shift
     local -a extra=("$@")
     local label="${extra[*]:-(no extra flags)}"
-    if [ "${use_mask}" = "mask" ]; then
-        label="${extra[*]:-} --cpu-bind=mask_cpu:<per slot>"
-    fi
+    case "${use_mask}" in
+        mask)
+            label="${extra[*]:-} --cpu-bind=mask_cpu:<per slot>"
+            ;;
+        mask+gpu)
+            label="${extra[*]:-} --cpu-bind=mask_cpu:<per slot>"
+            label="${label} ${gpu_var}=<per slot>"
+            ;;
+    esac
     echo "--- ${test_name}: ${slots} concurrent launches x ${nranks} rank(s)" \
          "${label}"
     mkdir -p "${outdir}/${test_name}"
@@ -327,10 +355,18 @@ run_concurrent () {
             export SPIKE_TEST="${test_name}"
             export SPIKE_SLOT="${slot}"
             local -a slot_flags=("${extra[@]}")
-            if [ "${use_mask}" = "mask" ]; then
-                local mask
-                mask="$(mask_cpu_for_slot "${slot}")" || exit 1
-                slot_flags+=("--cpu-bind=${mask}")
+            case "${use_mask}" in
+                mask|mask+gpu)
+                    local mask
+                    mask="$(mask_cpu_for_slot "${slot}")" || exit 1
+                    slot_flags+=("--cpu-bind=${mask}")
+                    ;;
+            esac
+            if [ "${use_mask}" = "mask+gpu" ]; then
+                # Aurora gets disjoint GPUs by setting the visible-device
+                # variable per slot rather than asking the launcher for a
+                # share, so try the same thing here.
+                export "${gpu_var}=$(gpus_for_slot "${slot}")"
             fi
             timeout "${launch_timeout}" srun "${slot_flags[@]}" \
                 -N 1 -n "${nranks}" -c "${cpus}" -w "${node}" "${exe}" \
@@ -365,25 +401,42 @@ run_sequential A_sequential_plain
 if [ "${placement_mode}" = "overlap-exact" ]; then
     run_sequential A_sequential_exact --exact
 
+    # Anchors: both of these already serialize on Frontier and pm-gpu.
     run_concurrent B_concurrent_plain "${here}/payload.sh" 1 nomask
     run_concurrent B_concurrent_exact "${here}/payload.sh" 1 nomask --exact
-    # Round 3 showed pm-cpu (no GPUs) runs plain steps concurrently while
-    # pm-gpu and Frontier (GPUs present) serialize them.  A step reserves
-    # GRES exclusively unless told what it needs, so all four may be
-    # queueing on the node's GPUs rather than on its cores.  This isolates
-    # that from anything to do with MPI.
+
+    # --exact bounds a step's CPUs but says nothing about its memory, and a
+    # step that does not name a memory figure can take the job's whole
+    # allocation, which would make every later step wait.  pm-cpu, the one
+    # machine where plain steps do run concurrently, may simply have a
+    # different DefMemPerCPU.
+    run_concurrent B_exact_mem "${here}/payload.sh" 1 nomask \
+        --exact "--mem-per-cpu=${mem_per_cpu}"
+
     if [ "${has_gpu}" = "1" ]; then
-        run_concurrent B_concurrent_exact_gpu "${here}/payload.sh" 1 nomask \
-            --exact --gpus-per-task=1
+        # --gpus-per-task=1 did not partition anything on Frontier.  Ask for
+        # no GRES at all instead: if these CPU-only steps then run
+        # concurrently, the GPU claim is what serializes them.
+        run_concurrent B_exact_gres_none "${here}/payload.sh" 1 nomask \
+            --exact --gres=none
     fi
-    # Control: expected to show core collisions.  If it does not, the
-    # meaning of --overlap on this site is not what we think it is.
+
+    # Control: concurrency, but sharing everything.
     run_concurrent B_overlap_control "${here}/payload.sh" 1 nomask \
         --overlap --exact
 
-    run_concurrent C_concurrent_mpi_plain "${mpi_exe}" "${ranks}" nomask
+    # The combination we have not tried.  --overlap is what actually buys
+    # concurrency here, and Chrysalis showed --cpu-bind=mask_cpu enforces
+    # placement on its own, so let the launcher stop policing resources and
+    # police them ourselves.
+    run_concurrent B_overlap_mask "${here}/payload.sh" 1 mask \
+        --overlap --exact
+    run_concurrent C_overlap_mask "${mpi_exe}" "${ranks}" mask \
+        --overlap --exact
+
     run_concurrent C_concurrent_mpi_exact "${mpi_exe}" "${ranks}" nomask --exact
-    gpu_flags=(--exact --gpus-per-task=1)
+    gpu_mode="mask+gpu"
+    gpu_flags=(--overlap --exact)
 else
     # Pre-20.11: --overlap and --exact do not exist, steps already share a
     # node by default, and the only way to get disjoint cores is an explicit
@@ -392,19 +445,15 @@ else
     run_concurrent B_concurrent_plain "${here}/payload.sh" 1 nomask
     run_concurrent B_concurrent_mask "${here}/payload.sh" 1 mask
     run_concurrent C_concurrent_mpi_mask "${mpi_exe}" "${ranks}" mask
-    gpu_flags=(--gpus-per-task=1)
+    gpu_mode="mask+gpu"
+    gpu_flags=()
 fi
 
 if [ "${SPIKE_SKIP_GPU:-0}" = "1" ]; then
     echo "--- D_concurrent_mpi_gpu: skipped (SPIKE_SKIP_GPU=1)"
 elif [ "${has_gpu}" = "1" ]; then
-    if [ "${placement_mode}" = "overlap-exact" ]; then
-        run_concurrent D_concurrent_mpi_gpu "${mpi_exe}" "${ranks}" nomask \
-            "${gpu_flags[@]}"
-    else
-        run_concurrent D_concurrent_mpi_gpu "${mpi_exe}" "${ranks}" mask \
-            "${gpu_flags[@]}"
-    fi
+    run_concurrent D_overlap_mask_gpu "${mpi_exe}" "${ranks}" "${gpu_mode}" \
+        "${gpu_flags[@]}"
 else
     echo "--- D_concurrent_mpi_gpu: skipped (no GPUs detected)"
 fi

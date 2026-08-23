@@ -95,6 +95,14 @@ is not what we are unsure about.
 
 ## Reading the results
 
+A note on the `*_mask` tests: placement there is enforced by Polaris rather
+than by the batch system. `--cpu-bind=mask_cpu` and a per-slot
+`ROCR_VISIBLE_DEVICES` / `CUDA_VISIBLE_DEVICES` restrict what each step can
+see, which is the same approach ALCF documents for Aurora with
+`ZE_AFFINITY_MASK`. That is what matters for avoiding oversubscription, but
+it does mean the scheduler is not the thing keeping steps apart.
+
+
 - **A fast (>60 launches/min)** — `srun` is not rate limited, so the "one
   launch a minute" symptom is about concurrency, not launch rate.
 - **A slow (~1 launch/min)** — genuine throttling. Tier A is out on that
