@@ -1,0 +1,17 @@
+  run: x4401c1s0b0n0 / pbs job 8776966.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov, 2 node(s), 208 cores/node
+       4 slot(s) x 2 rank(s) x 8 cpu(s), mpi payload mpicc
+       mpiexec version 1.8.0 revision a3475e5c9cce built Aug 25 2025
+
+  A_sequential: 10 sequential launches, median 1.14s, max 1.58s -> ~52.6 launches/min
+  B_concurrent_single: 4 slot(s) reported, peak concurrency 4, hosts ['x4401c1s0b0n0'], cores/rank [8]
+      cores are disjoint across slots
+  C_concurrent_mpi: 4 slot(s) reported, peak concurrency 4, hosts ['x4401c1s0b0n0'], cores/rank [8]
+      cores are disjoint across slots
+  D_concurrent_mpi_gpu: 4 slot(s) reported, peak concurrency 4, hosts ['x4401c1s0b0n0'], cores/rank [8]
+      cores are disjoint across slots
+
+Reading the results:
+  A sequential fast + B peak concurrency == slots  -> Tier A works, use --overlap --exact
+  A sequential fast + B peak concurrency == 1   -> job-step exclusivity; check B0 control and flags
+  A sequential slow (~1/min)                   -> genuine throttling; Tier A is out, evaluate Flux
+  C/D peak < slots or core collisions            -> placement is not enforced at MPI width
