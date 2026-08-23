@@ -93,6 +93,51 @@ Concurrent slots are all pinned to a single node on purpose — sharing one
 node is the hard case for placement. Spreading across nodes is easier and
 is not what we are unsure about.
 
+## Findings
+
+All five machines can run concurrent, placed steps. Flux is not needed.
+
+| machine | scheduler | flags that work | concurrency | cores | GPUs |
+| --- | --- | --- | --- | --- | --- |
+| Aurora | PBS/PALS | `--cpu-bind list:` + `--hosts`, `ZE_AFFINITY_MASK` | 4 | disjoint | disjoint |
+| Chrysalis | Slurm 20.02 | `--cpu-bind=mask_cpu` | 4 | disjoint | n/a |
+| pm-cpu | Slurm 25.11 | plain / `--exact` | 4 | disjoint | n/a |
+| pm-gpu | Slurm 25.11 | `--exact --gpus=N` | 4 | disjoint | disjoint |
+| Frontier | Slurm 25.11 | `--exact --gpus=N` | 4 | disjoint | disjoint |
+
+Four things worth carrying into the design:
+
+**`srun` is not rate limited.** 60-670 sequential launches per minute
+depending on machine. The "about one a minute" symptom is about concurrency,
+not launch rate. Note the tail is heavy though -- Frontier showed 2 of 10
+launches at ~2 s against a 0.11 s median on an otherwise quiet system -- and
+all of this was measured at weekends and off-peak, so a busy weekday has not
+been ruled out.
+
+**A step claims every GPU on the node unless it says otherwise.** This is
+what serialized steps on the GPU machines, and it is visible directly:
+without an explicit request, every step's `SLURM_STEP_GPUS` holds the node's
+whole GPU set. `--exact` bounds a step's CPUs but not its GRES. It was not
+memory -- `--mem-per-cpu` changed nothing.
+
+**A per-step total works where a per-task count does not.**
+`--exact --gpus=N` gives concurrency with disjoint cores and GPUs;
+`--exact --gpus-per-task=1` serializes, on both GPU machines. Polaris's
+resource model therefore needs to express a step's GPU need as a total, not
+as a per-rank count.
+
+**`CUDA_VISIBLE_DEVICES` is renumbered per step.** Four steps on four
+different GPUs all report device `0`, so it cannot be used to check
+placement. `SLURM_STEP_GPUS` carries the global ids and is what the payloads
+record.
+
+Two things that do *not* work, so they do not need retrying: `--overlap`
+gives concurrency but shares every core and GPU, and `--overlap` with an
+explicit `--cpu-bind=mask_cpu` fails outright on modern Slurm, because
+`-c N` already restricts the step to a Slurm-chosen CPU set that the mask
+then contradicts. The mask route remains the only option on pre-20.11
+Slurm, where it works.
+
 ## Reading the results
 
 A note on the `*_mask` tests: placement there is enforced by Polaris rather
