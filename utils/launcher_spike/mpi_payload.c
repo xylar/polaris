@@ -66,7 +66,21 @@ int main(int argc, char **argv)
         return 1;
     }
     if (!gpu) {
-        gpu = getenv("CUDA_VISIBLE_DEVICES");
+        /* Aurora uses ZE_AFFINITY_MASK, Perlmutter CUDA_VISIBLE_DEVICES and
+         * Frontier ROCR_VISIBLE_DEVICES, so check each in turn. */
+        static const char *gpu_vars[] = {
+            "CUDA_VISIBLE_DEVICES",
+            "ROCR_VISIBLE_DEVICES",
+            "HIP_VISIBLE_DEVICES",
+            NULL,
+        };
+        int i;
+        for (i = 0; gpu_vars[i] != NULL; i++) {
+            gpu = getenv(gpu_vars[i]);
+            if (gpu != NULL && gpu[0] != '\0') {
+                break;
+            }
+        }
     }
     if (!gpu) {
         gpu = "";

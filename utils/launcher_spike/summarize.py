@@ -57,6 +57,23 @@ def parse_cpu_list(text):
     return cores
 
 
+def parse_gpu_env(text):
+    """Devices named by a payload's gpu_env field, however it was written."""
+    devices: set[str] = set()
+    if not text:
+        return devices
+    for chunk in text.split(';'):
+        chunk = chunk.strip()
+        if not chunk:
+            continue
+        _, _, value = chunk.rpartition('=')
+        for device in value.split(','):
+            device = device.strip()
+            if device:
+                devices.add(device)
+    return devices
+
+
 def max_overlap(intervals):
     """Largest number of intervals active at any instant."""
     events = []
@@ -103,58 +120,105 @@ def report_sequential(test_dir, name):
     return True
 
 
-def report_concurrent(test_dir, name):
+class SlotRun:
+    """One concurrent slot: when it ran, and what it was given."""
+
+    def __init__(self, slot, start, end, cores_by_host, gpus):
+        self.slot = slot
+        self.start = start
+        self.end = end
+        self.cores_by_host = cores_by_host
+        self.gpus = gpus
+
+
+def collect_slots(test_dir):
+    """Group the payload output files in a test directory by slot."""
     slots: dict[str, list[dict[str, str]]] = {}
     for entry in sorted(os.listdir(test_dir)):
         if not entry.endswith('.kv') or entry == 'timings.kv':
             continue
         values = parse_kv(os.path.join(test_dir, entry))
         slot = values.get('slot')
-        if slot is None:
-            continue
-        slots.setdefault(slot, []).append(values)
-    if not slots:
-        print(f'  {name}: no payload output -- launches probably failed')
-        return
+        if slot is not None:
+            slots.setdefault(slot, []).append(values)
+    return slots
 
-    intervals: list[tuple[float, float]] = []
-    collisions: list[str] = []
-    per_slot: list[tuple[str, float, float, dict[str, set[int]]]] = []
 
+def build_slot_runs(slots):
+    runs = []
     for slot, ranks in sorted(slots.items(), key=lambda item: int(item[0])):
         starts = [float(r['t_start']) for r in ranks if 't_start' in r]
         ends = [float(r['t_end']) for r in ranks if 't_end' in r]
         if not starts or not ends:
             continue
-        start, end = min(starts), max(ends)
-        intervals.append((start, end))
-        by_host: dict[str, set[int]] = {}
+        cores_by_host: dict[str, set[int]] = {}
+        gpus: set[str] = set()
         for rank in ranks:
             host = rank.get('host', '?')
-            cores = parse_cpu_list(rank.get('cpus_allowed', ''))
-            by_host.setdefault(host, set()).update(cores)
-        per_slot.append((slot, start, end, by_host))
+            cores_by_host.setdefault(host, set()).update(
+                parse_cpu_list(rank.get('cpus_allowed', ''))
+            )
+            gpus |= parse_gpu_env(rank.get('gpu_env', ''))
+        runs.append(SlotRun(slot, min(starts), max(ends), cores_by_host, gpus))
+    return runs
 
-    # Only slots that were actually running at the same time can collide.
-    # Steps that serialized reuse the same cores harmlessly, and reporting
-    # that as a collision hides the far more important fact that they never
-    # overlapped.
-    for i, (slot_a, start_a, end_a, hosts_a) in enumerate(per_slot):
-        for slot_b, start_b, end_b, hosts_b in per_slot[i + 1 :]:
-            if min(end_a, end_b) <= max(start_a, start_b):
-                continue
-            for host, cores_a in hosts_a.items():
-                shared = cores_a & hosts_b.get(host, set())
-                if shared:
-                    collisions.append(
-                        f'slots {slot_a} and {slot_b} overlapped in time and '
-                        f'share cores {sorted(shared)[:6]} on {host}'
-                    )
 
-    peak = max_overlap(intervals) if intervals else 0
-    hosts = sorted(
-        {r.get('host', '?') for ranks in slots.values() for r in ranks}
-    )
+def overlapping_pairs(runs):
+    """Slot pairs that were genuinely running at the same moment.
+
+    Steps that serialized reuse the same cores harmlessly, so comparing
+    them would report a collision that hides the far more important fact
+    that they never overlapped.
+    """
+    for index, first in enumerate(runs):
+        for second in runs[index + 1 :]:
+            if min(first.end, second.end) > max(first.start, second.start):
+                yield first, second
+
+
+def core_collisions(runs):
+    found = []
+    for first, second in overlapping_pairs(runs):
+        for host, cores in first.cores_by_host.items():
+            shared = cores & second.cores_by_host.get(host, set())
+            if shared:
+                found.append(
+                    f'slots {first.slot} and {second.slot} overlapped in '
+                    f'time and share cores {sorted(shared)[:6]} on {host}'
+                )
+    return found
+
+
+def gpu_collisions(runs):
+    found = []
+    for first, second in overlapping_pairs(runs):
+        shared = first.gpus & second.gpus
+        if shared:
+            found.append(
+                f'slots {first.slot} and {second.slot} overlapped in time '
+                f'and share GPU(s) {sorted(shared)}'
+            )
+    return found
+
+
+def print_collisions(label, found, ok_message, many):
+    if found:
+        print(f'      {label}:')
+        for collision in found[:6]:
+            print(f'        {collision}')
+    elif many:
+        print(f'      {ok_message}')
+
+
+def report_concurrent(test_dir, name):
+    slots = collect_slots(test_dir)
+    if not slots:
+        print(f'  {name}: no payload output -- launches probably failed')
+        return
+
+    runs = build_slot_runs(slots)
+    peak = max_overlap([(r.start, r.end) for r in runs]) if runs else 0
+    hosts = sorted({host for r in runs for host in r.cores_by_host})
     widths = sorted(
         {
             len(parse_cpu_list(r.get('cpus_allowed', '')))
@@ -166,12 +230,24 @@ def report_concurrent(test_dir, name):
         f'  {name}: {len(slots)} slot(s) reported, peak concurrency {peak}, '
         f'hosts {hosts}, cores/rank {widths}'
     )
-    if collisions:
-        print('      CORE COLLISIONS:')
-        for collision in collisions[:6]:
-            print(f'        {collision}')
-    elif len(slots) > 1:
-        print('      cores are disjoint across slots')
+
+    if any(r.gpus for r in runs):
+        assigned = ' '.join(
+            f'slot{r.slot}={sorted(r.gpus)}' for r in runs if r.gpus
+        )
+        print(f'      GPUs: {assigned}')
+        print_collisions(
+            'GPU COLLISIONS',
+            gpu_collisions(runs),
+            'GPUs are disjoint across slots',
+            len(runs) > 1,
+        )
+    print_collisions(
+        'CORE COLLISIONS',
+        core_collisions(runs),
+        'cores are disjoint across slots',
+        len(runs) > 1,
+    )
 
 
 def report_messages(test_dir, name):
