@@ -1,0 +1,27 @@
+  run: pm-gpu / slurm job 57473918, 2 node(s), 128 cores/node
+       4 slot(s) x 1 rank(s) x 8 cpu(s), mpi payload mpicc
+       25.11.7
+
+  A_sequential_exact: 10 sequential launches, median 0.97s, max 1.15s -> ~61.9 launches/min
+  A_sequential_plain: 10 sequential launches, median 0.89s, max 1.15s -> ~67.8 launches/min
+  B_concurrent_exact: 4 slot(s) reported, peak concurrency 1, hosts ['nid008673'], cores/rank [8]
+      cores are disjoint across slots
+  B_concurrent_plain: 4 slot(s) reported, peak concurrency 1, hosts ['nid008673'], cores/rank [8]
+      cores are disjoint across slots
+  B_overlap_control: 4 slot(s) reported, peak concurrency 4, hosts ['nid008673'], cores/rank [8]
+      CORE COLLISIONS:
+        slots 1 and 2 overlapped in time and share cores [0, 1, 2, 3, 64, 65] on nid008673
+        slots 1 and 3 overlapped in time and share cores [0, 1, 2, 3, 64, 65] on nid008673
+        slots 1 and 4 overlapped in time and share cores [0, 1, 2, 3, 64, 65] on nid008673
+        slots 2 and 3 overlapped in time and share cores [0, 1, 2, 3, 64, 65] on nid008673
+        slots 2 and 4 overlapped in time and share cores [0, 1, 2, 3, 64, 65] on nid008673
+        slots 3 and 4 overlapped in time and share cores [0, 1, 2, 3, 64, 65] on nid008673
+  C_concurrent_mpi_exact: no payload output -- launches probably failed
+  C_concurrent_mpi_plain: no payload output -- launches probably failed
+  D_concurrent_mpi_gpu: no payload output -- launches probably failed
+
+Reading the results:
+  A sequential fast + B peak concurrency == slots  -> Tier A works, use --overlap --exact
+  A sequential fast + B peak concurrency == 1   -> job-step exclusivity; check B0 control and flags
+  A sequential slow (~1/min)                   -> genuine throttling; Tier A is out, evaluate Flux
+  C/D peak < slots or core collisions            -> placement is not enforced at MPI width
