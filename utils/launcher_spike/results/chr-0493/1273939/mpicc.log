@@ -1,0 +1,4 @@
+/gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-launcher-spike/utils/launcher_spike/mpi_payload.c:6:10: fatal error: mpi.h: No such file or directory
+ #include <mpi.h>
+          ^~~~~~~
+compilation terminated.

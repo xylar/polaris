@@ -1,0 +1,20 @@
+  run: chr-0493 / slurm job 1273939, 2 node(s), 128 cores/node
+       4 slot(s) x 2 rank(s) x 4 cpu(s), mpi payload shell-fallback
+       slurm 20.02.4
+
+  A0_sequential_plain: 10 sequential launches, median 0.09s, max 0.11s -> ~666.7 launches/min
+  A_sequential_overlap: 10 sequential launches, median 0.01s, max 0.01s -> ~6000.0 launches/min
+      10 launch(es) returned nonzero
+  B0_concurrent_plain: 4 slot(s) reported, peak concurrency 4, hosts ['chr-0493'], cores/rank [128]
+      CORE COLLISIONS:
+        slot 2 shares cores [0, 1, 2, 3, 4, 5] on chr-0493 with slot(s) ['1']
+        slot 3 shares cores [0, 1, 2, 3, 4, 5] on chr-0493 with slot(s) ['2']
+        slot 4 shares cores [0, 1, 2, 3, 4, 5] on chr-0493 with slot(s) ['3']
+  B_concurrent_overlap: no payload output -- launches probably failed
+  C_concurrent_mpi: no payload output -- launches probably failed
+
+Reading the results:
+  A sequential fast + B peak concurrency == slots  -> Tier A works, use --overlap --exact
+  A sequential fast + B peak concurrency == 1   -> job-step exclusivity; check B0 control and flags
+  A sequential slow (~1/min)                   -> genuine throttling; Tier A is out, evaluate Flux
+  C/D peak < slots or core collisions            -> placement is not enforced at MPI width

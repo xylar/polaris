@@ -1,0 +1,4 @@
+srun: unrecognized option '--overlap'
+srun: unrecognized option '--exact'
+srun: unrecognized option '--overlap'
+Try "srun --help" for more information
