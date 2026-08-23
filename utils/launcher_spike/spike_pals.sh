@@ -22,6 +22,7 @@ sleep_seconds="${SPIKE_SLEEP:-15}"
 seq_n="${SPIKE_SEQ_N:-10}"
 outdir="${SPIKE_OUTDIR:-${PWD}/spike_results_$(date +%Y%m%d_%H%M%S)}"
 launch_timeout="${SPIKE_TIMEOUT:-$((sleep_seconds + 120))}"
+core_spec="${SPIKE_CORE_LIST:-0-$(( $(nproc) - 1 ))}"
 
 if [ -z "${PBS_NODEFILE:-}" ]; then
     echo "ERROR: run this inside a PBS job (PBS_NODEFILE is unset)." >&2
@@ -44,46 +45,105 @@ echo "nodes:          ${nnodes}"
 echo "target node:    ${node}"
 echo "cores on node:  $(nproc 2>/dev/null || echo unknown)"
 echo "slots:          ${slots} x ${ranks} rank(s) x ${cpus} cpus"
+echo "cores needed:   $(( slots * ranks * cpus )) of usable set ${core_spec}"
 echo "PALS_PMI:       ${PALS_PMI}"
 echo "payload sleep:  ${sleep_seconds}s"
 echo "results:        ${outdir}"
 echo
 
+# Cray machines (Perlmutter, Frontier) wrap MPI in `cc`, not `mpicc`.
 mpi_exe="${here}/payload.sh"
 mpi_kind="shell-fallback"
-if command -v mpicc >/dev/null 2>&1; then
-    if mpicc -O0 -o "${outdir}/mpi_payload" "${here}/mpi_payload.c" \
-            >"${outdir}/mpicc.log" 2>&1; then
+for candidate in ${SPIKE_MPICC:-} mpicc cc; do
+    command -v "${candidate}" >/dev/null 2>&1 || continue
+    if "${candidate}" -O0 -o "${outdir}/mpi_payload" \
+            "${here}/mpi_payload.c" >>"${outdir}/mpicc.log" 2>&1; then
         mpi_exe="${outdir}/mpi_payload"
-        mpi_kind="mpicc"
-    else
-        echo "WARNING: mpicc failed, see ${outdir}/mpicc.log" >&2
+        mpi_kind="${candidate}"
+        break
     fi
-fi
+    echo "WARNING: ${candidate} failed, see ${outdir}/mpicc.log" >&2
+done
 echo "mpi payload:    ${mpi_kind} (${mpi_exe})"
 echo
+
+{
+    echo "machine=${POLARIS_MACHINE:-${LMOD_SYSTEM_NAME:-$(hostname -s)}}"
+    echo "scheduler=pbs"
+    echo "scheduler_version=$(mpiexec --version 2>&1 | head -1 || echo unknown)"
+    echo "job_id=${PBS_JOBID:-unknown}"
+    echo "hostname=$(hostname -f)"
+    echo "nodes=${nnodes}"
+    echo "target_node=${node}"
+    echo "cores_on_node=$(nproc 2>/dev/null || echo unknown)"
+    echo "core_list=${core_spec}"
+    echo "pals_pmi=${PALS_PMI}"
+    echo "slots=${slots}"
+    echo "ranks=${ranks}"
+    echo "cpus=${cpus}"
+    echo "sleep=${sleep_seconds}"
+    echo "seq_n=${seq_n}"
+    echo "mpi_payload=${mpi_kind}"
+    echo "recorded=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "${outdir}/meta.kv"
+
 
 elapsed () {
     awk -v a="$1" -v b="$2" 'BEGIN { printf "%.2f", b - a }'
 }
 
+# Usable cores, as a spec like "1-48,53-100".  Aurora reserves core 0 and
+# cores 49-52, so the usable set is not contiguous and cannot be assumed to
+# start at 0 -- see the cpu_bind list in mache's aurora.cfg.
+parse_core_list () {
+    local spec="$1"
+    local -a out=()
+    local chunk lo hi core
+    local IFS=','
+    for chunk in ${spec}; do
+        if [[ "${chunk}" == *-* ]]; then
+            lo="${chunk%%-*}"
+            hi="${chunk##*-}"
+            for ((core = lo; core <= hi; core++)); do
+                out+=("${core}")
+            done
+        else
+            out+=("${chunk}")
+        fi
+    done
+    printf '%s\n' "${out[@]}"
+}
+
+mapfile -t cores_avail < <(parse_core_list "${core_spec}")
+
 # Cores for one slot, as a PALS --cpu-bind list: each rank gets a contiguous
-# chunk of `cpus` cores, and slots never share a core.
+# chunk of `cpus` usable cores, and slots never share a core.
 cpu_bind_list () {
     local slot="$1"
-    awk -v slot="${slot}" -v ranks="${ranks}" -v cpus="${cpus}" 'BEGIN {
-        base = (slot - 1) * ranks * cpus
-        out = ""
-        for (r = 0; r < ranks; r++) {
-            entry = ""
-            for (c = 0; c < cpus; c++) {
-                core = base + r * cpus + c
-                entry = (c == 0) ? core : entry "," core
-            }
-            out = (r == 0) ? entry : out ":" entry
-        }
-        printf "list:%s", out
-    }'
+    local base=$(( (slot - 1) * ranks * cpus ))
+    local out="" entry="" r c idx
+    for ((r = 0; r < ranks; r++)); do
+        entry=""
+        for ((c = 0; c < cpus; c++)); do
+            idx=$(( base + r * cpus + c ))
+            if [ "${idx}" -ge "${#cores_avail[@]}" ]; then
+                echo "ERROR: slots x ranks x cpus needs $(( slots * ranks * cpus ))" \
+                     "cores but SPIKE_CORE_LIST has ${#cores_avail[@]}" >&2
+                return 1
+            fi
+            if [ -z "${entry}" ]; then
+                entry="${cores_avail[idx]}"
+            else
+                entry="${entry},${cores_avail[idx]}"
+            fi
+        done
+        if [ -z "${out}" ]; then
+            out="${entry}"
+        else
+            out="${out}:${entry}"
+        fi
+    done
+    printf 'list:%s' "${out}"
 }
 
 # Aurora has 6 GPUs x 2 tiles per node; give each slot its own tile.
@@ -141,7 +201,11 @@ run_concurrent () {
 
 run_concurrent B_concurrent_single "${here}/payload.sh" 1 nogpu
 run_concurrent C_concurrent_mpi "${mpi_exe}" "${ranks}" nogpu
-run_concurrent D_concurrent_mpi_gpu "${mpi_exe}" "${ranks}" gpu
+if [ "${SPIKE_SKIP_GPU:-0}" = "1" ]; then
+    echo "--- D_concurrent_mpi_gpu: skipped (SPIKE_SKIP_GPU=1)"
+else
+    run_concurrent D_concurrent_mpi_gpu "${mpi_exe}" "${ranks}" gpu
+fi
 
 echo
 echo "=== summary ==="

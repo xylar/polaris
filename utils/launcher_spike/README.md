@@ -25,24 +25,46 @@ fast, B serializes). Those have completely different fixes.
 
 ## Running it
 
-Slurm (Perlmutter, Chrysalis, Frontier):
+There is a ready-made job script per machine, sized from the node counts and
+queue policies in mache's machine configs, so there should be no need to
+assemble an `salloc` or `qsub` by hand:
 
 ```bash
-salloc -N 2 -t 00:30:00 -A <acct>       # plus machine-specific flags
 cd utils/launcher_spike
-./spike_slurm.sh
+sbatch job_chrysalis.sbatch     # 2 nodes, debug partition
+sbatch job_pm-cpu.sbatch        # 2 nodes, qos debug, constraint cpu
+sbatch job_pm-gpu.sbatch        # 2 nodes, qos debug, constraint gpu, 4 GPUs
+sbatch job_frontier.sbatch      # 2 nodes, batch partition, qos debug
+qsub   job_aurora.pbs           # 2 nodes, debug queue, filesystems home:flare
 ```
 
-PBS/PALS (Aurora):
+Each is 30 minutes of walltime and uses a fraction of each node, so the
+no-flag control tests cannot fail merely for lack of capacity. `pm-cpu` is
+the run that matters most; `chrysalis` is the control, since its Slurm 20.02
+predates the job-step exclusivity change.
+
+To drive it by hand instead, run `./spike_slurm.sh` or `./spike_pals.sh`
+inside any allocation.
+
+## Getting results back
+
+Each job prints the exact recorder command when it finishes. Run it from a
+**login** node — compute nodes on Frontier and Aurora have no outbound
+network, so the push has to happen outside the job:
 
 ```bash
-qsub -I -l select=2 -l walltime=00:30:00 -A <acct> -q debug
-cd utils/launcher_spike
-./spike_pals.sh
+./record_results.sh <results-dir> <job-log>
 ```
 
-Both print a summary at the end and leave raw output in
-`spike_results_<timestamp>/`. To re-summarize later:
+With no arguments it takes the newest `spike_results_*` directory. It copies
+the raw output plus a regenerated `summary.txt` to
+`utils/launcher_spike/results/<machine>/<jobid>/`, commits with the summary
+in the message body, and pushes to whichever remote the branch tracks
+(override with `SPIKE_REMOTE`, or pass `--no-push`). It rebases and retries
+if another machine pushed first, so the five runs can be recorded in any
+order.
+
+To re-summarize a directory without recording it:
 
 ```bash
 ./summarize.py spike_results_<timestamp>
@@ -51,7 +73,9 @@ Both print a summary at the end and leave raw output in
 Knobs, all optional: `SPIKE_SLOTS` (concurrency, default 4), `SPIKE_CPUS`
 (cores per rank, 8), `SPIKE_RANKS` (ranks per MPI launch, 4), `SPIKE_SLEEP`
 (payload seconds, 15), `SPIKE_SEQ_N` (sequential launches, 10),
-`SPIKE_NODE`, `SPIKE_OUTDIR`, `SPIKE_TIMEOUT`.
+`SPIKE_NODE`, `SPIKE_OUTDIR`, `SPIKE_TIMEOUT`, `SPIKE_SKIP_GPU`,
+`SPIKE_MPICC`, and `SPIKE_CORE_LIST` (PALS only — the usable core set, since
+Aurora reserves core 0 and cores 49-52).
 
 Concurrent slots are all pinned to a single node on purpose — sharing one
 node is the hard case for placement. Spreading across nodes is easier and
@@ -70,10 +94,12 @@ is not what we are unsure about.
 - **C or D worse than B, or core collisions reported** — placement is not
   actually enforced at MPI width, which is the case that matters most.
 
-Note that `mpicc` is used to build a small MPI payload if it is available;
-otherwise the shell payload is launched at MPI width instead, which still
-exercises step creation and placement but not PMI bootstrap. The summary
-line for the run says which was used.
+A small MPI payload is built with `mpicc`, or with `cc` on the Cray machines
+(Perlmutter, Frontier) where that is the MPI wrapper. If neither works, the
+shell payload is launched at MPI width instead, which still exercises step
+creation and placement but not PMI bootstrap. The summary says which was
+used, so a `shell-fallback` result should be read as a weaker answer for
+tests C and D.
 
 Whatever happens, the scripts avoid polling the batch system — no `squeue`
 or `qstat` loops — because NERSC asks that batch-system queries stay to

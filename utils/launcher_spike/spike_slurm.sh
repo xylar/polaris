@@ -52,19 +52,42 @@ echo
 # Build the MPI payload if we can; otherwise fall back to the shell payload
 # launched at MPI width (still exercises step creation and placement, but
 # not PMI bootstrap).
+# Cray machines (Perlmutter, Frontier) wrap MPI in `cc`, not `mpicc`.
 mpi_exe="${here}/payload.sh"
 mpi_kind="shell-fallback"
-if command -v mpicc >/dev/null 2>&1; then
-    if mpicc -O0 -o "${outdir}/mpi_payload" "${here}/mpi_payload.c" \
-            >"${outdir}/mpicc.log" 2>&1; then
+for candidate in ${SPIKE_MPICC:-} mpicc cc; do
+    command -v "${candidate}" >/dev/null 2>&1 || continue
+    if "${candidate}" -O0 -o "${outdir}/mpi_payload" \
+            "${here}/mpi_payload.c" >>"${outdir}/mpicc.log" 2>&1; then
         mpi_exe="${outdir}/mpi_payload"
-        mpi_kind="mpicc"
-    else
-        echo "WARNING: mpicc failed, see ${outdir}/mpicc.log" >&2
+        mpi_kind="${candidate}"
+        break
     fi
-fi
+    echo "WARNING: ${candidate} failed, see ${outdir}/mpicc.log" >&2
+done
 echo "mpi payload:    ${mpi_kind} (${mpi_exe})"
 echo
+
+{
+    echo "machine=${POLARIS_MACHINE:-${LMOD_SYSTEM_NAME:-$(hostname -s)}}"
+    echo "scheduler=slurm"
+    echo "scheduler_version=$(srun --version 2>/dev/null || echo unknown)"
+    echo "job_id=${SLURM_JOB_ID}"
+    echo "hostname=$(hostname -f)"
+    echo "nodes=${nnodes}"
+    echo "nodelist=${SLURM_JOB_NODELIST}"
+    echo "target_node=${node}"
+    echo "cores_on_node=${SLURM_CPUS_ON_NODE:-unknown}"
+    echo "gpus_on_node=${SLURM_GPUS_ON_NODE:-0}"
+    echo "slots=${slots}"
+    echo "ranks=${ranks}"
+    echo "cpus=${cpus}"
+    echo "sleep=${sleep_seconds}"
+    echo "seq_n=${seq_n}"
+    echo "mpi_payload=${mpi_kind}"
+    echo "recorded=$(date -u +%Y-%m-%dT%H:%M:%SZ)"
+} > "${outdir}/meta.kv"
+
 
 elapsed () {
     awk -v a="$1" -v b="$2" 'BEGIN { printf "%.2f", b - a }'
@@ -133,7 +156,9 @@ run_concurrent B0_concurrent_plain "${here}/payload.sh" 1
 run_concurrent C_concurrent_mpi "${mpi_exe}" "${ranks}" --overlap --exact
 
 # Test D: same with GPUs, if this allocation has any.
-if [ -n "${SLURM_GPUS_ON_NODE:-}" ] || command -v nvidia-smi >/dev/null 2>&1 \
+if [ "${SPIKE_SKIP_GPU:-0}" = "1" ]; then
+    echo "--- D_concurrent_mpi_gpu: skipped (SPIKE_SKIP_GPU=1)"
+elif [ -n "${SLURM_GPUS_ON_NODE:-}" ] || command -v nvidia-smi >/dev/null 2>&1 \
         || command -v rocm-smi >/dev/null 2>&1; then
     run_concurrent D_concurrent_mpi_gpu "${mpi_exe}" "${ranks}" \
         --overlap --exact --gpus-per-task=1

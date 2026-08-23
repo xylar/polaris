@@ -43,3 +43,7 @@ pixi-env/
 
 # mache
 .mache_cache/
+
+# launcher spike scratch output (results are committed via record_results.sh)
+utils/launcher_spike/spike_results_*
+utils/launcher_spike/mpi_payload

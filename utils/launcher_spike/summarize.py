@@ -187,6 +187,32 @@ def main():
         print(f'usage: {sys.argv[0]} <results-dir>', file=sys.stderr)
         return 1
     root = sys.argv[1]
+
+    meta_path = os.path.join(root, 'meta.kv')
+    if os.path.exists(meta_path):
+        meta = parse_kv(meta_path)
+        print(
+            '  run: {machine} / {scheduler} job {job_id}, {nodes} node(s), '
+            '{cores_on_node} cores/node'.format(
+                machine=meta.get('machine', '?'),
+                scheduler=meta.get('scheduler', '?'),
+                job_id=meta.get('job_id', '?'),
+                nodes=meta.get('nodes', '?'),
+                cores_on_node=meta.get('cores_on_node', '?'),
+            )
+        )
+        print(
+            '       {slots} slot(s) x {ranks} rank(s) x {cpus} cpu(s), '
+            'mpi payload {mpi_payload}'.format(
+                slots=meta.get('slots', '?'),
+                ranks=meta.get('ranks', '?'),
+                cpus=meta.get('cpus', '?'),
+                mpi_payload=meta.get('mpi_payload', '?'),
+            )
+        )
+        print(f'       {meta.get("scheduler_version", "?")}')
+        print()
+
     tests = sorted(
         name
         for name in os.listdir(root)
