@@ -292,6 +292,7 @@ class RemapTopoStep(Step):
             openmp_threads=self.openmp_threads,
             logger=self.logger,
             gpus=self.gpus,
+            placement=self.placement,
         )
 
         logger.info('  Done.')
