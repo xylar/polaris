@@ -666,3 +666,84 @@ def _write_ceiling_run(tmp_path, placed_ok, unplaced_ok):
         (test_dir / f'slot{slot}_rank0.kv').write_text(''.join(lines))
         (test_dir / f'slot{slot}.rc').write_text('0\n' if ok else '1\n')
         (test_dir / f'slot{slot}.err').write_text('')
+
+
+@pytest.mark.parametrize('machine', ['chrysalis', 'pm-cpu', 'frontier'])
+def test_every_check_renders_through_the_driver(machine, tmp_path):
+    """
+    Render each check the way a run does, not by calling mache by hand.
+
+    G_placement_memory failed on two machines because it built a one-core
+    placement while the driver rendered it with the run's four cores per
+    task, and mache rightly refused.  Rendering it by hand with the right
+    number had passed.  This drives `run_check`, which is where the two
+    numbers have to agree.
+    """
+    import os as _os
+    from unittest import mock
+
+    from mache.parallel.slurm import SlurmSystem
+
+    config = check_placement.build_config(machine)
+    outdir = str(tmp_path / 'results')
+    _os.makedirs(outdir)
+    args = argparse.Namespace(
+        outdir=outdir,
+        payload='PAYLOAD',
+        mem_payload='MEM',
+        slots=4,
+        ntasks=2,
+        cpus_per_task=4,
+        sleep=15,
+        dry_run=True,
+        mem_allowance_mb=1024,
+        mem_target_mb=4096,
+    )
+
+    with (
+        mock.patch.dict(_os.environ, {'SLURM_JOB_ID': '1'}),
+        mock.patch('mache.parallel.slurm._get_subprocess_int', lambda a: 1),
+        mock.patch('mache.parallel.slurm.get_slurm_version', lambda: (25, 11)),
+    ):
+        system = SlurmSystem(config)
+        cores = check_placement.get_usable_cores(system)
+        checks = check_placement.build_checks(
+            node='n1',
+            cores=cores,
+            slots=args.slots,
+            ntasks=args.ntasks,
+            cpus_per_task=args.cpus_per_task,
+            gpus_per_slot=(system.gpus_per_node or 0) // args.slots,
+            gpu_ids_needed=check_placement.needs_explicit_gpu_ids(system),
+        )
+        memory_mb = system.get_config_int('memory_per_node')
+        for builder in (
+            check_placement.build_memory_check(
+                node='n1',
+                cores=cores,
+                cpus_per_task=args.cpus_per_task,
+                parallel_system=system,
+                payload='MEM',
+                allowance_mb=args.mem_allowance_mb,
+                target_mb=args.mem_target_mb,
+            ),
+            check_placement.build_placement_memory_check(
+                node='n1',
+                cores=cores,
+                parallel_system=system,
+                payload='MEM',
+                memory_mb=memory_mb,
+                cores_per_node=system.cores_per_node,
+            ),
+        ):
+            if builder is not None:
+                checks.append(builder)
+
+        for check in checks:
+            check_placement.run_check(system, check, args)
+
+    for check in checks:
+        failed = _os.path.join(outdir, check.name, 'render_error.txt')
+        assert not _os.path.exists(failed), (
+            f'{machine} {check.name}: {open(failed).read().strip()}'
+        )

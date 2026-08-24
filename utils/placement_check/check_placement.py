@@ -83,6 +83,12 @@ class Check:
         A task count for this check alone, where the run's default does not
         suit it.
 
+    cpus_per_task : int or None
+        A core count per task for this check alone. It has to match the
+        placement: mache refuses a placement with fewer cores than the tasks
+        need, which is right, and a check that builds its own placement has
+        to say both.
+
     failure_is_a_result : bool
         Whether a nonzero exit is an answer rather than a fault. A launch
         killed for exceeding a memory allowance is the finding, not a
@@ -96,6 +102,7 @@ class Check:
     extra_args: Sequence[str] = ()
     extra_env: Mapping[str, str] = field(default_factory=dict)
     ntasks: int | None = None
+    cpus_per_task: int | None = None
     failure_is_a_result: bool = False
 
 
@@ -624,6 +631,7 @@ def build_placement_memory_check(
             'PLACE_MEM_ALLOWANCE_MB': '0',
         },
         ntasks=1,
+        cpus_per_task=1,
         failure_is_a_result=True,
     )
 
@@ -675,6 +683,9 @@ def run_check(parallel_system, check, args):
 
     payload = check.payload if check.payload is not None else args.payload
     ntasks = check.ntasks if check.ntasks is not None else args.ntasks
+    cpus_per_task = args.cpus_per_task
+    if check.cpus_per_task is not None:
+        cpus_per_task = check.cpus_per_task
 
     launches = []
     for slot, placement in enumerate(check.placements, start=1):
@@ -684,7 +695,7 @@ def run_check(parallel_system, check, args):
             command = parallel_system.get_parallel_command(
                 args=[],
                 ntasks=ntasks,
-                cpus_per_task=args.cpus_per_task,
+                cpus_per_task=cpus_per_task,
                 placement=placement,
             )
             command.extend(check.extra_args)
