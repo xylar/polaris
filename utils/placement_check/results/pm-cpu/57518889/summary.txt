@@ -1,0 +1,59 @@
+  run: pm-cpu / slurm job 57518889, 1 node(s), 128 usable core(s)/node, 0 gpu(s)/node
+       4 slot(s) x 2 task(s) x 4 core(s), 0 gpu(s) per slot, mpi_payload payload
+       launcher srun --label, placement support scheduler
+       mache 3.11.0 from /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/pixi-env/.pixi/envs/default/lib/python3.14/site-packages/mache
+
+A_unplaced:
+  1 launch(es), peak concurrency 1
+    slot 1: host nid004394, 8 core(s) 0-1,16-17,128-129,144-145, no gpu(s) (no GPU variable set)
+      no placement was requested; this is the control
+
+B_placed_alone:
+  1 launch(es), peak concurrency 1
+    slot 1: host nid004394, 8 core(s) 0-1,16-17,128-129,144-145, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+
+D_concurrent:
+  4 launch(es), peak concurrency 4
+    slot 1: host nid004394, 8 core(s) 0-1,16-17,128-129,144-145, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 2: host nid004394, 8 core(s) 2-3,18-19,130-131,146-147, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 3: host nid004394, 8 core(s) 4-5,20-21,132-133,148-149, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 4: host nid004394, 8 core(s) 6-7,22-23,134-135,150-151, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+  cores are disjoint across overlapping launches
+
+F_memory_limit:
+  allowed 1024 MB, tried to allocate 4096 MB, reached 960 MB
+  ENFORCED: the launch stopped at 960 MB, short of the 4096 MB it tried for, having been allowed 1024 MB
+    (exit code 1)
+    A step can be capped on this machine, so a memory figure
+    passed to a launcher is a ceiling and not decoration.
+    Silence about memory does NOT repeat the GPU trap: four
+    concurrent launches saying nothing about memory ran full
+    duration on both enforcing machines.  See
+    G_placement_memory for whether placement caps a step that
+    said nothing.
+  launcher messages:
+    [1x] srun: error: nid004394: task 0: Out Of Memory
+
+G_placement_memory:
+  no payload output -- the launches probably failed to start
+
+Reading the results:
+  B/C honored + D/E peak == slots and disjoint
+      -> mache renders placements that work here
+  B/C not honored
+      -> the command renders but the machine ignores it
+  D/E peak == 1
+      -> the launches serialized; the command reserves more than
+         it asked for
+  D/E overlapped but collide
+      -> the command oversubscribes rather than places
