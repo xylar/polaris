@@ -1,0 +1,49 @@
+  run: chrysalis / slurm job 1274327, 1 node(s), 64 usable core(s)/node, 0 gpu(s)/node
+       4 slot(s) x 2 task(s) x 4 core(s), 0 gpu(s) per slot, mpi_payload payload
+       launcher srun --mpi=pmi2 -l, placement support cpu_binding
+       mache 3.11.0 from /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/pixi-env/.pixi/envs/default/lib/python3.14/site-packages/mache
+
+A_unplaced:
+  1 launch(es), peak concurrency 1
+    slot 1: host chr-0493, 8 core(s) 0-3,64-67, no gpu(s) (no GPU variable set)
+      no placement was requested; this is the control
+
+B_placed_alone:
+  1 launch(es), peak concurrency 1
+    slot 1: host chr-0493, 8 core(s) 0-7, no gpu(s) (no GPU variable set)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+
+D_concurrent:
+  4 launch(es), peak concurrency 4
+    slot 1: host chr-0493, 8 core(s) 0-7, no gpu(s) (no GPU variable set)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+    slot 2: host chr-0493, 8 core(s) 8-15, no gpu(s) (no GPU variable set)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+    slot 3: host chr-0493, 8 core(s) 16-23, no gpu(s) (no GPU variable set)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+    slot 4: host chr-0493, 8 core(s) 24-31, no gpu(s) (no GPU variable set)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+  cores are disjoint across overlapping launches
+
+F_memory_limit:
+  allowed 1024 MB, tried to allocate 4096 MB, reached 4096 MB
+  NOT ENFORCED: the launch allocated several times its
+    allowance and was left alone.  A memory request does
+    nothing here, so Polaris keeping its own budget is the
+    whole of the answer.
+
+Reading the results:
+  B/C honored + D/E peak == slots and disjoint
+      -> mache renders placements that work here
+  B/C not honored
+      -> the command renders but the machine ignores it
+  D/E peak == 1
+      -> the launches serialized; the command reserves more than
+         it asked for
+  D/E overlapped but collide
+      -> the command oversubscribes rather than places

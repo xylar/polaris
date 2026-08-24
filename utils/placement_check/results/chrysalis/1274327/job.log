@@ -1,0 +1,102 @@
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.2.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+
+The following have been reloaded with a version change:
+  1) perl/5.38.0-annnuds => perl/5.32.0-bsnc6lt
+
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+polaris env:    /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/load_polaris_chrysalis_intel_openmpi.sh
+mpi payload:    mpicc (/gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327/mpi_payload)
+
+=== mache placement check ===
+machine:            chrysalis
+launcher:           srun --mpi=pmi2 -l
+placement support:  cpu_binding
+nodes:              1 (chr-0493)
+target node:        chr-0493
+usable cores:       64
+gpus per node:      0
+memory per node:    253000 MB (sinfo %m)
+layout:             4 slot(s) x 2 task(s) x 4 core(s), 0 gpu(s) per slot
+payload:            /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327/mpi_payload (sleeps 15s)
+
+--- A_unplaced: one launch with no placement at all -- what Polaris does today, and the control that shows placement changes something
+    slot 1: srun --mpi=pmi2 -l -c 4 -N 1 -n 2 --cpu-bind=cores -m plane=64 /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327/mpi_payload
+    all 1 launch(es) started in 0.00s
+
+--- B_placed_alone: one placed launch, alone, asking for no GPUs -- does it see only the cores it was given?
+    slot 1: srun --mpi=pmi2 -l -c 4 -N 1 -n 2 -w chr-0493 --cpu-bind=mask_cpu:0xf,0xf0 /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327/mpi_payload
+    all 1 launch(es) started in 0.00s
+
+--- D_concurrent: 4 placed launches at once, none asking for GPUs
+    slot 1: srun --mpi=pmi2 -l -c 4 -N 1 -n 2 -w chr-0493 --cpu-bind=mask_cpu:0xf,0xf0 /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327/mpi_payload
+    slot 2: srun --mpi=pmi2 -l -c 4 -N 1 -n 2 -w chr-0493 --cpu-bind=mask_cpu:0xf00,0xf000 /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327/mpi_payload
+    slot 3: srun --mpi=pmi2 -l -c 4 -N 1 -n 2 -w chr-0493 --cpu-bind=mask_cpu:0xf0000,0xf00000 /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327/mpi_payload
+    slot 4: srun --mpi=pmi2 -l -c 4 -N 1 -n 2 -w chr-0493 --cpu-bind=mask_cpu:0xf000000,0xf0000000 /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327/mpi_payload
+    all 4 launch(es) started in 0.01s
+
+--- F_memory_limit: one placed launch allowed 1024 MB, allocating 4096 MB -- is it killed?
+    slot 1: srun --mpi=pmi2 -l -c 4 -N 1 -n 1 -w chr-0493 --cpu-bind=mask_cpu:0xf --mem=1024M /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327/scripts/mem_payload.sh
+    all 1 launch(es) started in 0.00s
+
+results: /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327
+
+=== summary ===
+  run: chrysalis / slurm job 1274327, 1 node(s), 64 usable core(s)/node, 0 gpu(s)/node
+       4 slot(s) x 2 task(s) x 4 core(s), 0 gpu(s) per slot, mpi_payload payload
+       launcher srun --mpi=pmi2 -l, placement support cpu_binding
+       mache 3.11.0 from /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/pixi-env/.pixi/envs/default/lib/python3.14/site-packages/mache
+
+A_unplaced:
+  1 launch(es), peak concurrency 1
+    slot 1: host chr-0493, 8 core(s) 0-3,64-67, no gpu(s) (no GPU variable set)
+      no placement was requested; this is the control
+
+B_placed_alone:
+  1 launch(es), peak concurrency 1
+    slot 1: host chr-0493, 8 core(s) 0-7, no gpu(s) (no GPU variable set)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+
+D_concurrent:
+  4 launch(es), peak concurrency 4
+    slot 1: host chr-0493, 8 core(s) 0-7, no gpu(s) (no GPU variable set)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+    slot 2: host chr-0493, 8 core(s) 8-15, no gpu(s) (no GPU variable set)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+    slot 3: host chr-0493, 8 core(s) 16-23, no gpu(s) (no GPU variable set)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+    slot 4: host chr-0493, 8 core(s) 24-31, no gpu(s) (no GPU variable set)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+  cores are disjoint across overlapping launches
+
+F_memory_limit:
+  allowed 1024 MB, tried to allocate 4096 MB, reached 4096 MB
+  NOT ENFORCED: the launch allocated several times its
+    allowance and was left alone.  A memory request does
+    nothing here, so Polaris keeping its own budget is the
+    whole of the answer.
+
+Reading the results:
+  B/C honored + D/E peak == slots and disjoint
+      -> mache renders placements that work here
+  B/C not honored
+      -> the command renders but the machine ignores it
+  D/E peak == 1
+      -> the launches serialized; the command reserves more than
+         it asked for
+  D/E overlapped but collide
+      -> the command oversubscribes rather than places
+
+To record these results on the branch, from a LOGIN node:
+  cd /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check
+  ./record_results.sh /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327 /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_check.o1274327

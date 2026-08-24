@@ -1,0 +1,1 @@
+srun --mpi=pmi2 -l -c 4 -N 1 -n 1 -w chr-0493 --cpu-bind=mask_cpu:0xf --mem=1024M /gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_1274327/scripts/mem_payload.sh
