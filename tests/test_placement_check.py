@@ -575,3 +575,94 @@ def test_no_gpu_verdict_when_launches_got_no_gpus(tmp_path, capsys):
     assert 'GPUS NOT GRANTED: slot(s) 2, 3, 4' in out
     assert 'no GPU disjointness verdict' in out
     assert 'GPUs are disjoint' not in out
+
+
+def test_the_ceiling_check_says_nothing_about_memory_to_the_launcher():
+    """
+    The whole point: the allowance check always passes --mem, so the case
+    where Polaris says nothing is the one still untested.
+    """
+    check = check_placement.build_placement_memory_check(
+        node='node0001',
+        cores=list(range(64)),
+        parallel_system=MemorySystem('slurm'),
+        payload='mem_payload.sh',
+        memory_mb=253000,
+        cores_per_node=64,
+    )
+    assert check is not None
+    assert list(check.extra_args) == []
+    # one placed launch and one unplaced control
+    assert check.placements[0] is not None
+    assert check.placements[1] is None
+    # twice a single core's share, so a step held to its share dies
+    assert check.extra_env['PLACE_MEM_TARGET_MB'] == f'{2 * (253000 // 64)}'
+    assert check.extra_env['PLACE_MEM_ALLOWANCE_MB'] == '0'
+    assert check.failure_is_a_result
+
+
+def test_no_ceiling_check_without_a_memory_figure():
+    """The target is derived from the node's memory; a guess is worse."""
+    assert (
+        check_placement.build_placement_memory_check(
+            node='n1',
+            cores=[0],
+            parallel_system=MemorySystem('slurm'),
+            payload='p',
+            memory_mb=None,
+            cores_per_node=64,
+        )
+        is None
+    )
+
+
+def test_a_ceiling_is_only_reported_against_a_surviving_control(
+    tmp_path, capsys
+):
+    _write_ceiling_run(tmp_path, placed_ok=False, unplaced_ok=True)
+    summarize.report_placement_memory_check(
+        str(tmp_path / 'G_placement_memory'), 'G_placement_memory'
+    )
+    assert 'PLACEMENT IMPOSES A CEILING' in capsys.readouterr().out
+
+
+def test_both_stopped_is_blamed_on_the_job_not_placement(tmp_path, capsys):
+    _write_ceiling_run(tmp_path, placed_ok=False, unplaced_ok=False)
+    summarize.report_placement_memory_check(
+        str(tmp_path / 'G_placement_memory'), 'G_placement_memory'
+    )
+    out = capsys.readouterr().out
+    assert 'NOT PLACEMENT' in out
+    assert 'PLACEMENT IMPOSES A CEILING' not in out
+
+
+def test_both_surviving_bounds_the_answer_rather_than_settling_it(
+    tmp_path, capsys
+):
+    _write_ceiling_run(tmp_path, placed_ok=True, unplaced_ok=True)
+    out_dir = str(tmp_path / 'G_placement_memory')
+    summarize.report_placement_memory_check(out_dir, 'G_placement_memory')
+    out = capsys.readouterr().out
+    assert 'NO CEILING FROM PLACEMENT' in out
+    assert 'not that none' in out
+
+
+def _write_ceiling_run(tmp_path, placed_ok, unplaced_ok):
+    """Write a G_placement_memory directory as a real run would leave it."""
+    test_dir = tmp_path / 'G_placement_memory'
+    test_dir.mkdir()
+    (test_dir / 'expected.kv').write_text(
+        'slot=1 nodes=n1 cores=0 gpus=0 gpu_ids=\nslot=2 placement=none\n'
+    )
+    for slot, ok in ((1, placed_ok), (2, unplaced_ok)):
+        lines = [
+            f'test=G_placement_memory\nslot={slot}\nrank=0\nhost=n1\n'
+            'payload=memory\nallowance_mb=0\ntarget_mb=7906\n'
+            't_start=100.0\n'
+        ]
+        lines.append('reached_mb=7906\n' if ok else 'reached_mb=1024\n')
+        if ok:
+            lines.append('completed=true\n')
+        (test_dir / f'slot{slot}_rank0.kv').write_text(''.join(lines))
+        (test_dir / f'slot{slot}.rc').write_text('0\n' if ok else '1\n')
+        (test_dir / f'slot{slot}.err').write_text('')

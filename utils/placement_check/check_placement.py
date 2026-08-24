@@ -26,8 +26,8 @@ import socket
 import subprocess
 import sys
 import time
-from dataclasses import dataclass
-from typing import List, Sequence
+from dataclasses import dataclass, field
+from typing import List, Mapping, Sequence
 
 import mache
 from mache.parallel import (
@@ -75,6 +75,10 @@ class Check:
         does. Only the memory check uses this, and only because the question
         it asks is what the batch system does rather than what mache emits.
 
+    extra_env : mapping
+        Environment for this check's launches, over the run's own. Lets one
+        check give its payload a different target from the rest.
+
     ntasks : int or None
         A task count for this check alone, where the run's default does not
         suit it.
@@ -90,6 +94,7 @@ class Check:
     placements: Sequence[ResourcePlacement | None]
     payload: str | None = None
     extra_args: Sequence[str] = ()
+    extra_env: Mapping[str, str] = field(default_factory=dict)
     ntasks: int | None = None
     failure_is_a_result: bool = False
 
@@ -178,6 +183,16 @@ def main():
         )
         if memory_check is not None:
             checks.append(memory_check)
+            ceiling_check = build_placement_memory_check(
+                node=nodes[0],
+                cores=cores,
+                parallel_system=parallel_system,
+                payload=args.mem_payload,
+                memory_mb=memory_mb,
+                cores_per_node=parallel_system.cores_per_node,
+            )
+            if ceiling_check is not None:
+                checks.append(ceiling_check)
         else:
             print()
             print('--- F_memory_limit: skipped, this launcher takes no')
@@ -550,6 +565,69 @@ def build_memory_check(
     )
 
 
+def build_placement_memory_check(
+    node,
+    cores,
+    parallel_system,
+    payload,
+    memory_mb,
+    cores_per_node,
+    target_mb=None,
+):
+    """
+    Build the check that asks whether placement itself caps a step's memory.
+
+    The memory-allowance check always passes an explicit ``--mem``, which
+    leaves the trap-shaped case untested.  ``--exact`` asks for exactly the
+    resources a step needs rather than the job's, and memory is evidently a
+    resource Slurm tracks on the machines that enforce.  A placed step may
+    therefore be handed a share of the node's memory it never asked for and
+    be killed at it, with Polaris having said nothing about memory and its
+    own accounting unaware any limit exists.
+
+    Two launches, started together so the machine is in the same state for
+    both: one placed on a single core, one with no placement at all.  Neither
+    says anything about memory.  The unplaced one is the control that
+    separates what placement causes from what the job allocation causes.
+
+    The target is twice a single core's proportional share, so that a step
+    held to its share dies and a step that is not, does not.  A run where
+    both survive establishes only that there is no ceiling *below* the amount
+    tried, which the summary says rather than claiming more.
+
+    Returns
+    -------
+    check : Check or None
+        ``None`` where the node's memory is unknown, since the target is
+        derived from it.
+    """
+    if not memory_mb or not cores_per_node:
+        return None
+
+    share_mb = memory_mb // cores_per_node
+    target = target_mb if target_mb else max(4096, 2 * share_mb)
+    placement = ResourcePlacement(nodes=(node,), cores=(cores[0],), gpus=0)
+    return Check(
+        name='G_placement_memory',
+        description=(
+            f'a placed launch and an unplaced one, neither mentioning '
+            f'memory, both allocating {target} MB -- twice the '
+            f'{share_mb} MB a single core is worth. Does placement alone '
+            f'impose a ceiling?'
+        ),
+        placements=[placement, None],
+        payload=payload,
+        extra_env={
+            'PLACE_MEM_TARGET_MB': f'{target}',
+            # nothing was asked for, and the payload records the figure so
+            # the summary can say so rather than implying a limit was set
+            'PLACE_MEM_ALLOWANCE_MB': '0',
+        },
+        ntasks=1,
+        failure_is_a_result=True,
+    )
+
+
 def get_memory_per_node(parallel_system, node):
     """
     Get what this site says a node's memory is, in MB, and where that came
@@ -743,6 +821,7 @@ def _start_and_wait(launches, check, args, test_dir):
     # rendered the flag, so the two cannot drift apart.
     env['PLACE_MEM_ALLOWANCE_MB'] = f'{args.mem_allowance_mb}'
     env['PLACE_MEM_TARGET_MB'] = f'{args.mem_target_mb}'
+    env.update(check.extra_env)
 
     processes = []
     failed_to_start = []

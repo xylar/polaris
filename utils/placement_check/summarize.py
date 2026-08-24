@@ -89,7 +89,9 @@ def main():
 
     for name in checks:
         path = os.path.join(root, name)
-        if name.endswith('memory_limit'):
+        if name.endswith('placement_memory'):
+            report_placement_memory_check(path, name)
+        elif name.endswith('memory_limit'):
             report_memory_check(path, name)
         else:
             report_check(path, name, support)
@@ -273,6 +275,71 @@ def overlapping_pairs(runs):
                 yield first, second
 
 
+def report_placement_memory_check(test_dir, name):
+    """
+    Say whether placement alone caps a step's memory.
+
+    Compares a placed launch against an unplaced one, neither of which said
+    anything about memory.  The control is what separates a ceiling that
+    placement imposes from one the job allocation imposes.
+    """
+    print()
+    print(f'{name}:')
+
+    expected = parse_expected(os.path.join(test_dir, 'expected.kv'))
+    records = {}
+    for entry in sorted(os.listdir(test_dir)):
+        if not entry.endswith('.kv') or entry == 'expected.kv':
+            continue
+        record = parse_kv(os.path.join(test_dir, entry))
+        slot = record.get('slot')
+        if slot is not None:
+            records[slot] = record
+
+    if len(records) == 0:
+        print('  no payload output -- the launches probably failed to start')
+        _report_messages(test_dir)
+        return
+
+    outcomes = {}
+    for slot, record in sorted(records.items()):
+        placed = expected.get(slot, {}).get('placement') != 'none'
+        label = 'placed  ' if placed else 'unplaced'
+        reached = record.get('reached_mb', '0')
+        target = record.get('target_mb', '?')
+        done = record.get('completed') == 'true'
+        returncode = _read_rc(test_dir, slot)
+        outcomes[placed] = done and returncode == 0
+        print(
+            f'  slot {slot} ({label}): reached {reached} of {target} MB, '
+            f'completed={done}, exit {returncode}'
+        )
+
+    if True not in outcomes or False not in outcomes:
+        print('  UNCLEAR: need both a placed and an unplaced launch to tell')
+        _report_messages(test_dir)
+        return
+
+    if outcomes[True] and outcomes[False]:
+        print('  NO CEILING FROM PLACEMENT: both allocated the full target.')
+        print('    This bounds the answer rather than settling it -- it')
+        print('    shows no ceiling below the amount tried, not that none')
+        print('    exists at all.')
+    elif not outcomes[True] and outcomes[False]:
+        print('  PLACEMENT IMPOSES A CEILING: the placed launch was stopped')
+        print('    and the unplaced one was not, with neither having asked')
+        print('    for any memory.  A placed step can therefore be killed at')
+        print('    a limit Polaris never set and does not know about.')
+    elif not outcomes[True] and not outcomes[False]:
+        print('  NOT PLACEMENT: both were stopped, so the limit comes from')
+        print('    the job allocation or the node rather than from placement.')
+    else:
+        print('  UNCLEAR: the unplaced launch was stopped and the placed one')
+        print('    was not; read the .err files.')
+
+    _report_messages(test_dir)
+
+
 def report_memory_check(test_dir, name):
     """
     Say whether a memory allowance was enforced.
@@ -319,10 +386,13 @@ def report_memory_check(test_dir, name):
             f'{target} MB it tried for, having been allowed {allowance} MB'
         )
         print(f'    (exit code {returncode})')
-        print('    Two things follow: a step can be capped on this machine,')
-        print('    and -- by the same argument that applies to GPUs -- a')
-        print('    launch that says nothing about memory may be read as')
-        print('    claiming all of it.  Worth chasing.')
+        print('    A step can be capped on this machine, so a memory figure')
+        print('    passed to a launcher is a ceiling and not decoration.')
+        print('    Silence about memory does NOT repeat the GPU trap: four')
+        print('    concurrent launches saying nothing about memory ran full')
+        print('    duration on both enforcing machines.  See')
+        print('    G_placement_memory for whether placement caps a step that')
+        print('    said nothing.')
     else:
         print(
             f'  UNCLEAR: reached {reached} of {target} MB, '
