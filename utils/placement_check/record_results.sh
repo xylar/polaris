@@ -29,6 +29,37 @@ tracked_remote="$(git -C "${here}" config --get "branch.${branch}.remote" \
     2>/dev/null || true)"
 remote="${PLACE_REMOTE:-${tracked_remote}}"
 
+# A branch that tracks nothing is the common case on the HPC clones, because
+# creating a worktree and hard-resetting to a remote branch sets no upstream.
+# Rather than ask every time, take the one remote that is not the main project
+# -- if there is exactly one, it is not a guess.  Several, or none, and it
+# still asks.
+if [ -z "${remote}" ]; then
+    forks=""
+    fork_count=0
+    first_fork=""
+    for name in $(git -C "${here}" remote); do
+        url="$(git -C "${here}" remote get-url "${name}" 2>/dev/null || true)"
+        case "${url}" in
+            ''|*E3SM-Project/polaris*) continue ;;
+        esac
+        forks="${forks} ${name}"
+        fork_count=$((fork_count + 1))
+        [ -n "${first_fork}" ] || first_fork="${name}"
+    done
+    # deliberately not `set -- ${forks}` to count them: that clobbers the
+    # script's own positional parameters, and the usage message below then
+    # echoes the fork list back at you instead of your arguments
+    if [ "${fork_count}" = "1" ]; then
+        remote="${first_fork}"
+        echo "branch ${branch} tracks no remote here; using '${remote}',"
+        echo "  the only fork this clone has. Set PLACE_REMOTE to override."
+    elif [ "${fork_count}" -gt 1 ]; then
+        echo "NOTE: branch ${branch} tracks no remote and this clone has" >&2
+        echo "  several forks:${forks}" >&2
+    fi
+fi
+
 push=1
 args=()
 for arg in "$@"; do
