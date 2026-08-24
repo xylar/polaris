@@ -51,6 +51,10 @@ class FakeSystem:
     def get_config(self, key, default=None):
         return self._config.get(key, default)
 
+    def get_config_int(self, key, default=0):
+        value = self._config.get(key, default)
+        return None if value is None else int(value)
+
 
 def test_parse_core_list_handles_ranges_and_singletons():
     assert check_placement.parse_core_list('0-3') == [0, 1, 2, 3]
@@ -747,3 +751,66 @@ def test_every_check_renders_through_the_driver(machine, tmp_path):
         assert not _os.path.exists(failed), (
             f'{machine} {check.name}: {open(failed).read().strip()}'
         )
+
+
+class _ConfiguredSystem(FakeSystem):
+    """A system whose config claims a given number of GPUs and memory."""
+
+    def __init__(self, gpus_per_node, memory_per_node):
+        super().__init__(
+            cores_per_node=64,
+            config={'system': 'slurm', 'memory_per_node': memory_per_node},
+        )
+        self.gpus_per_node = gpus_per_node
+
+
+def test_a_gpu_node_running_a_cpu_deployment_is_caught(monkeypatch):
+    """
+    The failure this was written from.
+
+    A pm-gpu job script was submitted from a worktree deployed for pm-cpu.
+    The result recorded `machine=pm-cpu` and was filed as pm-cpu evidence,
+    and nothing noticed for hours, because nothing compared what the node
+    said against what the config claimed.
+    """
+    monkeypatch.setenv('SLURM_JOB_GPUS', '0,1,2,3')
+    complaints = check_placement.check_node_matches_config(
+        _ConfiguredSystem(gpus_per_node=0, memory_per_node=480000),
+        memory_mb=257200,
+    )
+    assert len(complaints) == 2
+    assert any('allocated GPUs' in c for c in complaints)
+    assert any('257200' in c and '480000' in c for c in complaints)
+
+
+def test_a_cpu_node_running_a_gpu_deployment_is_caught(monkeypatch):
+    monkeypatch.delenv('SLURM_JOB_GPUS', raising=False)
+    complaints = check_placement.check_node_matches_config(
+        _ConfiguredSystem(gpus_per_node=4, memory_per_node=257200),
+        memory_mb=257200,
+    )
+    assert any('allocated none' in c for c in complaints)
+
+
+def test_a_node_that_matches_its_config_says_nothing(monkeypatch):
+    monkeypatch.delenv('SLURM_JOB_GPUS', raising=False)
+    assert (
+        check_placement.check_node_matches_config(
+            _ConfiguredSystem(gpus_per_node=0, memory_per_node=515100),
+            memory_mb=515100,
+        )
+        == []
+    )
+
+
+def test_a_modest_memory_difference_is_not_worth_shouting_about(monkeypatch):
+    """480000 configured against 515100 measured is an estimate, not a
+    crossed wire."""
+    monkeypatch.delenv('SLURM_JOB_GPUS', raising=False)
+    assert (
+        check_placement.check_node_matches_config(
+            _ConfiguredSystem(gpus_per_node=0, memory_per_node=480000),
+            memory_mb=515100,
+        )
+        == []
+    )

@@ -140,6 +140,7 @@ def main():
     gpu_ids_needed = needs_explicit_gpu_ids(parallel_system)
 
     memory_mb, memory_source = get_memory_per_node(parallel_system, nodes[0])
+    complaints = check_node_matches_config(parallel_system, memory_mb)
 
     os.makedirs(args.outdir, exist_ok=True)
     _print_header(
@@ -152,6 +153,7 @@ def main():
         gpus_per_slot=gpus_per_slot,
         memory_mb=memory_mb,
         memory_source=memory_source,
+        complaints=complaints,
         args=args,
     )
     write_meta(
@@ -165,6 +167,7 @@ def main():
         gpus_per_slot=gpus_per_slot,
         memory_mb=memory_mb,
         memory_source=memory_source,
+        complaints=complaints,
         args=args,
     )
 
@@ -636,6 +639,55 @@ def build_placement_memory_check(
     )
 
 
+def check_node_matches_config(parallel_system, memory_mb):
+    """
+    Compare what the node says about itself against what the config claims.
+
+    A run records the machine its *deployment* names, and nothing used to
+    look at the node.  A job script for one machine submitted from a
+    worktree deployed for another therefore produces a result filed under
+    the wrong machine, reading as evidence for a machine it never touched.
+    That happened once, unnoticed, and was found only by someone asking
+    afterwards whether it could have.
+
+    The configured figures are the weaker source of truth here: they are
+    what someone wrote down, while these come from the job.  Where they
+    disagree, suspect the configuration.
+
+    Returns
+    -------
+    complaints : list of str
+        What disagrees, empty when nothing does.
+    """
+    complaints = []
+
+    configured_gpus = parallel_system.gpus_per_node or 0
+    job_gpus = os.environ.get('SLURM_JOB_GPUS', '').strip()
+    if job_gpus != '' and configured_gpus == 0:
+        complaints.append(
+            f'the job was allocated GPUs ({job_gpus}) but this machine is '
+            f'configured with none. This looks like a GPU node running a '
+            f"CPU machine's deployment."
+        )
+    elif job_gpus == '' and configured_gpus > 0:
+        complaints.append(
+            f'this machine is configured with {configured_gpus} GPUs per '
+            f'node but the job was allocated none.'
+        )
+
+    configured_memory = parallel_system.get_config_int('memory_per_node')
+    if configured_memory and memory_mb:
+        off_by = abs(memory_mb - configured_memory) / configured_memory
+        if off_by > 0.25:
+            complaints.append(
+                f'this node reports {memory_mb} MB but the config says '
+                f'{configured_memory} MB, which is {off_by:.0%} out. Either '
+                f'the config is wrong or this is not the machine it says.'
+            )
+
+    return complaints
+
+
 def get_memory_per_node(parallel_system, node):
     """
     Get what this site says a node's memory is, in MB, and where that came
@@ -768,6 +820,7 @@ def write_meta(
     gpus_per_slot,
     memory_mb,
     memory_source,
+    complaints,
     args,
 ):
     """
@@ -804,6 +857,7 @@ def write_meta(
         'gpus_on_node': f'{gpus_per_node}',
         'memory_per_node_mb': '' if memory_mb is None else f'{memory_mb}',
         'memory_per_node_source': memory_source,
+        'node_matches_config': 'no' if complaints else 'yes',
         'core_list': ','.join(f'{core}' for core in cores),
         'slots': f'{args.slots}',
         'ntasks': f'{args.ntasks}',
@@ -897,6 +951,7 @@ def _print_header(
     gpus_per_slot,
     memory_mb,
     memory_source,
+    complaints,
     args,
 ):
     """Print what this run is about to do."""
@@ -916,6 +971,14 @@ def _print_header(
     print(f'usable cores:       {len(cores)}')
     print(f'gpus per node:      {gpus_per_node}')
     print(f'memory per node:    {memory_mb} MB ({memory_source})')
+    if complaints:
+        print()
+        print("  *** THIS NODE DOES NOT MATCH THIS MACHINE'S CONFIG ***")
+        for complaint in complaints:
+            print(f'    - {complaint}')
+        print('    A result recorded now is filed under a machine it may')
+        print('    not have run on.  Check which job script was submitted')
+        print('    and which machine this worktree was deployed for.')
     if gpus_per_slot == 0 and not args.skip_gpu:
         print('  No GPU checks will run.  On the GPU machines the GPU count')
         print('  lives in [parallel.<compiler>], so a deployment with the')
