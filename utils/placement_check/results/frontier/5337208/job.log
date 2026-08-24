@@ -1,0 +1,170 @@
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.2.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+Running "module reset". Resetting modules to system default. The following $MODULEPATH directories have been removed: None
+
+Lmod is automatically replacing "cce/18.0.1" with "gcc-native/13.2".
+
+
+Lmod is automatically replacing "PrgEnv-cray/8.6.0" with "PrgEnv-gnu/8.6.0".
+
+
+The following have been reloaded with a version change:
+  1) cray-dsmml/0.3.0 => cray-dsmml/0.3.1
+  2) cray-libsci/24.11.0 => cray-libsci/25.09.0
+  3) cray-mpich/8.1.31 => cray-mpich/9.0.1
+  4) cray-pmi/6.1.15 => cray-pmi/6.1.16
+  5) craype/2.7.33 => craype/2.7.35
+  6) darshan-runtime/3.4.6-mpi => darshan-runtime/3.4.7-mpi
+  7) perftools-base/24.11.0 => perftools-base/25.09.0
+
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+polaris env:    /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/load_polaris_frontier_craygnu-mphipcc_mpich.sh
+mpi payload:    mpicc (/autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload)
+
+=== mache placement check ===
+machine:            frontier
+launcher:           srun -l -K --threads-per-core=1
+placement support:  scheduler
+nodes:              1 (frontier01793)
+target node:        frontier01793
+usable cores:       56
+gpus per node:      8
+memory per node:    512000 MB (sinfo %m)
+layout:             4 slot(s) x 2 task(s) x 4 core(s), 2 gpu(s) per slot
+payload:            /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload (sleeps 15s)
+
+--- A_unplaced: one launch with no placement at all -- what Polaris does today, and the control that shows placement changes something
+    slot 1: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 --cpu-bind=threads --gpu-bind=closest -m block:cyclic /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    all 1 launch(es) started in 0.01s
+
+--- B_placed_alone: one placed launch, alone, asking for no GPUs -- does it see only the cores it was given?
+    slot 1: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 -w frontier01793 --exact --gres=none --cpu-bind=threads /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    all 1 launch(es) started in 0.01s
+
+--- C_placed_alone_gpu: one placed launch, alone, asking for 2 GPU(s) -- does it see only those?
+    slot 1: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 -w frontier01793 --exact --gpus=2 --cpu-bind=threads --gpu-bind=closest /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    all 1 launch(es) started in 0.01s
+
+--- D_concurrent: 4 placed launches at once, none asking for GPUs
+    slot 1: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 -w frontier01793 --exact --gres=none --cpu-bind=threads /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    slot 2: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 -w frontier01793 --exact --gres=none --cpu-bind=threads /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    slot 3: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 -w frontier01793 --exact --gres=none --cpu-bind=threads /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    slot 4: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 -w frontier01793 --exact --gres=none --cpu-bind=threads /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    all 4 launch(es) started in 0.04s
+
+--- E_concurrent_gpu: 4 placed launches at once, each asking for 2 GPU(s)
+    slot 1: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 -w frontier01793 --exact --gpus=2 --cpu-bind=threads --gpu-bind=closest /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    slot 2: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 -w frontier01793 --exact --gpus=2 --cpu-bind=threads --gpu-bind=closest /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    slot 3: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 -w frontier01793 --exact --gpus=2 --cpu-bind=threads --gpu-bind=closest /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    slot 4: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 -w frontier01793 --exact --gpus=2 --cpu-bind=threads --gpu-bind=closest /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload
+    all 4 launch(es) started in 0.04s
+
+--- F_memory_limit: one placed launch allowed 1024 MB, allocating 4096 MB -- is it killed?
+    slot 1: srun -l -K --threads-per-core=1 -c 4 -N 1 -n 1 -w frontier01793 --exact --gres=none --cpu-bind=threads --mem=1024M /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/scripts/mem_payload.sh
+    all 1 launch(es) started in 0.01s
+    slot 1 returned 1
+
+--- G_placement_memory: a placed launch and an unplaced one, neither mentioning memory, both allocating 18284 MB -- twice the 9142 MB a single core is worth. Does placement alone impose a ceiling?
+    slot 1: srun -l -K --threads-per-core=1 -c 1 -N 1 -n 1 -w frontier01793 --exact --gres=none --cpu-bind=threads /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/scripts/mem_payload.sh
+    slot 2: srun -l -K --threads-per-core=1 -c 1 -N 1 -n 1 --cpu-bind=threads --gpu-bind=closest -m block:cyclic /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/scripts/mem_payload.sh
+    all 2 launch(es) started in 0.02s
+
+results: /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208
+
+=== summary ===
+  run: frontier / slurm job 5337208, 1 node(s), 56 usable core(s)/node, 8 gpu(s)/node
+       4 slot(s) x 2 task(s) x 4 core(s), 2 gpu(s) per slot, mpi_payload payload
+       launcher srun -l -K --threads-per-core=1, placement support scheduler
+       mache 3.11.0 from /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/pixi-env/.pixi/envs/default/lib/python3.14/site-packages/mache
+
+A_unplaced:
+  1 launch(es), peak concurrency 1
+    slot 1: host frontier01793, 8 core(s) 1-4,9-12, gpu(s) ['4', '5'] (from SLURM_STEP_GPUS)
+      no placement was requested; this is the control
+
+B_placed_alone:
+  1 launch(es), peak concurrency 1
+    slot 1: host frontier01793, 8 core(s) 1-4,9-12, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+
+C_placed_alone_gpu:
+  1 launch(es), peak concurrency 1
+    slot 1: host frontier01793, 8 core(s) 49-52,57-60, gpu(s) ['0', '1'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 2 asked for, ['0', '1'] visible
+
+D_concurrent:
+  4 launch(es), peak concurrency 4
+    slot 1: host frontier01793, 8 core(s) 1-4,9-12, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 2: host frontier01793, 8 core(s) 5-7,13,17-20, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 3: host frontier01793, 8 core(s) 14-15,21-22,25-28, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 4: host frontier01793, 8 core(s) 23,29-31,33-36, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+  cores are disjoint across overlapping launches
+
+E_concurrent_gpu:
+  4 launch(es), peak concurrency 4
+    slot 1: host frontier01793, 8 core(s) 49-52,57-60, gpu(s) ['0', '1'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 2 asked for, ['0', '1'] visible
+    slot 2: host frontier01793, 8 core(s) 17-20,25-28, gpu(s) ['2', '3'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 2 asked for, ['2', '3'] visible
+    slot 3: host frontier01793, 8 core(s) 1-4,9-12, gpu(s) ['4', '5'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 2 asked for, ['4', '5'] visible
+    slot 4: host frontier01793, 8 core(s) 33-36,41-44, gpu(s) ['6', '7'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 2 asked for, ['6', '7'] visible
+  cores are disjoint across overlapping launches
+  GPUs are disjoint across overlapping launches
+
+F_memory_limit:
+  allowed 1024 MB, tried to allocate 4096 MB, reached 960 MB
+  ENFORCED: the launch stopped at 960 MB, short of the 4096 MB it tried for, having been allowed 1024 MB
+    (exit code 1)
+    A step can be capped on this machine, so a memory figure
+    passed to a launcher is a ceiling and not decoration.
+    Silence about memory does NOT repeat the GPU trap: four
+    concurrent launches saying nothing about memory ran full
+    duration on both enforcing machines.  See
+    G_placement_memory for whether placement caps a step that
+    said nothing.
+  launcher messages:
+    [1x] srun: error: frontier01793: task 0: Out Of Memory
+
+G_placement_memory:
+  slot 1 (placed  ): reached 18284 of 18284 MB, completed=True, exit 0
+  slot 2 (unplaced): reached 18284 of 18284 MB, completed=True, exit 0
+  NO CEILING FROM PLACEMENT: both allocated the full target.
+    This bounds the answer rather than settling it -- it
+    shows no ceiling below the amount tried, not that none
+    exists at all.
+
+Reading the results:
+  B/C honored + D/E peak == slots and disjoint
+      -> mache renders placements that work here
+  B/C not honored
+      -> the command renders but the machine ignores it
+  D/E peak == 1
+      -> the launches serialized; the command reserves more than
+         it asked for
+  D/E overlapped but collide
+      -> the command oversubscribes rather than places
+
+To record these results on the branch, from a LOGIN node:
+  cd /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check
+  ./record_results.sh /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208 /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_check.o5337208

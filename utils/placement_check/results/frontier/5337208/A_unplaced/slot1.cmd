@@ -1,0 +1,1 @@
+srun -l -K --threads-per-core=1 -c 4 -N 1 -n 2 --cpu-bind=threads --gpu-bind=closest -m block:cyclic /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/mpi_payload

@@ -1,0 +1,28 @@
+0: /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337208/scripts/mem_payload.sh: line 67: 2202428 Killed                  python3 - "${target_mb}" "${chunk_mb}" "${out}"  <<'PY'
+0: import sys
+0: 
+0: target_mb = int(sys.argv[1])
+0: chunk_mb = int(sys.argv[2])
+0: path = sys.argv[3]
+0: 
+0: # Touch every page.  A bytearray of zeros is already resident, but writing to
+0: # it makes that true of any allocator, and an untouched allocation is not
+0: # what a limit would act on.
+0: blocks = []
+0: reached = 0
+0: with open(path, 'a', buffering=1) as handle:
+0:     while reached < target_mb:
+0:         size = min(chunk_mb, target_mb - reached)
+0:         block = bytearray(size * 1024 * 1024)
+0:         block[::4096] = b'x' * len(block[::4096])
+0:         blocks.append(block)
+0:         reached += size
+0:         handle.write(f'reached_mb={reached}\n')
+0:         handle.flush()
+0:     handle.write('completed=true\n')
+0:     handle.flush()
+0: PY
+0: 
+0: [2026-08-24T08:52:02.011] error: Detected 1 oom_kill event in StepId=5337208.11. Some of the step tasks have been OOM Killed.
+srun: error: frontier01793: task 0: Out Of Memory
+srun: Terminating StepId=5337208.11
