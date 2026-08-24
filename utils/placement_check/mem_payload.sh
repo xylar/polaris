@@ -17,8 +17,11 @@ set -u
 test_name="${PLACE_TEST:?PLACE_TEST must be set}"
 slot="${PLACE_SLOT:?PLACE_SLOT must be set}"
 outdir="${PLACE_OUTDIR:?PLACE_OUTDIR must be set}"
-target_mb="${PLACE_MEM_TARGET_MB:-4096}"
-allowance_mb="${PLACE_MEM_ALLOWANCE_MB:-0}"
+# Required rather than defaulted.  These were defaulted once, and the
+# allowance silently recorded itself as 0 while the launcher had really been
+# given 1024 -- a wrong number in the evidence is worse than a failure.
+target_mb="${PLACE_MEM_TARGET_MB:?PLACE_MEM_TARGET_MB must be set}"
+allowance_mb="${PLACE_MEM_ALLOWANCE_MB:?PLACE_MEM_ALLOWANCE_MB must be set}"
 chunk_mb="${PLACE_MEM_CHUNK_MB:-64}"
 
 rank="${SLURM_PROCID:-${PMI_RANK:-${PALS_RANKID:-${ALPS_APP_PE:-0}}}}"

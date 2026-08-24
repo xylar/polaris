@@ -738,6 +738,11 @@ def _start_and_wait(launches, check, args, test_dir):
     env['PLACE_TEST'] = check.name
     env['PLACE_OUTDIR'] = args.outdir
     env['PLACE_SLEEP'] = f'{args.sleep}'
+    # the memory payload has to allocate against the same allowance the
+    # launcher was asked for.  These come from the same two values that
+    # rendered the flag, so the two cannot drift apart.
+    env['PLACE_MEM_ALLOWANCE_MB'] = f'{args.mem_allowance_mb}'
+    env['PLACE_MEM_TARGET_MB'] = f'{args.mem_target_mb}'
 
     processes = []
     failed_to_start = []

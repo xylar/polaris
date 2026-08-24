@@ -358,6 +358,8 @@ def test_the_whole_harness_runs_and_reads_back(tmp_path, capsys):
         cpus_per_task=2,
         sleep=1,
         dry_run=False,
+        mem_allowance_mb=1024,
+        mem_target_mb=4096,
     )
     checks = check_placement.build_checks(
         node='localhost',
@@ -494,3 +496,53 @@ def _write_memory_run(tmp_path, reached, completed, returncode):
     (test_dir / 'slot1_rank0.kv').write_text('\n'.join(lines) + '\n')
     (test_dir / 'slot1.rc').write_text(f'{returncode}\n')
     (test_dir / 'slot1.err').write_text('')
+
+
+def test_the_memory_payload_is_told_the_same_allowance_the_flag_asked_for(
+    tmp_path,
+):
+    """
+    A regression: the driver rendered --mem=1024M and the payload recorded
+    an allowance of 0, because the two numbers travelled by different routes
+    and only one of them moved.  Evidence that disagrees with the command is
+    worse than no evidence.
+    """
+    payload = os.path.join(UTILS_DIR, 'mem_payload.sh')
+    outdir = str(tmp_path / 'results')
+    os.makedirs(outdir)
+    args = argparse.Namespace(
+        outdir=outdir,
+        payload=payload,
+        slots=1,
+        ntasks=1,
+        cpus_per_task=1,
+        sleep=0,
+        dry_run=False,
+        mem_allowance_mb=1024,
+        mem_target_mb=8,
+    )
+    check = check_placement.Check(
+        name='F_memory_limit',
+        description='allowance reaches the payload',
+        placements=[None],
+        payload=payload,
+        ntasks=1,
+        failure_is_a_result=True,
+    )
+    check_placement.run_check(_BashSystem(), check, args)
+
+    record = summarize.parse_kv(
+        os.path.join(outdir, 'F_memory_limit', 'slot1_rank0.kv')
+    )
+    assert record['allowance_mb'] == '1024'
+    assert record['target_mb'] == '8'
+    assert record.get('completed') == 'true'
+
+
+class _BashSystem:
+    """A launcher that just runs the payload, with no placement at all."""
+
+    def get_parallel_command(
+        self, args, ntasks, cpus_per_task=0, gpus_per_task=0, placement=None
+    ):
+        return ['/bin/bash']
