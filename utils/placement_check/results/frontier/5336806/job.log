@@ -1,0 +1,5 @@
+ERROR: no load_polaris_*.sh in /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a.
+  Deploy this worktree against the mache branch that adds
+  placement:
+    ./deploy.py --mache-fork xylar/mache \
+                --mache-branch parallel-placement
