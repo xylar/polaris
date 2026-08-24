@@ -1,0 +1,76 @@
+  run: frontier / slurm job 5336820, 1 node(s), 56 usable core(s)/node, 8 gpu(s)/node
+       4 slot(s) x 2 task(s) x 4 core(s), 2 gpu(s) per slot, mpi_payload payload
+       launcher srun -l -K --threads-per-core=1, placement support scheduler
+       mache 3.11.0 from /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/pixi-env/.pixi/envs/default/lib/python3.14/site-packages/mache
+
+A_unplaced:
+  1 launch(es), peak concurrency 1
+    slot 1: host frontier08884, 8 core(s) 1-4,9-12, gpu(s) ['4', '5'] (from SLURM_STEP_GPUS)
+      no placement was requested; this is the control
+
+B_placed_alone:
+  1 launch(es), peak concurrency 1
+    slot 1: host frontier08884, 8 core(s) 1-4,9-12, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+
+C_placed_alone_gpu:
+  1 launch(es), peak concurrency 1
+    slot 1: host frontier08884, 8 core(s) 49-52,57-60, gpu(s) ['0', '1'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 2 asked for, ['0', '1'] visible
+
+D_concurrent:
+  4 launch(es), peak concurrency 4
+    slot 1: host frontier08884, 8 core(s) 1-4,9-12, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 2: host frontier08884, 8 core(s) 5-7,13,17-20, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 3: host frontier08884, 8 core(s) 14-15,21-22,25-28, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 4: host frontier08884, 8 core(s) 23,29-31,33-36, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+  cores are disjoint across overlapping launches
+
+E_concurrent_gpu:
+  4 launch(es), peak concurrency 4
+    slot 1: host frontier08884, 8 core(s) 49-52,57-60, gpu(s) ['0', '1'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 2 asked for, ['0', '1'] visible
+    slot 2: host frontier08884, 8 core(s) 17-20,25-28, gpu(s) ['2', '3'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 2 asked for, ['2', '3'] visible
+    slot 3: host frontier08884, 8 core(s) 1-4,9-12, gpu(s) ['4', '5'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 2 asked for, ['4', '5'] visible
+    slot 4: host frontier08884, 8 core(s) 33-36,41-44, gpu(s) ['6', '7'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 2 asked for, ['6', '7'] visible
+  cores are disjoint across overlapping launches
+  GPUs are disjoint across overlapping launches
+
+F_memory_limit:
+  allowed 1024 MB, tried to allocate 4096 MB, reached 960 MB
+  ENFORCED: the launch stopped at 960 MB, short of the 4096 MB it tried for, having been allowed 1024 MB
+    (exit code 1)
+    Two things follow: a step can be capped on this machine,
+    and -- by the same argument that applies to GPUs -- a
+    launch that says nothing about memory may be read as
+    claiming all of it.  Worth chasing.
+  launcher messages:
+    [1x] srun: error: frontier08884: task 0: Out Of Memory
+
+Reading the results:
+  B/C honored + D/E peak == slots and disjoint
+      -> mache renders placements that work here
+  B/C not honored
+      -> the command renders but the machine ignores it
+  D/E peak == 1
+      -> the launches serialized; the command reserves more than
+         it asked for
+  D/E overlapped but collide
+      -> the command oversubscribes rather than places
