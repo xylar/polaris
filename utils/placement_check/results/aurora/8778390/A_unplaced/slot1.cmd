@@ -1,0 +1,1 @@
+mpiexec --label -n 2 --ppn 2 --depth 4 --cpu-bind list:1-8:9-16:17-24:25-32:33-40:41-48:53-60:61-68:69-76:77-84:85-92:93-100 --gpu-bind list:0.0:0.1:1.0:1.1:2.0:2.1:3.0:3.1:4.0:4.1:5.0:5.1 --mem-bind list:0:0:0:0:0:0:1:1:1:1:1:1 /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_8778390/mpi_payload
