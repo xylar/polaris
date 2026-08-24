@@ -1,0 +1,137 @@
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.2.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+polaris env:    /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/load_polaris_pm-gpu_gnugpu_mpich.sh
+mpi payload:    mpicc (/global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload)
+
+=== mache placement check ===
+machine:            pm-gpu
+launcher:           srun --label
+placement support:  scheduler
+nodes:              1 (nid002993)
+target node:        nid002993
+usable cores:       64
+gpus per node:      4
+memory per node:    257200 MB (sinfo %m)
+layout:             4 slot(s) x 2 task(s) x 4 core(s), 1 gpu(s) per slot
+payload:            /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload (sleeps 15s)
+
+--- A_unplaced: one launch with no placement at all -- what Polaris does today, and the control that shows placement changes something
+    slot 1: srun --label -c 4 -N 1 -n 2 --cpu-bind=cores --gpu-bind=none -m plane=4 /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    all 1 launch(es) started in 0.02s
+
+--- B_placed_alone: one placed launch, alone, asking for no GPUs -- does it see only the cores it was given?
+    slot 1: srun --label -c 4 -N 1 -n 2 -w nid002993 --exact --gres=none --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    all 1 launch(es) started in 0.09s
+
+--- C_placed_alone_gpu: one placed launch, alone, asking for 1 GPU(s) -- does it see only those?
+    slot 1: srun --label -c 4 -N 1 -n 2 -w nid002993 --exact --gpus=1 --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    all 1 launch(es) started in 0.13s
+
+--- D_concurrent: 4 placed launches at once, none asking for GPUs
+    slot 1: srun --label -c 4 -N 1 -n 2 -w nid002993 --exact --gres=none --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    slot 2: srun --label -c 4 -N 1 -n 2 -w nid002993 --exact --gres=none --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    slot 3: srun --label -c 4 -N 1 -n 2 -w nid002993 --exact --gres=none --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    slot 4: srun --label -c 4 -N 1 -n 2 -w nid002993 --exact --gres=none --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    all 4 launch(es) started in 0.38s
+
+--- E_concurrent_gpu: 4 placed launches at once, each asking for 1 GPU(s)
+    slot 1: srun --label -c 4 -N 1 -n 2 -w nid002993 --exact --gpus=1 --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    slot 2: srun --label -c 4 -N 1 -n 2 -w nid002993 --exact --gpus=1 --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    slot 3: srun --label -c 4 -N 1 -n 2 -w nid002993 --exact --gpus=1 --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    slot 4: srun --label -c 4 -N 1 -n 2 -w nid002993 --exact --gpus=1 --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/mpi_payload
+    all 4 launch(es) started in 0.61s
+
+--- F_memory_limit: one placed launch allowed 1024 MB, allocating 4096 MB -- is it killed?
+    slot 1: srun --label -c 4 -N 1 -n 1 -w nid002993 --exact --gres=none --cpu-bind=cores --mem=1024M /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409/scripts/mem_payload.sh
+    all 1 launch(es) started in 0.18s
+    slot 1 returned 1
+
+results: /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409
+
+=== summary ===
+  run: pm-gpu / slurm job 57517409, 1 node(s), 64 usable core(s)/node, 4 gpu(s)/node
+       4 slot(s) x 2 task(s) x 4 core(s), 1 gpu(s) per slot, mpi_payload payload
+       launcher srun --label, placement support scheduler
+       mache 3.11.0 from /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/pixi-env/.pixi/envs/default/lib/python3.14/site-packages/mache
+
+A_unplaced:
+  1 launch(es), peak concurrency 1
+    slot 1: host nid002993, 8 core(s) 0-1,16-17,64-65,80-81, gpu(s) ['0', '1', '2', '3'] (from SLURM_STEP_GPUS)
+      no placement was requested; this is the control
+
+B_placed_alone:
+  1 launch(es), peak concurrency 1
+    slot 1: host nid002993, 8 core(s) 0-1,16-17,64-65,80-81, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+
+C_placed_alone_gpu:
+  1 launch(es), peak concurrency 1
+    slot 1: host nid002993, 8 core(s) 48-51,112-115, gpu(s) ['0'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 1 asked for, ['0'] visible
+
+D_concurrent:
+  4 launch(es), peak concurrency 4
+    slot 1: host nid002993, 8 core(s) 0-1,16-17,64-65,80-81, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 2: host nid002993, 8 core(s) 2-3,18-19,66-67,82-83, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 3: host nid002993, 8 core(s) 4-5,20-21,68-69,84-85, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 4: host nid002993, 8 core(s) 6-7,22-23,70-71,86-87, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+  cores are disjoint across overlapping launches
+
+E_concurrent_gpu:
+  4 launch(es), peak concurrency 4
+    slot 1: host nid002993, 8 core(s) 48-51,112-115, gpu(s) ['0'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 1 asked for, ['0'] visible
+    slot 2: host nid002993, 8 core(s) 32-35,96-99, gpu(s) ['1'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 1 asked for, ['1'] visible
+    slot 3: host nid002993, 8 core(s) 16-19,80-83, gpu(s) ['2'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 1 asked for, ['2'] visible
+    slot 4: host nid002993, 8 core(s) 0-3,64-67, gpu(s) ['3'] (from SLURM_STEP_GPUS)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: 1 asked for, ['3'] visible
+  cores are disjoint across overlapping launches
+  GPUs are disjoint across overlapping launches
+
+F_memory_limit:
+  allowed 1024 MB, tried to allocate 4096 MB, reached 960 MB
+  ENFORCED: the launch stopped at 960 MB, short of the 4096 MB it tried for, having been allowed 1024 MB
+    (exit code 1)
+    Two things follow: a step can be capped on this machine,
+    and -- by the same argument that applies to GPUs -- a
+    launch that says nothing about memory may be read as
+    claiming all of it.  Worth chasing.
+  launcher messages:
+    [1x] srun: error: nid002993: task 0: Out Of Memory
+
+Reading the results:
+  B/C honored + D/E peak == slots and disjoint
+      -> mache renders placements that work here
+  B/C not honored
+      -> the command renders but the machine ignores it
+  D/E peak == 1
+      -> the launches serialized; the command reserves more than
+         it asked for
+  D/E overlapped but collide
+      -> the command oversubscribes rather than places
+
+To record these results on the branch, from a LOGIN node:
+  cd /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check
+  ./record_results.sh /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57517409 /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_check.o57517409
