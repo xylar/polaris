@@ -120,8 +120,8 @@ class SimplifyRiverNetworkStep(Step):
             component=component,
             name='river_simplify',
             subdir=subdir,
-            cpus_per_task=128,
-            min_cpus_per_task=1,
+            cores=128,
+            min_cores=1,
         )
         self.simplified_filename = 'simplified_river_network.geojson'
 
@@ -146,7 +146,7 @@ class SimplifyRiverNetworkStep(Step):
         """
         import time
 
-        print(f'cpus_per_task = {self.cpus_per_task}', flush=True)
+        print(f'cores = {self.cores}', flush=True)
 
         section = self.config['river_network']
         archive_filename = section.get('hydrorivers_archive_filename')
@@ -191,7 +191,7 @@ class SimplifyRiverNetworkStep(Step):
             drainage_area_threshold=drainage_area_threshold,
             branch_distance_tolerance=branch_distance_tolerance,
             tributary_area_ratio=section.getfloat('tributary_area_ratio'),
-            n_cpus=self.cpus_per_task,
+            n_cpus=self.cores,
         )
         print(f'simplify: {time.time() - t0:.1f} s', flush=True)
         simplified_fc['metadata'] = dict(
