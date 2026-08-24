@@ -1,0 +1,117 @@
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.2.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+polaris env:    /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/load_polaris_pm-cpu_gnu_mpich.sh
+mpi payload:    mpicc (/global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892/mpi_payload)
+
+=== mache placement check ===
+machine:            pm-cpu
+launcher:           srun --label
+placement support:  scheduler
+nodes:              1 (nid001789)
+target node:        nid001789
+usable cores:       128
+gpus per node:      0
+memory per node:    257200 MB (sinfo %m)
+  No GPU checks will run.  On the GPU machines the GPU count
+  lives in [parallel.<compiler>], so a deployment with the
+  machine default compiler can report none: Frontier needs
+  craygnu_mphipcc and Aurora needs oneapi-ifxgpu.  If GPUs
+  were meant to be checked, redeploy with that compiler.
+layout:             4 slot(s) x 2 task(s) x 4 core(s), 0 gpu(s) per slot
+payload:            /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892/mpi_payload (sleeps 15s)
+
+--- A_unplaced: one launch with no placement at all -- what Polaris does today, and the control that shows placement changes something
+    slot 1: srun --label -c 4 -N 1 -n 2 --cpu-bind=cores -m plane=128 /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892/mpi_payload
+    all 1 launch(es) started in 0.03s
+
+--- B_placed_alone: one placed launch, alone, asking for no GPUs -- does it see only the cores it was given?
+    slot 1: srun --label -c 4 -N 1 -n 2 -w nid001789 --exact --gres=none --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892/mpi_payload
+    all 1 launch(es) started in 0.21s
+
+--- D_concurrent: 4 placed launches at once, none asking for GPUs
+    slot 1: srun --label -c 4 -N 1 -n 2 -w nid001789 --exact --gres=none --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892/mpi_payload
+    slot 2: srun --label -c 4 -N 1 -n 2 -w nid001789 --exact --gres=none --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892/mpi_payload
+    slot 3: srun --label -c 4 -N 1 -n 2 -w nid001789 --exact --gres=none --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892/mpi_payload
+    slot 4: srun --label -c 4 -N 1 -n 2 -w nid001789 --exact --gres=none --cpu-bind=cores /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892/mpi_payload
+    all 4 launch(es) started in 0.29s
+
+--- F_memory_limit: one placed launch allowed 1024 MB, allocating 4096 MB -- is it killed?
+    slot 1: srun --label -c 4 -N 1 -n 1 -w nid001789 --exact --gres=none --cpu-bind=cores --mem=1024M /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892/scripts/mem_payload.sh
+    all 1 launch(es) started in 0.13s
+    slot 1 returned 1
+
+--- G_placement_memory: a placed launch and an unplaced one, neither mentioning memory, both allocating 4096 MB -- twice the 2009 MB a single core is worth. Does placement alone impose a ceiling?
+    could not render slot 1: The placement has 1 cores but 1 tasks x 4 cpus per task need 4.
+
+results: /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892
+
+=== summary ===
+  run: pm-cpu / slurm job 57518892, 1 node(s), 128 usable core(s)/node, 0 gpu(s)/node
+       4 slot(s) x 2 task(s) x 4 core(s), 0 gpu(s) per slot, mpi_payload payload
+       launcher srun --label, placement support scheduler
+       mache 3.11.0 from /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/pixi-env/.pixi/envs/default/lib/python3.14/site-packages/mache
+
+A_unplaced:
+  1 launch(es), peak concurrency 1
+    slot 1: host nid001789, 8 core(s) 0-1,16-17,64-65,80-81, gpu(s) ['0', '1', '2', '3'] (from SLURM_STEP_GPUS)
+      no placement was requested; this is the control
+
+B_placed_alone:
+  1 launch(es), peak concurrency 1
+    slot 1: host nid001789, 8 core(s) 0-1,16-17,64-65,80-81, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+
+D_concurrent:
+  4 launch(es), peak concurrency 4
+    slot 1: host nid001789, 8 core(s) 0-1,16-17,64-65,80-81, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 2: host nid001789, 8 core(s) 2-3,18-19,66-67,82-83, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 3: host nid001789, 8 core(s) 4-5,20-21,68-69,84-85, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+    slot 4: host nid001789, 8 core(s) 6-7,22-23,70-71,86-87, no gpu(s) (no GPU variable set)
+      HONORED: 8 core(s) asked for, 8 granted (Slurm chose which)
+      GPUs: none asked for, none visible
+  cores are disjoint across overlapping launches
+
+F_memory_limit:
+  allowed 1024 MB, tried to allocate 4096 MB, reached 960 MB
+  ENFORCED: the launch stopped at 960 MB, short of the 4096 MB it tried for, having been allowed 1024 MB
+    (exit code 1)
+    A step can be capped on this machine, so a memory figure
+    passed to a launcher is a ceiling and not decoration.
+    Silence about memory does NOT repeat the GPU trap: four
+    concurrent launches saying nothing about memory ran full
+    duration on both enforcing machines.  See
+    G_placement_memory for whether placement caps a step that
+    said nothing.
+  launcher messages:
+    [1x] srun: error: nid001789: task 0: Out Of Memory
+
+G_placement_memory:
+  no payload output -- the launches probably failed to start
+
+Reading the results:
+  B/C honored + D/E peak == slots and disjoint
+      -> mache renders placements that work here
+  B/C not honored
+      -> the command renders but the machine ignores it
+  D/E peak == 1
+      -> the launches serialized; the command reserves more than
+         it asked for
+  D/E overlapped but collide
+      -> the command oversubscribes rather than places
+
+To record these results on the branch, from a LOGIN node:
+  cd /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check
+  ./record_results.sh /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_57518892 /global/u2/x/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_check.o57518892
