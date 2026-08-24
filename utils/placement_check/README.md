@@ -1,5 +1,14 @@
 # mache placement check
 
+> **This directory is temporary and will not survive Phase A.** When Phase A development finishes, the branch is rebased and `utils/placement_check` is removed from the git history entirely -- not deleted in a later commit, but taken out as though it had never been committed. It is useful now and is not something to carry in the history for the long haul.
+>
+> Two consequences worth acting on *before* that rebase, not after:
+>
+> - **The recorded results go with it.** Everything under `results/` is the evidence that mache pull request #470 renders commands which behave on real machines. That evidence has to be somewhere durable first -- the verdicts in the mache pull request, and the measurements in [the umbrella design document](../../docs/design_docs/task_parallelism.md) -- or the case for the merge disappears along with the directory.
+> - **Anything worth keeping has to move.** The standing single-confined-step check that the design asks to keep "as a small standing test rather than a one-off" is the obvious candidate, and it belongs in `tests/` rather than here if it is to outlive this branch.
+>
+> The Polaris-side unit tests under `tests/` are not affected; they are ordinary tests and they stay.
+
 Phase A of task parallelism lets Polaris run a step on a named part of its allocation. It does not build the launch command itself: `mache` does, and the `mache` change that adds placement is [pull request #470](https://github.com/E3SM-Project/mache/pull/470), which is open and unmerged.
 
 Xylar's condition for merging it is that Polaris testing first confirms the rendered commands behave as intended on real machines. **That is what this directory is for, and it is the only thing gating that merge.**
