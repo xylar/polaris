@@ -1,0 +1,27 @@
+machine=frontier
+scheduler=slurm
+job_id=5337156
+mache_version=3.11.0
+mache_path=/autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/pixi-env/.pixi/envs/default/lib/python3.14/site-packages/mache
+placement_support=scheduler
+parallel_executable=srun -l -K --threads-per-core=1
+compiler=craygnu-mphipcc
+mpi=mpich
+nodes=1
+nodelist=frontier03091
+target_node=frontier03091
+cores_on_node=56
+usable_cores=56
+gpus_on_node=8
+memory_per_node_mb=512000
+memory_per_node_source=sinfo %m
+core_list=0,1,2,3,4,5,6,7,8,9,10,11,12,13,14,15,16,17,18,19,20,21,22,23,24,25,26,27,28,29,30,31,32,33,34,35,36,37,38,39,40,41,42,43,44,45,46,47,48,49,50,51,52,53,54,55
+slots=4
+ntasks=2
+cpus_per_task=4
+gpus_per_slot=2
+sleep=15
+payload=mpi_payload
+dry_run=false
+started=2026-08-24T12:33:51Z
+status=complete

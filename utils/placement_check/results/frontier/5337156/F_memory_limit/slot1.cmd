@@ -1,0 +1,1 @@
+srun -l -K --threads-per-core=1 -c 4 -N 1 -n 1 -w frontier03091 --exact --gres=none --cpu-bind=threads --mem=1024M /autofs/nccs-svm1_home1/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_5337156/scripts/mem_payload.sh
