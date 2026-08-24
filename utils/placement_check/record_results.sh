@@ -20,10 +20,14 @@ here="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 repo="$(git -C "${here}" rev-parse --show-toplevel)"
 branch="${PLACE_BRANCH:-add-task-parallelism-phase-a}"
 # On other machines the fork is probably not called "xylar", so prefer the
-# remote this branch already tracks.
+# remote this branch already tracks.  There is deliberately no fallback: this
+# once resolved to `origin` on a machine where the branch tracked nothing,
+# and pushed a work-in-progress branch full of recorded results to the main
+# project repository.  Refusing is the right answer -- the person recording
+# knows which fork they meant, and this script does not.
 tracked_remote="$(git -C "${here}" config --get "branch.${branch}.remote" \
     2>/dev/null || true)"
-remote="${PLACE_REMOTE:-${tracked_remote:-origin}}"
+remote="${PLACE_REMOTE:-${tracked_remote}}"
 
 push=1
 args=()
@@ -37,6 +41,28 @@ done
 
 results="${args[0]:-}"
 job_log="${args[1]:-}"
+
+if [ "${push}" = "1" ]; then
+    if [ -z "${remote}" ]; then
+        echo "ERROR: branch ${branch} tracks no remote here, so there is no" >&2
+        echo "  way to know where these results should go." >&2
+        echo "  Say which fork, e.g.:" >&2
+        echo "    PLACE_REMOTE=<your-fork> ${0##*/} $*" >&2
+        echo "  or pass --no-push to commit locally only." >&2
+        exit 1
+    fi
+    remote_url="$(git -C "${here}" remote get-url "${remote}" 2>/dev/null \
+        || true)"
+    case "${remote_url}" in
+        *E3SM-Project/polaris*)
+            echo "ERROR: '${remote}' is the main project repository:" >&2
+            echo "    ${remote_url}" >&2
+            echo "  Recorded results belong on a fork, not there." >&2
+            echo "  Set PLACE_REMOTE to your fork, or pass --no-push." >&2
+            exit 1
+            ;;
+    esac
+fi
 
 if [ -z "${results}" ]; then
     results="$(ls -1dt placement_results_* 2>/dev/null | head -1 || true)"

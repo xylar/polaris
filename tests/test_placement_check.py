@@ -546,3 +546,32 @@ class _BashSystem:
         self, args, ntasks, cpus_per_task=0, gpus_per_task=0, placement=None
     ):
         return ['/bin/bash']
+
+
+def test_no_gpu_verdict_when_launches_got_no_gpus(tmp_path, capsys):
+    """
+    A real pm-gpu run had three of four launches receive no GPU, and the
+    summary called them disjoint.  Empty sets are disjoint for the wrong
+    reason, the same mistake as calling cores disjoint when nothing
+    overlapped.
+    """
+    test_dir = tmp_path / 'E_concurrent_gpu'
+    test_dir.mkdir()
+    expected = []
+    for slot in (1, 2, 3, 4):
+        expected.append(f'slot={slot} nodes=n1 cores=0,1 gpus=1 gpu_ids=')
+        gpus = '0' if slot == 1 else ''
+        (test_dir / f'slot{slot}_rank0.kv').write_text(
+            f'test=E_concurrent_gpu\nslot={slot}\nrank=0\nhost=n1\n'
+            f'cpus_allowed={2 * slot}-{2 * slot + 1}\n'
+            f'gpu_env=\nstep_gpus={gpus}\n'
+            f't_start=100.0\nt_end=115.0\n'
+        )
+        (test_dir / f'slot{slot}.err').write_text('')
+    (test_dir / 'expected.kv').write_text('\n'.join(expected) + '\n')
+
+    summarize.report_check(str(test_dir), 'E_concurrent_gpu', 'scheduler')
+    out = capsys.readouterr().out
+    assert 'GPUS NOT GRANTED: slot(s) 2, 3, 4' in out
+    assert 'no GPU disjointness verdict' in out
+    assert 'GPUs are disjoint' not in out

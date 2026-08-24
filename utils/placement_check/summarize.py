@@ -359,8 +359,23 @@ def report_check(test_dir, name, support):
     for run in runs:
         _report_slot(run, expected.get(run.slot), support)
 
+    starved = _gpu_starved(runs, expected)
+    if len(starved) > 0:
+        print(
+            f'  GPUS NOT GRANTED: slot(s) {", ".join(starved)} asked for '
+            f'GPUs and got none'
+        )
+        print(
+            '    They ran anyway and exited cleanly, which is the'
+            ' dangerous part:'
+        )
+        print(
+            '    a real workload would fall back or use the wrong device'
+            ' silently.'
+        )
+
     if peak > 1:
-        _report_collisions(runs)
+        _report_collisions(runs, withhold_gpus=len(starved) > 0)
     elif len(runs) > 1:
         print('  no disjointness verdict -- the launches never overlapped')
 
@@ -472,7 +487,26 @@ def _report_slot(run, expected, support):
         )
 
 
-def _report_collisions(runs):
+def _gpu_starved(runs, expected):
+    """
+    Find launches that asked for GPUs and were given none.
+
+    Empty sets are trivially disjoint, so without this a check where most
+    launches got nothing reports "GPUs are disjoint" and reads like a pass.
+    That is the same mistake as calling cores disjoint when the launches
+    never overlapped, and it happened on a real run.
+    """
+    starved = []
+    for run in runs:
+        wanted = expected.get(run.slot)
+        if wanted is None:
+            continue
+        if int(wanted.get('gpus', '0')) > 0 and len(run.gpus) == 0:
+            starved.append(run.slot)
+    return starved
+
+
+def _report_collisions(runs, withhold_gpus=False):
     """Print whether overlapping launches shared cores or GPUs."""
     core_hits = []
     gpu_hits = []
@@ -498,7 +532,10 @@ def _report_collisions(runs):
     else:
         print('  cores are disjoint across overlapping launches')
 
-    if any(len(run.gpus) > 0 for run in runs):
+    if withhold_gpus:
+        print('  no GPU disjointness verdict -- some launches got no GPUs,')
+        print('    and empty sets are disjoint for the wrong reason')
+    elif any(len(run.gpus) > 0 for run in runs):
         if len(gpu_hits) > 0:
             print('  GPU COLLISIONS:')
             for hit in gpu_hits[:6]:
