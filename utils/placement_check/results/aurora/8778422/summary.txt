@@ -1,0 +1,65 @@
+  run: aurora / pbs job 8778422, 1 node(s), 96 usable core(s)/node, 12 gpu(s)/node
+       4 slot(s) x 2 task(s) x 4 core(s), 3 gpu(s) per slot, mpi_payload payload
+       launcher mpiexec --label, placement support cpu_binding
+       mache 3.11.0 from /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/pixi-env/.pixi/envs/default/lib/python3.14/site-packages/mache
+
+A_unplaced:
+  1 launch(es), peak concurrency 1
+    slot 1: host x4302c6s7b0n0, 16 core(s) 1-16, gpu(s) ['0.0', '0.1'] (from ZE_AFFINITY_MASK)
+      no placement was requested; this is the control
+
+B_placed_alone:
+  1 launch(es), peak concurrency 1
+    slot 1: host x4302c6s7b0n0, 8 core(s) 1-8, no gpu(s) (ZE_AFFINITY_MASK set but empty)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+
+C_placed_alone_gpu:
+  1 launch(es), peak concurrency 1
+    slot 1: host x4302c6s7b0n0, 8 core(s) 1-8, gpu(s) ['0.0', '0.1', '1.0'] (from ZE_AFFINITY_MASK)
+      HONORED: exactly the cores asked for
+      GPUs: 3 asked for, ['0.0', '0.1', '1.0'] visible
+
+D_concurrent:
+  4 launch(es), peak concurrency 4
+    slot 1: host x4302c6s7b0n0, 8 core(s) 1-8, no gpu(s) (ZE_AFFINITY_MASK set but empty)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+    slot 2: host x4302c6s7b0n0, 8 core(s) 9-16, no gpu(s) (ZE_AFFINITY_MASK set but empty)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+    slot 3: host x4302c6s7b0n0, 8 core(s) 17-24, no gpu(s) (ZE_AFFINITY_MASK set but empty)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+    slot 4: host x4302c6s7b0n0, 8 core(s) 25-32, no gpu(s) (ZE_AFFINITY_MASK set but empty)
+      HONORED: exactly the cores asked for
+      GPUs: none asked for, none visible
+  cores are disjoint across overlapping launches
+
+E_concurrent_gpu:
+  4 launch(es), peak concurrency 4
+    slot 1: host x4302c6s7b0n0, 8 core(s) 1-8, gpu(s) ['0.0', '0.1', '1.0'] (from ZE_AFFINITY_MASK)
+      HONORED: exactly the cores asked for
+      GPUs: 3 asked for, ['0.0', '0.1', '1.0'] visible
+    slot 2: host x4302c6s7b0n0, 8 core(s) 9-16, gpu(s) ['1.1', '2.0', '2.1'] (from ZE_AFFINITY_MASK)
+      HONORED: exactly the cores asked for
+      GPUs: 3 asked for, ['1.1', '2.0', '2.1'] visible
+    slot 3: host x4302c6s7b0n0, 8 core(s) 17-24, gpu(s) ['3.0', '3.1', '4.0'] (from ZE_AFFINITY_MASK)
+      HONORED: exactly the cores asked for
+      GPUs: 3 asked for, ['3.0', '3.1', '4.0'] visible
+    slot 4: host x4302c6s7b0n0, 8 core(s) 25-32, gpu(s) ['4.1', '5.0', '5.1'] (from ZE_AFFINITY_MASK)
+      HONORED: exactly the cores asked for
+      GPUs: 3 asked for, ['4.1', '5.0', '5.1'] visible
+  cores are disjoint across overlapping launches
+  GPUs are disjoint across overlapping launches
+
+Reading the results:
+  B/C honored + D/E peak == slots and disjoint
+      -> mache renders placements that work here
+  B/C not honored
+      -> the command renders but the machine ignores it
+  D/E peak == 1
+      -> the launches serialized; the command reserves more than
+         it asked for
+  D/E overlapped but collide
+      -> the command oversubscribes rather than places

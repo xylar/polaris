@@ -1,0 +1,1 @@
+mpiexec --label -n 2 --ppn 2 --depth 4 --hosts x4302c6s7b0n0.hsn.cm.aurora.alcf.anl.gov --cpu-bind list:1,2,3,4:5,6,7,8 --env ZE_AFFINITY_MASK= /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-a/utils/placement_check/placement_results_8778422/mpi_payload
