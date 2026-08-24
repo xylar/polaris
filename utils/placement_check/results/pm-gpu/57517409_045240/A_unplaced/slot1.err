@@ -1,0 +1,96 @@
+0: PE 0: MPICH processor detected:
+0: PE 0:   AMD Milan (25:1:1) (family:model:stepping)
+0: MPI VERSION    : CRAY MPICH version 9.0.1.498 (ANL base 4.1.2)
+0: MPI BUILD INFO : Wed Jul 16  9:39 2025 (git hash 0848216) (CH4)
+0: PE 0: MPICH environment settings =====================================
+0: PE 0:   MPICH_ENV_DISPLAY                              = 1
+0: PE 0:   MPICH_VERSION_DISPLAY                          = 1
+0: PE 0:   MPICH_ABORT_ON_ERROR                           = 0
+0: PE 0:   MPICH_CPUMASK_DISPLAY                          = 0
+0: PE 0:   MPICH_STATS_DISPLAY                            = 0
+0: PE 0:   MPICH_RANK_REORDER_METHOD                      = 1
+0: PE 0:   MPICH_RANK_REORDER_DISPLAY                     = 0
+0: PE 0:   MPICH_MEMCPY_MEM_CHECK                         = 0
+0: PE 0:   MPICH_USE_SYSTEM_MEMCPY                        = 0
+0: PE 0:   MPICH_OPTIMIZED_MEMCPY                         = 1
+0: PE 0:   MPICH_ALLOC_MEM_PG_SZ                          = 4096
+0: PE 0:   MPICH_ALLOC_MEM_AFFINITY                       = SYS_DEFAULT
+0: PE 0:   MPICH_MALLOC_FALLBACK                          = 0
+0: PE 0:   MPICH_MEM_DEBUG_FNAME                          = 
+0: PE 0:   MPICH_NO_BUFFER_ALIAS_CHECK                    = 0
+0: PE 0:   MPICH_COLL_SYNC                                = MPI_Bcast
+0: PE 0:   MPICH_SINGLE_HOST_ENABLED                        = 1
+0: PE 0:   MPICH_USE_PERSISTENT_TOPS                      = 0
+0: PE 0:   MPICH_DISABLE_PERSISTENT_RECV_TOPS             = 0
+0: PE 0:   MPICH_MAX_TOPS_COUNTERS                        = 0
+0: PE 0:   MPICH_ENABLE_ACTIVE_WAIT                       = 0
+0: PE 0: MPICH/RMA environment settings =================================
+0: PE 0:   MPICH_RMA_MAX_PENDING                          = 128
+0: PE 0:   MPICH_RMA_SHM_ACCUMULATE                       = 0
+0: PE 0: MPICH/Dynamic Process Management environment settings ==========
+0: PE 0:   MPICH_DPM_DIR                                  = 
+0: PE 0:   MPICH_LOCAL_SPAWN_SERVER                       = 0
+0: PE 0: MPICH/COLLECTIVE environment settings ==========================
+0: PE 0:   MPICH_COLL_OPT_OFF                             = 0
+0: PE 0:   MPICH_BCAST_ONLY_TREE                          = 1
+0: PE 0:   MPICH_BCAST_INTERNODE_RADIX                    = 4
+0: PE 0:   MPICH_BCAST_INTRANODE_RADIX                    = 4
+0: PE 0:   MPICH_ALLTOALL_SHORT_MSG                       = 64-4096
+0: PE 0:   MPICH_ALLTOALL_SYNC_FREQ                       = 1-24
+0: PE 0:   MPICH_ALLTOALLV_THROTTLE                       = 8
+0: PE 0:   MPICH_ALLGATHER_VSHORT_MSG                     = 1024-4096
+0: PE 0:   MPICH_ALLGATHERV_VSHORT_MSG                    = 1024-4096
+0: PE 0:   MPICH_GATHERV_SHORT_MSG                        = 131072
+0: PE 0:   MPICH_GATHERV_MIN_COMM_SIZE                    = 64
+0: PE 0:   MPICH_GATHERV_MAX_TMP_SIZE                     = 536870912
+0: PE 0:   MPICH_GATHERV_SYNC_FREQ                        = 16
+0: PE 0:   MPICH_IGATHERV_MIN_COMM_SIZE                   = 1000
+0: PE 0:   MPICH_IGATHERV_SYNC_FREQ                       = 100
+0: PE 0:   MPICH_IGATHERV_RAND_COMMSIZE                   = 2048
+0: PE 0:   MPICH_IGATHERV_RAND_RECVLIST                   = 0
+0: PE 0:   MPICH_SCATTERV_SHORT_MSG                       = 2048-8192
+0: PE 0:   MPICH_SCATTERV_MIN_COMM_SIZE                   = 64
+0: PE 0:   MPICH_SCATTERV_MAX_TMP_SIZE                    = 536870912
+0: PE 0:   MPICH_SCATTERV_SYNC_FREQ                       = 16
+0: PE 0:   MPICH_SCATTERV_SYNCHRONOUS                     = 0
+0: PE 0:   MPICH_ALLREDUCE_MAX_SMP_SIZE                   = 262144
+0: PE 0:   MPICH_ALLREDUCE_BLK_SIZE                       = 716800
+0: PE 0:   MPICH_GPU_ALLGATHER_VSHORT_MSG_ALGORITHM       = 1
+0: PE 0:   MPICH_GPU_ALLREDUCE_USE_KERNEL                 = 0
+0: PE 0:   MPICH_GPU_COLL_STAGING_BUF_SIZE                = 1048576
+0: PE 0:   MPICH_GPU_ALLREDUCE_STAGING_THRESHOLD          = 256
+0: PE 0:   MPICH_ALLREDUCE_NO_SMP                         = 0
+0: PE 0:   MPICH_REDUCE_NO_SMP                            = 0
+0: PE 0:   MPICH_REDUCE_SCATTER_COMMUTATIVE_LONG_MSG_SIZE = 524288
+0: PE 0:   MPICH_REDUCE_SCATTER_MAX_COMMSIZE              = 1000
+0: PE 0:   MPICH_SHARED_MEM_COLL_OPT                      = 1
+0: PE 0:   MPICH_SHARED_MEM_COLL_NCELLS                   = 8
+0: PE 0:   MPICH_SHARED_MEM_COLL_CELLSZ                   = 256
+0: PE 0: MPICH/SMP environment settings =================================
+0: PE 0:   MPICH_SMP_SINGLE_COPY_MODE                     = CMA
+0: PE 0:   MPICH_SMP_SINGLE_COPY_SIZE                     = 1024
+0: PE 0:   MPICH_SHM_PROGRESS_MAX_BATCH_SIZE              = 8
+0: PE 0: MPICH MPIIO environment settings ===============================
+0: PE 0:   MPICH_MPIIO_HINTS_DISPLAY                      = 0
+0: PE 0:   MPICH_MPIIO_HINTS                              = NULL
+0: PE 0:   MPICH_MPIIO_ABORT_ON_RW_ERROR                  = disable
+0: PE 0:   MPICH_MPIIO_CB_ALIGN                           = 2
+0: PE 0:   MPICH_MPIIO_DVS_MAXNODES                       = 1
+0: PE 0:   MPICH_MPIIO_AGGREGATOR_PLACEMENT_DISPLAY       = 0
+0: PE 0:   MPICH_MPIIO_AGGREGATOR_PLACEMENT_STRIDE        = -1
+0: PE 0:   MPICH_MPIIO_MAX_NUM_IRECV                      = 50
+0: PE 0:   MPICH_MPIIO_MAX_NUM_ISEND                      = 50
+0: PE 0:   MPICH_MPIIO_MAX_SIZE_ISEND                     = 10485760
+0: PE 0:   MPICH_MPIIO_OFI_STARTUP_CONNECT                = disable
+0: PE 0:   MPICH_MPIIO_OFI_STARTUP_NODES_AGGREGATOR        = 2
+0: PE 0: MPICH MPIIO statistics environment settings ====================
+0: PE 0:   MPICH_MPIIO_STATS                              = 0
+0: PE 0:   MPICH_MPIIO_TIMERS                             = 0
+0: PE 0:   MPICH_MPIIO_WRITE_EXIT_BARRIER                 = 1
+0: PE 0: MPICH CRAY memory report settings:
+0: PE 0:   MPICH_MEMORY_REPORT      = 0
+0: PE 0:   MPICH_MEMORY_REPORT_FILE = stderr
+0: PE 0: MPICH Thread Safety settings ===================================
+0: PE 0:   MPICH_ASYNC_PROGRESS                           = 0
+0: PE 0:   MPICH_OPT_THREAD_SYNC                          = 1
+0: PE 0:   rank 0 required = single, was provided = single
