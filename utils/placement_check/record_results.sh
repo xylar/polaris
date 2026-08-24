@@ -95,13 +95,57 @@ if [ "${push}" = "1" ]; then
     esac
 fi
 
+# With no argument, work out which runs have not been recorded yet rather
+# than taking the newest.  Two jobs on the same machine land in the same
+# directory -- pm-cpu and pm-gpu share a filesystem, for instance -- and
+# "newest" silently records one and drops the other.
 if [ -z "${results}" ]; then
-    results="$(ls -1dt placement_results_* 2>/dev/null | head -1 || true)"
-    if [ -z "${results}" ]; then
+    pending=""
+    pending_count=0
+    found_any=0
+    for candidate in $(ls -1dt placement_results_* 2>/dev/null || true); do
+        found_any=1
+        cand_machine=""
+        cand_job=""
+        if [ -f "${candidate}/meta.kv" ]; then
+            cand_machine="$(awk -F= '/^machine=/ {print $2}' \
+                "${candidate}/meta.kv")"
+            cand_job="$(awk -F= '/^job_id=/ {print $2}' \
+                "${candidate}/meta.kv")"
+            cand_job="${cand_job%%.*}"
+        fi
+        if [ -n "${cand_machine}" ] && [ -n "${cand_job}" ] && [ -d \
+                "${repo}/utils/placement_check/results/${cand_machine}/${cand_job}" ]; then
+            continue
+        fi
+        pending="${pending} ${candidate}"
+        pending_count=$((pending_count + 1))
+    done
+
+    if [ "${found_any}" = "0" ]; then
         echo "ERROR: no results directory given and none found" >&2
         exit 1
     fi
-    echo "using newest results directory: ${results}"
+    if [ "${pending_count}" = "0" ]; then
+        echo "every placement_results_* here is already recorded under" >&2
+        echo "  utils/placement_check/results/. Name one explicitly to" >&2
+        echo "  record it again." >&2
+        exit 1
+    fi
+    if [ "${pending_count}" -gt 1 ]; then
+        echo "ERROR: ${pending_count} runs here have not been recorded:" >&2
+        for candidate in ${pending}; do
+            echo "    ${candidate}" >&2
+        done
+        echo "  Recording only the newest would silently drop the rest." >&2
+        echo "  Name one:  ${0##*/} <results-dir>" >&2
+        exit 1
+    fi
+    # not `set -- ${pending}`: that clobbers this script's own arguments,
+    # which has already caught me once
+    results="${pending# }"
+    echo "recording the one run here that has not been recorded yet:"
+    echo "  ${results}"
 fi
 results="$(cd "${results}" && pwd)"
 
