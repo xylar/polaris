@@ -77,8 +77,9 @@ Placement needs `mache` 3.12.0 or later, which the deployment pins.
 
 Setup refuses to go any further against a `mache` that cannot place, rather
 than letting a run fail partway through with a `TypeError` from inside the
-launcher.  This will become an ordinary version requirement once the change
-is released.
+launcher.  It tests whether this `mache` accepts a placement rather than
+comparing version numbers: the capability is the thing that matters, and a
+version is only a proxy for it.
 
 ## How a step says what it needs
 
