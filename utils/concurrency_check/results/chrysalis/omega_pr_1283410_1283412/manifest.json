@@ -1,0 +1,67 @@
+{
+  "baseline": {
+    "component_branch_path": "/gpfs/fs1/home/ac.xylar/e3sm_work/polaris/main/e3sm_submodules/Omega",
+    "dirty": false,
+    "load_script": "/gpfs/fs1/home/ac.xylar/e3sm_work/polaris/main/load_polaris_chrysalis_intel_openmpi.sh",
+    "load_script_ready": true,
+    "mode": "existing",
+    "model": "omega",
+    "name": "baseline",
+    "path": "/gpfs/fs1/home/ac.xylar/e3sm_work/polaris/main",
+    "pinned_shas": {
+      "e3sm": "b7759691a502c166b0c7b2c863119648b45410b6",
+      "omega": "ee6397a627a92d3464415e61af2f9ee8e22f15b4"
+    },
+    "polaris_fork": "E3SM-Project",
+    "polaris_ref": "main",
+    "polaris_sha": "d26292cf5e7a0f79c166b62513e8b26ba7dbb062",
+    "submodule_overrides": {},
+    "submodule_shas": {
+      "e3sm": "b7759691a502c166b0c7b2c863119648b45410b6",
+      "omega": "ee6397a627a92d3464415e61af2f9ee8e22f15b4"
+    },
+    "untracked": []
+  },
+  "baseline_dir": "/lcrc/group/e3sm/ac.xylar/polaris_1.1/chrysalis/test_20260907/benchmarks/omega_pr_phase_b/baselines/omega_pr_omega_opts-7c02e23_polaris-d26292c_omega-ee6397a",
+  "baseline_job_id": null,
+  "baseline_reused": true,
+  "component_path": "/lcrc/group/e3sm/ac.xylar/polaris_1.1/chrysalis/test_20260907/task-para-phase-b/build",
+  "created": "2026-09-08T17:17:27",
+  "differing_repos": [
+    "polaris"
+  ],
+  "polaris_config_file": "/gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-b/utils/concurrency_check/omega_pr_concurrent.cfg",
+  "reproducible": true,
+  "run_command": "polaris serial",
+  "run_dir": "/lcrc/group/e3sm/ac.xylar/polaris_1.1/chrysalis/test_20260907/benchmarks/omega_pr_phase_b/runs/20260908-omega_pr-polaris-d26292c-92ee9f1",
+  "setup_command": "polaris suite -c ocean -t omega_pr",
+  "setup_config_file": "/lcrc/group/e3sm/ac.xylar/polaris_1.1/chrysalis/test_20260907/benchmarks/omega_pr_phase_b/runs/20260908-omega_pr-polaris-d26292c-92ee9f1/polaris_benchmark.cfg",
+  "submit": true,
+  "test": {
+    "component_branch_path": "/gpfs/fs1/home/ac.xylar/e3sm_work/polaris/main/e3sm_submodules/Omega",
+    "dirty": false,
+    "load_script": "/gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-b/load_polaris_chrysalis_intel_openmpi.sh",
+    "load_script_ready": true,
+    "mode": "existing",
+    "model": "omega",
+    "name": "test",
+    "path": "/gpfs/fs1/home/ac.xylar/e3sm_work/polaris/add-task-parallelism-phase-b",
+    "pinned_shas": {
+      "e3sm": "b7759691a502c166b0c7b2c863119648b45410b6",
+      "omega": "ee6397a627a92d3464415e61af2f9ee8e22f15b4"
+    },
+    "polaris_fork": "E3SM-Project",
+    "polaris_ref": "add-task-parallelism-phase-b",
+    "polaris_sha": "92ee9f1d69de23327e7ee42d14c60882a5cdb1eb",
+    "submodule_overrides": {},
+    "submodule_shas": {
+      "omega": "ee6397a627a92d3464415e61af2f9ee8e22f15b4"
+    },
+    "untracked": [
+      "HANDOFF.md"
+    ]
+  },
+  "test_dir": "/lcrc/group/e3sm/ac.xylar/polaris_1.1/chrysalis/test_20260907/benchmarks/omega_pr_phase_b/runs/20260908-omega_pr-polaris-d26292c-92ee9f1/test",
+  "test_job_id": "1283412",
+  "wall_time": "1:00:00"
+}

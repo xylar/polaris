@@ -70,6 +70,84 @@ Two questions are still open and neither is worth a standalone run, because the 
 
 This probe stays because it is how the Chrysalis answer was arrived at and because it can be run on its own if one of those readings ever looks wrong, not because anything is waiting on it.
 
+## What omega_pr answered
+
+Jobs 1283410 (serial, from `main`) and 1283412 (concurrent, from this branch), three Chrysalis nodes, one shared Omega build, recorded under `results/chrysalis/omega_pr_1283410_1283412/`.  Both sides were set up from the same polaris config file by `utils/benchmark`, so the only difference between the runs is which polaris ran them.
+
+**The concurrent run was not faster.  12:15 serial against 13:04 concurrent.**
+
+That is not a scheduling failure, and the event stream says so.  `concurrency.py` beside this file reconstructs each step's span from its start timestamp and its duration:
+
+| | |
+| --- | --- |
+| steps | 115 |
+| wall | 784 s |
+| peak concurrency | 48 |
+| mean concurrency | 7.5 |
+| mean cores busy | 151 of 192 (79%) |
+
+The machine was busy.  What it was busy doing is the problem.
+
+### Two thirds of the run was Python starting up
+
+Every step reports its own runtime in its log, and the scheduler measures the subprocess from `Popen` to exit.  Across the 113 steps that report both:
+
+| | |
+| --- | --- |
+| measured by the scheduler | 5807 s |
+| the steps' own work | 1668 s |
+| overhead outside the work | 4139 s (71%) |
+| overhead per step | 36.6 s |
+
+The overhead is flat rather than proportional, which is what identifies it.  A one-core init step doing 6 s of work took 36.3 s.  Timed directly, in a step's own work directory:
+
+| | |
+| --- | --- |
+| `import polaris` | 11.5 s, 967 modules |
+| first unpickle of `step.pickle` | 17.3 s, **1826 more modules** |
+| second unpickle, same process | 0.10 s |
+
+The unpickle is not reading 4.6 MB of data.  It is importing cartopy, matplotlib, dask, jigsawpy, mpas_tools, pyremap, scipy, shapely, pyproj and the rest of the tree that a step's classes reach, and the warm repeat proves it: 0.10 s once the modules are loaded.  A step subprocess imports about 2,880 modules from a parallel filesystem before it does anything, and 115 of them do it at once.
+
+Deferring the CLI's own imports was measured and is not the answer.  `polaris.__main__` eagerly imports `list`, `setup`, `suite` and `cache`; importing only `polaris.run.serial` instead ends at 2,880 modules against 2,894, because the unpickle pulls in nearly the same set either way.
+
+So this is not a scheduler problem and not a mache problem.  With the import cost removed the arithmetic lands where the design predicted -- 1668 s of work at this concurrency is a few hundred seconds of wall -- which is the 2.5-3x estimate.  Getting there means making the imports lazy across the task tree, or amortizing them across steps, which is Phase C's in-process execution.
+
+### The placement check earned its keep on the first run
+
+It ran on all 115 steps and was never unable to run:
+
+| | |
+| --- | --- |
+| bound locally, had exactly its cores | 90 |
+| placed across nodes, so not bound | 25 |
+| launch probed and inside its placement | 27 |
+| launch probed and **outside** it | 3 |
+| could not be checked | 0 |
+
+The three are worth reading, because they are not what was expected:
+
+```
+On chr-0495 the launch was allowed 19 cores (2-6,14,23-24,27-29,32-33,57-62)
+                          but was given 19 (4-11,36-46).
+```
+
+Slurm honored the *count* and chose its own cores.  Polaris believes those cores are free and will place another step on them, so two steps that the accounting says are disjoint can be sharing hardware.  Three launches in thirty on Chrysalis.  Nothing about this would have been visible without the check: every one of those steps succeeded.
+
+### Results against the serial baseline
+
+93 baseline comparisons passed and 6 failed.  The six are one chain: `mesh/spherical/icos/base_mesh/480km` and the five steps downstream of it.  The differences are small and everywhere -- 0.01% in `areaCell`, 0.02% in `dcEdge`, 4e-5 rad in `latCell` -- and they do not disappear when the fields are sorted, so it is a slightly different mesh rather than a reordered one.
+
+The step declares one core and got one core in both runs, so placement *width* is not the variable.  Two explanations remain and this pair of runs cannot separate them: mesh-generator noise that a serial rerun would show equally, or a generator that adapts to the cores it can see, which differ because the concurrent run binds the process to one core and the serial run leaves it seeing all 192.  A serial-versus-serial rerun of that one step settles it and is cheap.
+
+The 4 property-check failures are identical on both sides -- `ekman/forward_constant` and three `vmix_unstable` forwards -- as are the two task failures, which are an `nVertLevels` against `nVertLevelsP1` indexing bug in `single_column/viz.py` on `main`.  None of them are concurrency.
+
+### Two defects this run found in the branch itself
+
+**The event stream could not answer the question it exists for.** `record()` stamped every record with the seconds since the run began, and then let a caller's own field overwrite it; `step_finished` passed the step's *duration* under that name.  Nothing failed -- overlap computed from the stream was simply wrong, which is how the peak concurrency reported for job 1283383 came to be wrong.  `record()` now refuses a caller-supplied `seconds`.
+
+**`polaris parallel` never added up the comparisons.** Each step compares itself against the baseline in its own process and leaves the verdict beside its log, exactly as the serial path does, but nothing summed them, so a 115-step run against a baseline gave 115 separate answers and no answer.  The numbers above had to be counted off the filesystem by hand.
+
 ## Traps carried over from Phase A
 
 - **Do not edit a script while a job is running it.** Bash reads scripts incrementally, so rewriting one underneath a running job makes it resume mid-token.
