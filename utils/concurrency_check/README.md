@@ -61,10 +61,14 @@ Credit each node with what it reports at job start: the job's cgroup limit where
 
 `MemAvailable` is a snapshot and it moves. Taken at the start of a run it describes what the allocation actually has when the scheduler begins packing, which is the moment the budget is for.
 
-### Still worth running elsewhere
+### The other machines do not need a job of their own
 
-- **Aurora**, most of all. Its nodes differ by about 12.7% between classes, and its configured 960000 MB is marked provisional in `mache`'s own config -- the comment there asks for `resources_available.mem` from `pbsnodes -a` and has not been acted on. A run here would both check the reader and let that figure be corrected.
-- **Perlmutter or Frontier**, to see a real cgroup limit. Both enforce `--mem`, so unlike Chrysalis they should put a step in a limited cgroup, and that is the branch of the reader Chrysalis cannot exercise.
+Two questions are still open and neither is worth a standalone run, because the reader answers both as a side effect of any Phase B run on the machine. It logs all four figures per node at the start of every concurrent run, so the cross-machine validation this phase needs anyway is what collects them.
+
+- **Aurora.** Its nodes differ by about 12.7% between classes, and its configured 960000 MB is marked provisional in `mache`'s own config -- the comment there asks for `resources_available.mem` from `pbsnodes -a` and has not been acted on. The first Phase B run there both exercises the reader and produces the figure that would correct it.
+- **Perlmutter or Frontier.** Both enforce `--mem`, so unlike Chrysalis they should put a step in a memory-limited cgroup, which is the branch of the reader Chrysalis cannot exercise. Again, the first run there shows it.
+
+This probe stays because it is how the Chrysalis answer was arrived at and because it can be run on its own if one of those readings ever looks wrong, not because anything is waiting on it.
 
 ## Traps carried over from Phase A
 
