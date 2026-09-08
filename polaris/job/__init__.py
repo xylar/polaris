@@ -20,6 +20,7 @@ def write_job_script(
     suite='',
     script_filename=None,
     run_command=None,
+    concurrent=False,
 ):
     """
 
@@ -65,6 +66,14 @@ def write_job_script(
     run_command : str, optional
         The command(s) to run in the job script. If not provided, defaults to
         'polaris serial {{suite}}'.
+
+    concurrent : bool, optional
+        Whether the job script should run the steps of a suite or task at the
+        same time with ``polaris parallel`` rather than one after another with
+        ``polaris serial``.  Ignored when ``run_command`` is given, and it must
+        stay ``False`` for a single step's job script: there is nothing there
+        to run concurrently, and ``polaris parallel`` would not find a suite or
+        task to run.
 
     Returns
     -------
@@ -215,7 +224,8 @@ mache.parallel.pbs.PbsOptions, None}
     )
 
     if run_command is None:
-        run_command = f'polaris serial {suite}' if suite else 'polaris serial'
+        command = 'polaris parallel' if concurrent else 'polaris serial'
+        run_command = f'{command} {suite}' if suite else command
         run_command = f'source load_polaris_env.sh\n{run_command}'
 
     render_kwargs.update(
