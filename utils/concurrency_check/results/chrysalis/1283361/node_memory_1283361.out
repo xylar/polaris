@@ -1,0 +1,45 @@
+== job 1283361 on chr-[0495-0496] ==
+
+== what the job's environment says ==
+SLURM_JOB_NUM_NODES=2
+SLURM_JOB_NODELIST=chr-[0495-0496]
+SLURMD_NODENAME=chr-0495
+SLURM_MEM_PER_NODE=
+SLURM_MEM_PER_CPU=
+
+== what each node says ==
+host=chr-0495
+mem_total_kb=263327076
+mem_available_kb=245383912
+cgroup_version=1
+cgroup_path=/system.slice/slurmd.service
+memory_limit_in_bytes=9223372036854771712
+memory_limit_from=/sys/fs/cgroup/memory/system.slice/slurmd.service
+slurm_realmemory_mb=253000
+slurm_allocmem_mb=0
+slurm_freemem_mb=240274
+end=chr-0495
+host=chr-0496
+mem_total_kb=263327120
+mem_available_kb=245309980
+cgroup_version=1
+cgroup_path=/system.slice/slurmd.service
+memory_limit_in_bytes=9223372036854771712
+memory_limit_from=/sys/fs/cgroup/memory/system.slice/slurmd.service
+slurm_realmemory_mb=253000
+slurm_allocmem_mb=0
+slurm_freemem_mb=240166
+end=chr-0496
+
+== what the controller advertises for these nodes ==
+NodeName=chr-0495
+RealMemory=253000
+AllocMem=0
+FreeMem=240274
+NodeName=chr-0496
+RealMemory=253000
+AllocMem=0
+FreeMem=240166
+
+== what mache's config says, for comparison ==
+memory_per_node = 253000 MB  (chrysalis.cfg, surveyed smallest node)

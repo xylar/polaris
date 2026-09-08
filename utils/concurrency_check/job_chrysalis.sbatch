@@ -13,7 +13,10 @@
 # Add --account if the site needs one; Chrysalis's debug partition does not
 # for a job this size.
 
-cd "$(dirname "$0")" || exit 1
+# Slurm runs the batch script from its own spool directory, and $0 points
+# there rather than at where this was submitted from, so the submit
+# directory is what finds the probe.
+cd "${SLURM_SUBMIT_DIR:-$(dirname "$0")}" || exit 1
 
 echo "== job ${SLURM_JOB_ID} on ${SLURM_JOB_NODELIST} =="
 echo
