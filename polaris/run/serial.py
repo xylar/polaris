@@ -23,7 +23,6 @@ from polaris.run.lifecycle import (
     run_step_as_subprocess,
     step_is_complete,
 )
-from polaris.run.placement import placement_from_env
 
 # ANSI fail text: https://stackoverflow.com/a/287944/7728169
 start_fail = '\033[91m'
@@ -175,11 +174,11 @@ def run_single_step(step_is_subprocess=False, quiet=False):
     if step_is_subprocess:
         step.run_as_subprocess = False
 
-    # a scheduler running steps at the same time confines each to part of
-    # the allocation, and says which part in this process's environment.
-    # Nothing sets it when a step is run on its own, which is the case
-    # every `polaris serial` invocation has had until now.
-    run_step_in_process(step, placement_from_env(), quiet=quiet)
+    # `polaris serial` in a step's work directory runs the step on the whole
+    # of what it can see.  A step confined to part of an allocation is one
+    # the concurrent scheduler forked, and that child is handed its placement
+    # directly rather than reading it back out of the environment.
+    run_step_in_process(step, quiet=quiet)
 
 
 def run_step_in_process(step, placement=None, quiet=False):
