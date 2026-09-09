@@ -148,6 +148,29 @@ The 4 property-check failures are identical on both sides -- `ekman/forward_cons
 
 **`polaris parallel` never added up the comparisons.** Each step compares itself against the baseline in its own process and leaves the verdict beside its log, exactly as the serial path does, but nothing summed them, so a 115-step run against a baseline gave 115 separate answers and no answer.  The numbers above had to be counted off the filesystem by hand.
 
+## What forking answered
+
+`fork_spike.py` and `fork_spike_chrysalis.sbatch` ask whether starting a step by forking costs less than starting it by exec, and whether a forked step still runs correctly. They exist because the subprocess model measured above cost 36.6 s per step and made the concurrent run slower than the serial one.
+
+Job 1283951, three Chrysalis nodes, 33:25, exit 0, recorded under `results/chrysalis/fork_spike_1283951/`. Part 1 runs the whole suite to populate the work directory; part 2 runs four steps both ways in that same allocation, minutes apart, so the difference between them is the mechanism rather than the machine. The order alternates per step, because the first run of a step warms the filesystem cache for the second.
+
+| step | cores | fork | exec | saved |
+| --- | --- | --- | --- | --- |
+| `ocean/column/inertial/analysis` | 1 | 3.7 s | 56.3 s | 52.6 s |
+| `ocean/column/thermo/conservation_summary` | 1 | 0.1 s | 46.8 s | 46.7 s |
+| `.../convergence_both/del4/analysis` | 1 | 1.9 s | 46.2 s | 44.3 s |
+| `.../baroclinic_channel/10km/restart/full_run` | 4 | 2.4 s | 51.4 s | 49.0 s |
+
+32 trials, all exiting cleanly, over two passes: thread pools as they come, saving 48.2 s per step, and held to one thread, saving 49.5 s. A forked child produced output identical to the subprocess digit for digit, and the MPI step's child reached `srun` and came back.
+
+Three things the spike found that were not what it was looking for:
+
+- **`import polaris` leaves 129 OS threads**, 128 of them an OpenBLAS pool numpy brings up sized to the visible cores. `threading.enumerate()` reports one, because it sees Python threads only. Any fork-safety check has to read `/proc/self/status`.
+- **Copy-on-write sharing is nearly complete.** 24 concurrent children held 347 MiB PSS between them against a parent of 322 MiB. Resident set size reports 7,700 MiB for the same processes and would size a node wrongly by a factor of twenty.
+- **A forked child inherits the parent's BLAS pool size whatever its own affinity.** Children confined to 1, 4 and 16 cores returned an identical checksum and the same thread count. Under a subprocess the count tracked the placement instead, which is a candidate explanation for the six baseline comparisons that differed in job 1283412.
+
+All of this is in [the Phase B design document](../../docs/design_docs/task_parallelism_phase_b.md), which is the copy that survives this directory.
+
 ## Traps carried over from Phase A
 
 - **Do not edit a script while a job is running it.** Bash reads scripts incrementally, so rewriting one underneath a running job makes it resume mid-token.
