@@ -38,6 +38,7 @@ def setup_tasks(
     quiet_build=None,
     cmake_flags=None,
     debug=None,
+    concurrent_steps=False,
 ):
     """
     Set up one or more tasks
@@ -117,6 +118,11 @@ def setup_tasks(
     debug : bool, optional
         Whether to build the model in debug mode
 
+    concurrent_steps : bool, optional
+        Whether the job script should run the steps of a suite or task at the
+        same time with ``polaris parallel`` rather than one after another with
+        ``polaris serial``
+
     Returns
     -------
     tasks : dict of polaris.Task
@@ -164,6 +170,12 @@ def setup_tasks(
         quiet_build=quiet_build,
         work_dir=work_dir,
     )
+
+    if concurrent_steps:
+        # the flag writes the config option rather than travelling beside it,
+        # so there is one thing that decides this and it is recorded in the
+        # config the run is set up with
+        basic_config.set('job', 'concurrent_steps', 'True', user=True)
 
     _add_suite_config(basic_config, component.name, suite_name)
 
@@ -570,6 +582,14 @@ def main():
         action='store_true',
         help='If the model should be built in debug mode.',
     )
+    parser.add_argument(
+        '--concurrent_steps',
+        dest='concurrent_steps',
+        action='store_true',
+        help='If the job script should run the steps of a suite or task at '
+        'the same time with `polaris parallel` rather than one after '
+        'another with `polaris serial`.',
+    )
 
     args = parser.parse_args(sys.argv[2:])
     cached = None
@@ -618,6 +638,7 @@ def main():
         quiet_build=args.quiet_build,
         cmake_flags=args.cmake_flags,
         debug=args.debug,
+        concurrent_steps=args.concurrent_steps,
     )
 
 
