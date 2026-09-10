@@ -242,6 +242,45 @@ Holding `OMP_NUM_THREADS` and friends to one costs about five minutes on a seria
 
 I had surveyed the `np.linalg` and `np.matmul` call sites and judged them too small to benefit -- "a stack of tiny per-point matrices". That was reasoning from the shape of the call rather than measuring, and it was wrong. Given the finding above, some of that cost is JIGSAW being held to one thread rather than numpy, which the declaration will give back.
 
+## What the omega_nightly node sweep answered
+
+Jobs 1284171-5, Chrysalis, `omega_nightly` (178 steps), recorded under `results/chrysalis/nightly_scaling_1284171-5/`. One serial run at the default sizing as an anchor, and concurrent runs at four node counts.
+
+| run | nodes | wall | vs serial@5 | node-hours | efficiency |
+| --- | --- | --- | --- | --- | --- |
+| serial | 5 | 1:31:48 | 1.00x | 7.7 | 1.00x |
+| concurrent | 3 | 1:30:03 | 1.02x | **4.5** | **1.70x** |
+| concurrent | 5 | 1:10:40 | 1.30x | 5.9 | 1.30x |
+| concurrent | 8 | 0:54:38 | 1.68x | 7.3 | 1.05x |
+| concurrent | 13 | 0:43:56 | 2.09x | 9.5 | 0.80x |
+
+**Wall time and hardware efficiency pull in opposite directions.** Three nodes matches serial-on-five's wall clock for 40% fewer node-hours -- the same work, the same elapsed time, less machine. Thirteen nodes is twice as fast and *less* efficient than running serially.
+
+**At equal node counts, concurrency buys 1.30x**, far below `omega_pr`'s 3.3x. The reason is visible in the step times: five 60 km forwards take about 460 s each at 13 nodes and account for roughly 38 of the 44 minutes. Each wants the whole allocation, so they run one after another however many nodes are added, and they scale poorly on their own -- 1.96x for 2.6x the cores.
+
+So more nodes buy wall time at a worsening exchange rate, and nothing buys concurrency for those five steps. Eight nodes is a reasonable stopping point if wall clock is what matters; three is the best deal if throughput is. The geometric mean's five sits between them.
+
+**Caveat on the 13-node figure.** That run had the task-distribution bug below still active, so it was overlapping more than its accounting believed and 43:56 may be optimistic.
+
+### The sweep found a bug a single node count could not
+
+Seven launches across the 5- and 13-node runs reported a placement mismatch of a new shape: the launch was allowed *more* cores than it was given, both ranges contiguous.
+
+The pool modelled the spread of tasks over nodes as fill-each-node-then-remainder. Launchers balance instead:
+
+```
+52 cores over 3 nodes    old model [18, 18, 16]    slurm [18, 17, 17]
+800 cores over 13 nodes  old model [62 x 12, 56]   slurm [62 x 7, 61 x 6]
+```
+
+So a node reserved 16 cores was given 17 tasks, and one reserved 56 was given 61. The accounting was wrong in the direction that matters -- it believed cores were free that were in use, and placed other steps on them.
+
+It appears only when a *step's* tasks do not divide evenly over the nodes it was placed on. That is a per-step property, not a per-allocation one: 320 cores divides evenly by 5 nodes, which is why the 5-node run looked like it should have been safe, while the 52-core step inside it did not divide by 3.
+
+**One step also segfaulted at 13 nodes** -- `cosine_bell/restart/restart_run`, which passed at 5 and 8. Consistent with cores being oversubscribed against the accounting, and not evidence of it. A rerun now that the distribution is fixed would say.
+
+This is the second silent, wrong-accounting bug the standing placement check has caught on real hardware, after mache reusing mask lists per node. Both produced runs that succeeded while the bookkeeping was wrong, and neither would have been found by reading code.
+
 ## Traps carried over from Phase A
 
 - **Do not edit a script while a job is running it.** Bash reads scripts incrementally, so rewriting one underneath a running job makes it resume mid-token.

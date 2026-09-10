@@ -1,0 +1,759 @@
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.6.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+
+The following have been reloaded with a version change:
+  1) perl/5.38.0-annnuds => perl/5.32.0-bsnc6lt
+
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+ocean/column/horiz_press_grad/salinity_gradient
+  * step: init_4km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:06[0m
+  * step: init_3km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_2km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_1.5km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_1km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_750m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_500m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_4km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: forward_3km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_2km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_1.5km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_1km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_750m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_500m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:38[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:59[0m
+ocean/column/horiz_press_grad/surface_pressure_gradient
+  * step: init_4km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_3km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_2km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_1.5km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_1km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_750m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_500m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_4km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_3km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_2km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_1.5km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_1km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_750m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_500m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:37[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:53[0m
+ocean/column/horiz_press_grad/temperature_gradient
+  * step: init_4km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_3km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_2km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_1.5km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_1km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_750m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_500m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_4km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_3km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_2km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_1.5km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_1km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_750m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_500m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:37[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:53[0m
+ocean/column/horiz_press_grad/ztilde_gradient
+  * step: init_4km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_3km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_2km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_1.5km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_1km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_750m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: init_500m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_4km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_3km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_2km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_1.5km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_1km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_750m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_500m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:38[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:53[0m
+ocean/planar/baroclinic_channel/10km/decomp
+  * step: init
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:04[0m
+  * step: 4proc
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: 8proc
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:03[0m
+  * step: validate
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:09[0m
+ocean/planar/baroclinic_channel/10km/restart
+  * step: init
+          already completed
+  * step: full_run
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:03[0m
+  * step: restart_run
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:03[0m
+  * step: validate
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:06[0m
+ocean/planar/baroclinic_channel/10km/threads
+  * step: init
+          already completed
+  * step: 1thread
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: 2thread
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: validate
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:04[0m
+ocean/planar/barotropic_gyre/munk/free-slip
+  * step: init
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: short_forward
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:18[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:21[0m
+ocean/planar/manufactured_solution/convergence_both/default
+  * step: init_200km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_200km_300s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:06[0m
+  * step: init_100km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: forward_100km_150s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:17[0m
+  * step: init_50km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:04[0m
+  * step: forward_50km_75s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:27[0m
+  * step: init_25km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:10[0m
+  * step: forward_25km_38s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:39[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:01:46[0m
+ocean/planar/manufactured_solution/convergence_both/del2
+  * step: init_200km
+          already completed
+  * step: forward_200km_300s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:05[0m
+  * step: init_100km
+          already completed
+  * step: forward_100km_150s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:17[0m
+  * step: init_50km
+          already completed
+  * step: forward_50km_75s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:26[0m
+  * step: init_25km
+          already completed
+  * step: forward_25km_38s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:39[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:01:28[0m
+ocean/planar/manufactured_solution/convergence_both/del4
+  * step: init_200km
+          already completed
+  * step: forward_200km_300s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:06[0m
+  * step: init_100km
+          already completed
+  * step: forward_100km_150s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:17[0m
+  * step: init_50km
+          already completed
+  * step: forward_50km_75s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:26[0m
+  * step: init_25km
+          already completed
+  * step: forward_25km_38s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:39[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:01:29[0m
+ocean/planar/merry_go_round/default
+  * step: init_5m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_5m_90s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:07[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:08[0m
+ocean/planar/merry_go_round/convergence_both_order2
+  * step: init_5m
+          already completed
+  * step: forward_5m_90s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:05[0m
+  * step: init_2.5m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward_2.5m_45s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:13[0m
+  * step: init_1.25m
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: forward_1.25m_23s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:01:20[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:01:42[0m
+ocean/planar/merry_go_round/convergence_both_order4
+  * step: init_5m
+          already completed
+  * step: forward_5m_90s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:05[0m
+  * step: init_2.5m
+          already completed
+  * step: forward_2.5m_45s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:13[0m
+  * step: init_1.25m
+          already completed
+  * step: forward_1.25m_23s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:01:20[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:01:38[0m
+ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2
+  * step: init
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: forward
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:13[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:14[0m
+ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3
+  * step: init
+          already completed
+  * step: forward
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:13[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:13[0m
+ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4
+  * step: init
+          already completed
+  * step: forward
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:12[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:12[0m
+ocean/spherical/icos/correlated_tracers_2d
+  * step: icos_base_mesh_480km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:37[0m
+  * step: icos_init_480km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  * step: icos_forward_480km_480s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:32[0m
+  * step: icos_base_mesh_240km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:16[0m
+  * step: icos_init_240km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  * step: icos_forward_240km_240s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:01:13[0m
+  * step: icos_base_mesh_120km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:28[0m
+  * step: icos_init_120km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: icos_forward_120km_120s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:02:41[0m
+  * step: icos_base_mesh_60km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:01:02[0m
+  * step: icos_init_60km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: icos_forward_60km_60s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:11:04[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:03[0m
+  * step: mixing_analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:18:02[0m
+ocean/spherical/icos/cosine_bell/decomp
+  * step: icos_base_mesh_480km
+          already completed
+  * step: icos_init_480km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  * step: 12proc
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:14[0m
+  * step: 24proc
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:15[0m
+  * step: validate
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:30[0m
+ocean/spherical/icos/cosine_bell/restart
+  * step: icos_base_mesh_480km
+          already completed
+  * step: icos_init_480km
+          already completed
+  * step: full_run
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:05[0m
+  * step: restart_run
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:05[0m
+  * step: validate
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:00:10[0m
+ocean/spherical/icos/geostrophic/convergence_both
+  * step: icos_base_mesh_480km
+          already completed
+  * step: icos_init_480km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  * step: icos_forward_480km_960s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:08[0m
+  * step: icos_base_mesh_240km
+          already completed
+  * step: icos_init_240km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  * step: icos_forward_240km_480s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:23[0m
+  * step: icos_base_mesh_120km
+          already completed
+  * step: icos_init_120km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: icos_forward_120km_240s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:35[0m
+  * step: icos_base_mesh_60km
+          already completed
+  * step: icos_init_60km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: icos_forward_60km_120s
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:01:15[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:02:27[0m
+ocean/spherical/icos/divergent_2d
+  * step: icos_base_mesh_480km
+          already completed
+  * step: icos_init_480km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  * step: icos_forward_480km_480s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:32[0m
+  * step: icos_base_mesh_240km
+          already completed
+  * step: icos_init_240km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  * step: icos_forward_240km_240s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:01:12[0m
+  * step: icos_base_mesh_120km
+          already completed
+  * step: icos_init_120km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: icos_forward_120km_120s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:02:41[0m
+  * step: icos_base_mesh_60km
+          already completed
+  * step: icos_init_60km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: icos_forward_60km_60s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:11:11[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:15:43[0m
+ocean/spherical/icos/nondivergent_2d
+  * step: icos_base_mesh_480km
+          already completed
+  * step: icos_init_480km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  * step: icos_forward_480km_480s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:31[0m
+  * step: icos_base_mesh_240km
+          already completed
+  * step: icos_init_240km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: icos_forward_240km_240s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:01:14[0m
+  * step: icos_base_mesh_120km
+          already completed
+  * step: icos_init_120km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: icos_forward_120km_120s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:02:40[0m
+  * step: icos_base_mesh_60km
+          already completed
+  * step: icos_init_60km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:03[0m
+  * step: icos_forward_60km_60s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:11:02[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: filament_analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:15:37[0m
+ocean/spherical/icos/rotation_2d
+  * step: icos_base_mesh_480km
+          already completed
+  * step: icos_init_480km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: icos_forward_480km_480s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:00:30[0m
+  * step: icos_base_mesh_240km
+          already completed
+  * step: icos_init_240km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:00[0m
+  * step: icos_forward_240km_240s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:01:10[0m
+  * step: icos_base_mesh_120km
+          already completed
+  * step: icos_init_120km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: icos_forward_120km_120s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:02:36[0m
+  * step: icos_base_mesh_60km
+          already completed
+  * step: icos_init_60km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:03[0m
+  * step: icos_forward_60km_60s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:10:48[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:15:13[0m
+ocean/spherical/qu/rotation_2d
+  * step: qu_base_mesh_180km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:05[0m
+  * step: qu_init_180km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: qu_forward_180km_180s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:01:40[0m
+  * step: qu_base_mesh_150km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:06[0m
+  * step: qu_init_150km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: qu_forward_150km_150s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:02:00[0m
+  * step: qu_base_mesh_120km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:09[0m
+  * step: qu_init_120km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:01[0m
+  * step: qu_forward_120km_120s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:02:36[0m
+  * step: qu_base_mesh_90km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:15[0m
+  * step: qu_init_90km
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  * step: qu_forward_90km_90s
+          execution:        [92mSUCCESS[0m
+          property checks:  [92mPASS[0m
+          runtime:          [94m0:04:01[0m
+  * step: analysis
+          execution:        [92mSUCCESS[0m
+          runtime:          [94m0:00:02[0m
+  task execution:   [92mSUCCESS[0m
+  task runtime:     [94m0:11:00[0m
+Writing output useful for copy/paste into PRs to:
+  /lcrc/group/e3sm/ac.xylar/polaris_1.1/chrysalis/test_20260910/nightly_scaling/serial_5/omega_nightly_output_for_pr.md
+Done.
+Task Runtimes:
+0:00:59 [92mPASS[0m ocean/column/horiz_press_grad/salinity_gradient
+0:00:53 [92mPASS[0m ocean/column/horiz_press_grad/surface_pressure_gradient
+0:00:53 [92mPASS[0m ocean/column/horiz_press_grad/temperature_gradient
+0:00:53 [92mPASS[0m ocean/column/horiz_press_grad/ztilde_gradient
+0:00:09 [92mPASS[0m ocean/planar/baroclinic_channel/10km/decomp
+0:00:06 [92mPASS[0m ocean/planar/baroclinic_channel/10km/restart
+0:00:04 [92mPASS[0m ocean/planar/baroclinic_channel/10km/threads
+0:00:21 [92mPASS[0m ocean/planar/barotropic_gyre/munk/free-slip
+0:01:46 [92mPASS[0m ocean/planar/manufactured_solution/convergence_both/default
+0:01:28 [92mPASS[0m ocean/planar/manufactured_solution/convergence_both/del2
+0:01:29 [92mPASS[0m ocean/planar/manufactured_solution/convergence_both/del4
+0:00:08 [92mPASS[0m ocean/planar/merry_go_round/default
+0:01:42 [92mPASS[0m ocean/planar/merry_go_round/convergence_both_order2
+0:01:38 [92mPASS[0m ocean/planar/merry_go_round/convergence_both_order4
+0:00:14 [92mPASS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2
+0:00:13 [92mPASS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3
+0:00:12 [92mPASS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4
+0:18:02 [92mPASS[0m ocean/spherical/icos/correlated_tracers_2d
+0:00:30 [92mPASS[0m ocean/spherical/icos/cosine_bell/decomp
+0:00:10 [92mPASS[0m ocean/spherical/icos/cosine_bell/restart
+0:02:27 [92mPASS[0m ocean/spherical/icos/geostrophic/convergence_both
+0:15:43 [92mPASS[0m ocean/spherical/icos/divergent_2d
+0:15:37 [92mPASS[0m ocean/spherical/icos/nondivergent_2d
+0:15:13 [92mPASS[0m ocean/spherical/icos/rotation_2d
+0:11:00 [92mPASS[0m ocean/spherical/qu/rotation_2d
+Total runtime: 1:31:48
+PASS: All passed successfully!
