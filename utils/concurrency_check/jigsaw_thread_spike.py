@@ -164,14 +164,25 @@ def main():
     ]
     print('\n'.join(lines), flush=True)
 
+    stop = False
     for resolution in args.resolutions:
-        spent = time.time() - started
-        if spent > args.budget:
+        if stop or time.time() - started > args.budget:
             lines.append(f'# stopped before {resolution:g} km: budget spent')
             print(lines[-1], flush=True)
             break
         one_thread = None
         for threads in args.threads:
+            # checked here as well as between resolutions: one resolution's
+            # sweep can outlast the whole budget on its own, which is how
+            # the first run of this hit its wall clock at 12 km and lost the
+            # results file it had not written yet
+            if time.time() - started > args.budget:
+                lines.append(
+                    f'# stopped inside {resolution:g} km: budget spent'
+                )
+                print(lines[-1], flush=True)
+                stop = True
+                break
             where = os.path.join(
                 args.work, f'qu{resolution:g}km_{threads}thread'
             )
@@ -188,6 +199,10 @@ def main():
                 )
             lines.append(row)
             print(row, flush=True)
+            # rewritten after every point, so that a run killed part way
+            # through still leaves what it had measured
+            with open(args.out, 'w') as handle:
+                handle.write('\n'.join(lines) + '\n')
             # a mesh at this size is not needed once it is timed
             shutil.rmtree(where, ignore_errors=True)
 

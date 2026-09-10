@@ -171,6 +171,77 @@ Three things the spike found that were not what it was looking for:
 
 All of this is in [the Phase B design document](../../docs/design_docs/task_parallelism_phase_b.md), which is the copy that survives this directory.
 
+## What forking answered on omega_pr
+
+Jobs 1284023 (serial) and 1284024 (concurrent), three Chrysalis nodes, both from the same commit so that the execution path is the only difference, recorded under `results/chrysalis/fork_omega_pr_1284023_1284024/`.
+
+| | |
+| --- | --- |
+| serial | 17:49 |
+| concurrent | 5:22 |
+| speedup | **3.3x** |
+
+**Starting a step now costs 0.4 s.** Measured as the time from forking a step to reaping it, less the runtime the step reports for itself, over the 113 steps that report both:
+
+| | median | max |
+| --- | --- | --- |
+| all steps | 0.4 s | 5.1 s |
+| one-core steps | 0.4 s | |
+| MPI steps | 0.4 s | |
+
+Against 34.6 s and 37.6 s for the same two categories under the subprocess implementation. That is the quantity the phase was rebuilt around.
+
+**MPI steps run through forked children.** 30 of the 115 steps used more than one core, the widest 192 across all three nodes, and every one succeeded. This was the case the design expected to break first if forking interfered with the launcher.
+
+### The six baseline differences are JIGSAW's thread count, and I had this wrong
+
+Six baseline comparisons differ, as they did before: `mesh/spherical/icos/base_mesh/480km` and the five steps downstream of it. This run settles the cause, and eliminates two hypotheses including the one the design carried.
+
+**It is not run-to-run noise.** Two *serial* runs two days apart, on different nodes and different polaris commits, produce a byte-identical mesh. Serial against concurrent, same commit and same day, differs.
+
+**It is not the BLAS thread count.** Both paths now pin the numerical pools to one, so that mechanism is gone and the difference remains.
+
+**It is JIGSAW, which the icosahedral path does invoke** -- I previously reported that it did not, having read the first half of `jigsawpy.jigsaw.icosahedron`, which builds the icosahedron in pure numpy, and stopped before the end. It finishes by calling `refine()`, which calls `jigsaw(opts, mesh)`: the binary. The chain is then:
+
+1. JIGSAW takes its thread count from `NUMTHREAD` in its own config file, and Polaris never sets it, so it uses what the machine offers -- which respects the CPU affinity mask.
+2. A serial step's process is unbound and sees every core on the node. The same step in a forked child is bound to the one core it was placed on, and the log says so: `placement: this process has the 1 cores it was given`.
+3. Thread count changes the mesh JIGSAW produces. Measured directly, below.
+4. Everything downstream of the mesh differs.
+
+So the fix already agreed for JIGSAW -- the two mesh steps declaring cores and passing the assignment to `opts.numthread` -- also fixes these six, because both paths would then use the same declared number.
+
+## What JIGSAW's thread scaling answered
+
+Job 1284025, one Chrysalis node, exclusive, recorded under `results/chrysalis/jigsaw_threads_1284025/`. Quasi-uniform meshes at five resolutions, `numthread` set explicitly, timing only the `jigsaw` call.
+
+| resolution | 1 thread | best | speedup | knee |
+| --- | --- | --- | --- | --- |
+| 240 km | 3.1 s | 1.1 s | 2.78x | 4 |
+| 120 km | 8.3 s | 3.6 s | 2.33x | 8 |
+| 60 km | 34.5 s | 15.8 s | 2.18x | ~16 |
+| 30 km | 136.8 s | 61.8 s | 2.21x | ~16 |
+| 12 km | 709.8 s | 374.7 s | >=1.89x | >=8, still climbing |
+
+**The knee rises with resolution and the ceiling does not.** JIGSAW returns about 2-2.8x however many threads it is given, and past roughly 16 nothing improves at any resolution measured. Eight to sixteen cores captures nearly all of what is available.
+
+**Thread count changes the mesh.** The point counts are not stable across thread counts:
+
+```
+     120 km    41154 points at 1, 2, 4 threads
+               41155 points at 8, 16, 32, 64
+      30 km   656719, 656721, 656723, 656727, 656723  as threads rise
+```
+
+Not round-off in coordinates -- a different number of points, and not monotonic. So the quasi-uniform and unified base meshes are not reproducible across machines or allocation shapes today, independently of task parallelism, and pinning `numthread` is a correctness fix rather than tidiness.
+
+The 12 km sweep reached 8 threads before the job hit its wall clock. The harness checked its time budget only between resolutions, so one resolution's sweep could outrun the whole budget; it now checks between thread counts as well and rewrites its results after every point, so a run that is killed still leaves what it measured.
+
+## Pinning the BLAS pools is not free, and I said it was
+
+Holding `OMP_NUM_THREADS` and friends to one costs about five minutes on a serial `omega_pr`: 733 s of task time became 1066 s. Almost all of it is one step, `mesh/spherical/icos/base_mesh/480km`, which went from roughly 40 s to 5:41. Everything else is within a couple of seconds.
+
+I had surveyed the `np.linalg` and `np.matmul` call sites and judged them too small to benefit -- "a stack of tiny per-point matrices". That was reasoning from the shape of the call rather than measuring, and it was wrong. Given the finding above, some of that cost is JIGSAW being held to one thread rather than numpy, which the declaration will give back.
+
 ## Traps carried over from Phase A
 
 - **Do not edit a script while a job is running it.** Bash reads scripts incrementally, so rewriting one underneath a running job makes it resume mid-token.
