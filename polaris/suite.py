@@ -159,6 +159,14 @@ def main():
         action='store_true',
         help='If the model should be built in debug mode.',
     )
+    parser.add_argument(
+        '--concurrent_steps',
+        dest='concurrent_steps',
+        action='store_true',
+        help='If the job script should run the steps of the suite at the '
+        'same time with `polaris parallel` rather than one after another '
+        'with `polaris serial`.',
+    )
 
     args = parser.parse_args(sys.argv[2:])
 
@@ -179,6 +187,7 @@ def main():
         quiet_build=args.quiet_build,
         cmake_flags=args.cmake_flags,
         debug=args.debug,
+        concurrent_steps=args.concurrent_steps,
     )
 
 
