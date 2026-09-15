@@ -1,0 +1,59 @@
+#!/bin/bash
+#PBS -N pals_placement
+#PBS -A E3SM_Dec
+#PBS -l select=2
+#PBS -l walltime=00:20:00
+#PBS -l filesystems=home:flare
+#PBS -q debug
+#PBS -j oe
+
+# Does PALS honor a placement that spans nodes, and what does an Aurora node
+# say about its memory?
+#
+# Two nodes because one cannot show the thing this is looking for: a
+# launcher that restarts its CPU list on every node is indistinguishable
+# from one that does not until a launch spans two of them.  Aurora's debug
+# queue tops out at two nodes and an hour, which is enough for both.
+#
+# Submit from the polaris worktree:
+#     qsub utils/concurrency_check/pals_placement_aurora.pbs
+
+cd "${PBS_O_WORKDIR}" || exit 1
+
+source ./load_polaris_aurora_oneapi-ifx_mpich.sh
+
+echo "== job ${PBS_JOBID} =="
+echo
+
+echo "== what PBS says this job holds =="
+for name in PBS_JOBID PBS_NODEFILE PBS_O_WORKDIR NCPUS; do
+    printf '%s=%s\n' "$name" "${!name}"
+done
+echo
+echo "PBS_NODEFILE holds:"
+cat "${PBS_NODEFILE}"
+echo
+
+echo "== what pbsnodes says about these nodes, for comparison =="
+# resources_available.mem is the figure mache's aurora.cfg asks for and has
+# never been given; the login node can read it, but reading it here pins it
+# to the nodes this job actually held.  PBS writes the high-speed-network
+# name into the node file and answers to the bare one, so the suffix comes
+# off before asking.
+for node in $(sort -u "${PBS_NODEFILE}"); do
+    short="${node%%.*}"
+    echo "${short}:"
+    pbsnodes "${short}" 2>&1 |
+        grep -E 'resources_available\.(mem|ncpus)' || true
+done
+echo
+echo "mache's aurora.cfg says memory_per_node = 960000 MB (provisional)"
+echo
+
+# the spike reads each node's memory the way a concurrent run does, then
+# runs the placement cases
+python utils/concurrency_check/pals_placement_spike.py
+status=$?
+echo
+echo "== spike exited ${status} =="
+exit ${status}
