@@ -1,0 +1,79 @@
+polaris calling: polaris.run.serial._run_task()
+  in /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/run/serial.py
+
+Running step: forward_500m
+  * step: forward_500m
+
+polaris calling: polaris.tasks.ocean.horiz_press_grad.forward.Forward.constrain_resources()
+  inherited from: polaris.ocean.model.ocean_model_step.OceanModelStep.constrain_resources()
+  in /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/ocean/model/ocean_model_step.py
+
+sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+
+The placement of step ocean/column/horiz_press_grad/salinity_gradient/forward_500m does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+
+
+polaris calling: polaris.tasks.ocean.horiz_press_grad.forward.Forward.runtime_setup()
+  inherited from: polaris.model_step.ModelStep.runtime_setup()
+  in /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/model_step.py
+
+Warning: replacing yaml options in omega.yml
+  IO: IOTasks = 1
+  IO: IOStride = 1
+  adding:   HorzMeshIn
+  adding:   InitialVertCoord
+  adding:   InitialState
+  updating: HorzMeshIn
+  updating: InitialVertCoord
+  updating: InitialState
+
+Bypassing step's run() method and running with command line args
+
+polaris calling: polaris.tasks.ocean.Ocean.run_parallel_command()
+  inherited from: polaris.component.Component.run_parallel_command()
+  in /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/component.py
+
+sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+Running: mpiexec --label -n 1 --ppn 1 --depth 1 --hosts x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov --cpu-bind list:0 ./omega.exe
+launch failed on x4315c1s2b0n0: cpubind list:0[0] has fewer CPUs (0) than depth (1)
+
+          execution:        [91mERROR[0m
+Traceback (most recent call last):
+  File "/home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/run/executor.py", line 248, in _be_the_step
+    run_step_in_process(step, placement)
+    ~~~~~~~~~~~~~~~~~~~^^^^^^^^^^^^^^^^^
+  File "/home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/run/serial.py", line 234, in run_step_in_process
+    _run_task(task, available_resources)
+    ~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/run/serial.py", line 573, in _run_task
+    run_step(
+    ~~~~~~~~^
+        task,
+        ^^^^^
+    ...<3 lines>...
+        step_log_filename,
+        ^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/run/lifecycle.py", line 111, in run_step
+    step.component.run_parallel_command(
+    ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~^
+        args,
+        ^^^^^
+    ...<6 lines>...
+        memory_cap=step.memory,
+        ^^^^^^^^^^^^^^^^^^^^^^^
+    )
+    ^
+  File "/home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/component.py", line 254, in run_parallel_command
+    check_call(command_line_args, logger, env=env)
+    ~~~~~~~~~~^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/pixi-env/.pixi/envs/default/lib/python3.14/site-packages/mpas_tools/logging.py", line 66, in check_call
+    raise subprocess.CalledProcessError(process.returncode, print_args)
+subprocess.CalledProcessError: Command 'mpiexec --label -n 1 --ppn 1 --depth 1 --hosts x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov --cpu-bind list:0 ./omega.exe' returned non-zero exit status 127.

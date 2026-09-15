@@ -1,0 +1,623 @@
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.6.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+Running 115 step(s)
+Asking the nodes about memory failed with exit code 134. Using the configured figure.
+x4315c2s5b0n0.hsn.cm.aurora.alcf.anl.gov -1: ERROR: affinity setup: object has too few CPUs for rank
+x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov -1: ERROR: affinity setup: object has too few CPUs for rank
+x4315c5s3b0n0.hsn.cm.aurora.alcf.anl.gov -1: ERROR: affinity setup: object has too few CPUs for rank
+x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov: shepherd died from signal 6
+x4315c3s1b0n0.hsn.cm.aurora.alcf.anl.gov -1: ERROR: affinity setup: object has too few CPUs for rank
+
+Allocation:
+  x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov: 102 cores, 0 gpus, 960000 MiB (config)
+      configured: 960000 MiB
+  x4315c2s5b0n0.hsn.cm.aurora.alcf.anl.gov: 102 cores, 0 gpus, 960000 MiB (config)
+      configured: 960000 MiB
+  x4315c3s1b0n0.hsn.cm.aurora.alcf.anl.gov: 102 cores, 0 gpus, 960000 MiB (config)
+      configured: 960000 MiB
+  x4315c5s3b0n0.hsn.cm.aurora.alcf.anl.gov: 102 cores, 0 gpus, 960000 MiB (config)
+      configured: 960000 MiB
+  * ocean/column/horiz_press_grad/salinity_gradient/init_4km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_3km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_2km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1.5km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_750m: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_500m: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/wind_evap/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/no_forcing/unstable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/latent_heat_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/sensible_heat_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/short_wave_heat_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/long_wave_heat_flux_up/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/long_wave_heat_flux_down/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/evaporation_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/snow_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/rain_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/river_runoff_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/ice_runoff_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/sea_ice_fresh_water_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/sea_ice_heat_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/sea_ice_salinity_flux/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/thermo/conservation_summary: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/baroclinic_channel/10km/init: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/barotropic_gyre/munk/free-slip/init: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/init/200km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/init/100km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/init/50km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/init/25km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/merry_go_round/init/5m: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/overflow/linear/zstar/init: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/overflow/nonlinear/pstar/init: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/seamount/linear/zstar/init: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/seamount/nonlinear/sigma/init: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * mesh/spherical/icos/base_mesh/480km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/wind/neutral: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/no_forcing/stable: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/thermo/conservation_summary: [92mSUCCESS[0m [94m0.1s[0m
+
+The placement of step ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward does not describe how it ran.
+
+  This process was given 36 cores (50-85) but is allowed 35 (50-51,53-85).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_spherical_realistic_global_QU.240km_analysis_members_test_forward.log
+  * ocean/column/init/wind_evap/stable: [92mSUCCESS[0m [94m6.6s[0m
+  * ocean/column/vmix_stable/forward_no_hadv: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/vmix_stable/forward: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/vmix_stable/forward_no_hadv_restoring: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/short_wave_heat_flux/stable: [92mSUCCESS[0m [94m6.6s[0m
+  * ocean/column/thermo/forward_short_wave_heat_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/sea_ice_salinity_flux/stable: [92mSUCCESS[0m [94m6.6s[0m
+  * ocean/column/thermo/forward_sea_ice_salinity_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/horiz_press_grad/salinity_gradient/init_4km does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/horiz_press_grad/salinity_gradient/init_4km: [92mSUCCESS[0m [94m6.8s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_4km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1km: [92mSUCCESS[0m [94m6.8s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/horiz_press_grad/salinity_gradient/forward_4km does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_4km: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_horiz_press_grad_salinity_gradient_forward_4km.log
+      1 step(s) that needed it will not run
+  * ocean/planar/seamount/nonlinear/sigma/init: [92mSUCCESS[0m [94m6.8s[0m
+  * ocean/planar/seamount/nonlinear/sigma/short/forward: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/merry_go_round/init/5m: [92mSUCCESS[0m [94m6.9s[0m
+  * ocean/planar/merry_go_round/forward/5m_90s_limiter: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/planar/seamount/nonlinear/sigma/short/forward does not describe how it ran.
+
+  This process was given 16 cores (0,33,53-66) but is allowed 15 (33,53-66).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/seamount/nonlinear/sigma/short/forward: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_seamount_nonlinear_sigma_short_forward.log
+  * ocean/planar/baroclinic_channel/10km/init: [92mSUCCESS[0m [94m8.4s[0m
+  * ocean/planar/baroclinic_channel/10km/decomp/4proc: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/baroclinic_channel/10km/decomp/8proc: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/baroclinic_channel/10km/restart/full_run: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/baroclinic_channel/10km/threads/1thread: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/baroclinic_channel/10km/threads/2thread: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * mesh/spherical/icos/base_mesh/480km: [92mSUCCESS[0m [94m8.4s[0m
+  * ocean/spherical/icos/cosine_bell/init/480km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/planar/baroclinic_channel/10km/decomp/4proc does not describe how it ran.
+
+  This process was given 4 cores (0,23,33,53) but is allowed 3 (23,33,53).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/baroclinic_channel/10km/decomp/4proc: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_baroclinic_channel_10km_decomp_4proc.log
+      1 step(s) that needed it will not run
+  * ocean/planar/manufactured_solution/init/50km: [92mSUCCESS[0m [94m8.8s[0m
+  * ocean/planar/manufactured_solution/default/forward/50km_75s: started on ['x4315c2s5b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c3s1b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/sensible_heat_flux/stable: [92mSUCCESS[0m [94m8.9s[0m
+  * ocean/column/thermo/forward_sensible_heat_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/init/long_wave_heat_flux_up/stable: [92mSUCCESS[0m [94m9.0s[0m
+  * ocean/column/thermo/forward_long_wave_heat_flux_up: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/thermo/forward_sensible_heat_flux does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/thermo/forward_sensible_heat_flux: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_thermo_forward_sensible_heat_flux.log
+  * ocean/planar/manufactured_solution/default/forward/50km_75s: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_manufactured_solution_default_forward_50km_75s.log
+      1 step(s) that needed it will not run
+  * ocean/planar/manufactured_solution/del2/forward/50km_75s: started on ['x4315c2s5b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c3s1b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/del2/forward/50km_75s: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_manufactured_solution_del2_forward_50km_75s.log
+      1 step(s) that needed it will not run
+  * ocean/planar/manufactured_solution/del4/forward/50km_75s: started on ['x4315c2s5b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c3s1b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/del4/forward/50km_75s: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_manufactured_solution_del4_forward_50km_75s.log
+      1 step(s) that needed it will not run
+  * ocean/column/thermo/forward_short_wave_heat_flux: [92mSUCCESS[0m [94m4.7s[0m
+  * ocean/column/thermo/forward_sea_ice_salinity_flux: [92mSUCCESS[0m [94m4.7s[0m
+  * ocean/column/init/evaporation_flux/stable: [92mSUCCESS[0m [94m11.7s[0m
+  * ocean/column/thermo/forward_evaporation_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/vmix_stable/forward_no_hadv: [92mSUCCESS[0m [94m5.3s[0m
+
+The placement of step ocean/column/thermo/forward_evaporation_flux does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/thermo/forward_evaporation_flux: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_thermo_forward_evaporation_flux.log
+  * ocean/planar/baroclinic_channel/10km/decomp/8proc: [92mSUCCESS[0m [94m5.0s[0m
+
+The placement of step ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant does not describe how it ran.
+
+  This process was given 1 cores (52) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_vmix_stable_forward_no_vadv_no_hadv_constant.log
+      1 step(s) that needed it will not run
+  * ocean/planar/barotropic_gyre/munk/free-slip/init: [92mSUCCESS[0m [94m13.8s[0m
+  * ocean/planar/barotropic_gyre/munk/free-slip/short_forward: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/planar/barotropic_gyre/munk/free-slip/short_forward does not describe how it ran.
+
+  This process was given 56 cores (0,7,11-12,14,21,23-24,27,33,35-49,52-61,78-85,88-100) but is allowed 54 (7,11-12,14,21,23-24,27,33,35-49,53-61,78-85,88-100).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/barotropic_gyre/munk/free-slip/short_forward: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_barotropic_gyre_munk_free-slip_short_forward.log
+  * ocean/column/vmix_stable/forward: [92mSUCCESS[0m [94m8.4s[0m
+  * ocean/column/vmix_stable/analysis: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/vmix_stable/analysis does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/vmix_stable/analysis: [92mSUCCESS[0m [94m0.2s[0m
+  * ocean/spherical/icos/cosine_bell/init/480km: [92mSUCCESS[0m [94m7.9s[0m
+  * ocean/spherical/icos/cosine_bell/decomp/12proc: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/spherical/icos/cosine_bell/decomp/24proc: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/spherical/icos/cosine_bell/restart/full_run: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/seamount/linear/zstar/init: [92mSUCCESS[0m [94m16.4s[0m
+  * ocean/planar/seamount/linear/zstar/short/forward: started on ['x4315c2s5b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/init/100km: [92mSUCCESS[0m [94m16.5s[0m
+  * ocean/planar/manufactured_solution/default/forward/100km_150s: started on ['x4315c2s5b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/del2/forward/100km_150s: started on ['x4315c3s1b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/del4/forward/100km_150s: started on ['x4315c3s1b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/spherical/icos/cosine_bell/decomp/12proc does not describe how it ran.
+
+  This process was given 12 cores (0,7,11-12,14,21-24,27,33-34) but is allowed 11 (7,11-12,14,21-24,27,33-34).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/spherical/icos/cosine_bell/decomp/12proc: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_spherical_icos_cosine_bell_decomp_12proc.log
+      1 step(s) that needed it will not run
+
+The placement of step ocean/spherical/icos/cosine_bell/decomp/24proc does not describe how it ran.
+
+  This process was given 24 cores (35-49,52-60) but is allowed 23 (35-49,53-60).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/spherical/icos/cosine_bell/decomp/24proc: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_spherical_icos_cosine_bell_decomp_24proc.log
+  * ocean/planar/manufactured_solution/default/forward/100km_150s: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_manufactured_solution_default_forward_100km_150s.log
+  * ocean/planar/seamount/linear/zstar/short/forward: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_seamount_linear_zstar_short_forward.log
+  * ocean/planar/manufactured_solution/del4/forward/100km_150s: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_manufactured_solution_del4_forward_100km_150s.log
+  * ocean/planar/manufactured_solution/del2/forward/100km_150s: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_manufactured_solution_del2_forward_100km_150s.log
+  * ocean/column/vmix_stable/forward_no_hadv_restoring: [92mSUCCESS[0m [94m11.5s[0m
+  * ocean/column/init/long_wave_heat_flux_down/stable: [92mSUCCESS[0m [94m20.0s[0m
+  * ocean/column/thermo/forward_long_wave_heat_flux_down: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/thermo/forward_long_wave_heat_flux_down does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/thermo/forward_long_wave_heat_flux_down: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_thermo_forward_long_wave_heat_flux_down.log
+  * ocean/column/init/sea_ice_fresh_water_flux/stable: [92mSUCCESS[0m [94m21.0s[0m
+  * ocean/column/thermo/forward_sea_ice_fresh_water_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_750m: [92mSUCCESS[0m [94m21.2s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_750m: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/thermo/forward_sea_ice_fresh_water_flux does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/thermo/forward_sea_ice_fresh_water_flux: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_thermo_forward_sea_ice_fresh_water_flux.log
+  * ocean/planar/baroclinic_channel/10km/restart/full_run: [92mSUCCESS[0m [94m14.9s[0m
+  * ocean/planar/baroclinic_channel/10km/restart/restart_run: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/planar/baroclinic_channel/10km/restart/restart_run does not describe how it ran.
+
+  This process was given 4 cores (0,7,11-12) but is allowed 3 (7,11-12).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/baroclinic_channel/10km/restart/restart_run: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_baroclinic_channel_10km_restart_restart_run.log
+      1 step(s) that needed it will not run
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv: [92mSUCCESS[0m [94m17.6s[0m
+  * ocean/column/init/no_forcing/stable: [92mSUCCESS[0m [94m25.3s[0m
+  * ocean/column/inertial/forward: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1km: [92mSUCCESS[0m [94m18.9s[0m
+
+The placement of step ocean/column/inertial/forward does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/inertial/forward: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_inertial_forward.log
+      1 step(s) that needed it will not run
+  * ocean/spherical/icos/cosine_bell/restart/full_run: [92mSUCCESS[0m [94m13.4s[0m
+  * ocean/spherical/icos/cosine_bell/restart/restart_run: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/spherical/icos/cosine_bell/restart/restart_run does not describe how it ran.
+
+  This process was given 12 cores (0,4,7,11-14,19,21-24) but is allowed 11 (4,7,11-14,19,21-24).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/spherical/icos/cosine_bell/restart/restart_run: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_spherical_icos_cosine_bell_restart_restart_run.log
+      1 step(s) that needed it will not run
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_750m: [92mSUCCESS[0m [94m9.6s[0m
+  * ocean/column/init/latent_heat_flux/stable: [92mSUCCESS[0m [94m34.0s[0m
+  * ocean/column/thermo/forward_latent_heat_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/thermo/forward_latent_heat_flux does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/thermo/forward_latent_heat_flux: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_thermo_forward_latent_heat_flux.log
+  * ocean/planar/baroclinic_channel/10km/threads/2thread: [92mSUCCESS[0m [94m26.1s[0m
+  * ocean/column/init/sea_ice_heat_flux/stable: [92mSUCCESS[0m [94m35.2s[0m
+  * ocean/column/thermo/forward_sea_ice_heat_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/thermo/forward_sea_ice_heat_flux does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/thermo/forward_sea_ice_heat_flux: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_thermo_forward_sea_ice_heat_flux.log
+  * ocean/planar/baroclinic_channel/10km/threads/1thread: [92mSUCCESS[0m [94m27.2s[0m
+  * ocean/planar/baroclinic_channel/10km/threads/validate: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/planar/baroclinic_channel/10km/threads/validate does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/baroclinic_channel/10km/threads/validate: [92mSUCCESS[0m [94m0.2s[0m
+  * ocean/planar/manufactured_solution/init/200km: [92mSUCCESS[0m [94m50.7s[0m
+  * ocean/planar/manufactured_solution/default/forward/200km_300s: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/del2/forward/200km_300s: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/del4/forward/200km_300s: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/planar/manufactured_solution/default/forward/200km_300s does not describe how it ran.
+
+  This process was given 12 cores (0,4-5,7,9,11-14,19-21) but is allowed 11 (4-5,7,9,11-14,19-21).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/manufactured_solution/default/forward/200km_300s: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_manufactured_solution_default_forward_200km_300s.log
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1.5km: [92mSUCCESS[0m [94m52.8s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_horiz_press_grad_salinity_gradient_forward_1.5km.log
+  * ocean/column/init/snow_flux/stable: [92mSUCCESS[0m [94m58.6s[0m
+  * ocean/column/thermo/forward_snow_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/thermo/forward_snow_flux does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/thermo/forward_snow_flux: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_thermo_forward_snow_flux.log
+  * ocean/planar/manufactured_solution/del4/forward/200km_300s: [92mSUCCESS[0m [94m9.8s[0m
+  * ocean/column/init/river_runoff_flux/stable: [92mSUCCESS[0m [94m72.2s[0m
+  * ocean/column/thermo/forward_river_runoff_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/thermo/forward_river_runoff_flux does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/thermo/forward_river_runoff_flux: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_thermo_forward_river_runoff_flux.log
+  * ocean/column/thermo/forward_long_wave_heat_flux_up: [92mSUCCESS[0m [94m66.9s[0m
+  * ocean/column/init/ice_runoff_flux/stable: [92mSUCCESS[0m [94m77.8s[0m
+  * ocean/column/thermo/forward_ice_runoff_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/thermo/forward_ice_runoff_flux does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/thermo/forward_ice_runoff_flux: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_thermo_forward_ice_runoff_flux.log
+  * ocean/planar/manufactured_solution/init/25km: [92mSUCCESS[0m [94m83.2s[0m
+  * ocean/column/init/wind/neutral: [92mSUCCESS[0m [94m95.3s[0m
+  * ocean/column/ekman/forward_constant: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/ekman/forward_constant does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/ekman/forward_constant: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_ekman_forward_constant.log
+      1 step(s) that needed it will not run
+  * ocean/planar/manufactured_solution/del2/forward/200km_300s: [92mSUCCESS[0m [94m45.9s[0m
+  * ocean/column/init/no_forcing/unstable: [92mSUCCESS[0m [94m101.3s[0m
+  * ocean/column/vmix_unstable/forward_no_hadv: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/vmix_unstable/forward: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/vmix_unstable/forward_no_hadv_restoring: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv_constant: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/vmix_unstable/forward_no_hadv does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/vmix_unstable/forward_no_hadv: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_vmix_unstable_forward_no_hadv.log
+      1 step(s) that needed it will not run
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv_constant: [92mSUCCESS[0m [94m5.3s[0m
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv: [92mSUCCESS[0m [94m6.1s[0m
+  * ocean/column/vmix_unstable/forward_no_hadv_restoring: [92mSUCCESS[0m [94m36.4s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_500m: [92mSUCCESS[0m [94m150.2s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_500m: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/horiz_press_grad/salinity_gradient/forward_500m does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_500m: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_horiz_press_grad_salinity_gradient_forward_500m.log
+  * ocean/planar/overflow/nonlinear/pstar/init: [92mSUCCESS[0m [94m186.6s[0m
+  * ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward does not describe how it ran.
+
+  This process was given 12 cores (0,4-14) but is allowed 11 (4-14).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_overflow_nonlinear_pstar_smoke_test_horiz_adv_order_4_del4_forward.log
+  * ocean/planar/merry_go_round/forward/5m_90s_limiter: [92mSUCCESS[0m [94m227.3s[0m
+  * ocean/column/vmix_unstable/forward: [92mSUCCESS[0m [94m232.9s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_3km: [92mSUCCESS[0m [94m761.7s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_3km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/horiz_press_grad/salinity_gradient/forward_3km does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_3km: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_horiz_press_grad_salinity_gradient_forward_3km.log
+  * ocean/planar/overflow/linear/zstar/init: [92mSUCCESS[0m [94m774.2s[0m
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3/forward: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4/forward: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward does not describe how it ran.
+
+  This process was given 12 cores (0-1,3-12) but is allowed 11 (1,3-12).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_overflow_linear_zstar_smoke_test_horiz_adv_order_2_del4_forward.log
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4/forward: [92mSUCCESS[0m [94m7.8s[0m
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3/forward: [92mSUCCESS[0m [94m8.0s[0m
+  * ocean/column/init/rain_flux/stable: [92mSUCCESS[0m [94m801.2s[0m
+  * ocean/column/thermo/forward_rain_flux: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/thermo/forward_rain_flux does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/thermo/forward_rain_flux: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_thermo_forward_rain_flux.log
+  * ocean/column/horiz_press_grad/salinity_gradient/init_2km: [92mSUCCESS[0m [94m813.7s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_2km: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov']
+
+The placement of step ocean/column/horiz_press_grad/salinity_gradient/forward_2km does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_2km: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_column_horiz_press_grad_salinity_gradient_forward_2km.log
+  * ocean/planar/manufactured_solution/default/forward/25km_38s: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c2s5b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c3s1b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c5s3b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/default/forward/25km_38s: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_manufactured_solution_default_forward_25km_38s.log
+  * ocean/planar/manufactured_solution/del2/forward/25km_38s: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c2s5b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c3s1b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c5s3b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/del2/forward/25km_38s: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_manufactured_solution_del2_forward_25km_38s.log
+  * ocean/planar/manufactured_solution/del4/forward/25km_38s: started on ['x4315c1s2b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c2s5b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c3s1b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4315c5s3b0n0.hsn.cm.aurora.alcf.anl.gov']
+  * ocean/planar/manufactured_solution/del4/forward/25km_38s: [91mFAIL[0m (exit code 1), see /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent/case_outputs/ocean_planar_manufactured_solution_del4_forward_25km_38s.log
+
+Step runtimes:
+       0.1s [92mSUCCESS[0m ocean/column/thermo/conservation_summary
+       4.0s [91mFAIL[0m ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward
+       6.6s [92mSUCCESS[0m ocean/column/init/wind_evap/stable
+       6.6s [92mSUCCESS[0m ocean/column/init/short_wave_heat_flux/stable
+       6.6s [92mSUCCESS[0m ocean/column/init/sea_ice_salinity_flux/stable
+       6.8s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_4km
+       6.8s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_1km
+       0.2s [91mFAIL[0m ocean/column/horiz_press_grad/salinity_gradient/forward_4km
+       6.8s [92mSUCCESS[0m ocean/planar/seamount/nonlinear/sigma/init
+       6.9s [92mSUCCESS[0m ocean/planar/merry_go_round/init/5m
+       0.3s [91mFAIL[0m ocean/planar/seamount/nonlinear/sigma/short/forward
+       8.4s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/init
+       8.4s [92mSUCCESS[0m mesh/spherical/icos/base_mesh/480km
+       0.3s [91mFAIL[0m ocean/planar/baroclinic_channel/10km/decomp/4proc
+       8.8s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/50km
+       8.9s [92mSUCCESS[0m ocean/column/init/sensible_heat_flux/stable
+       9.0s [92mSUCCESS[0m ocean/column/init/long_wave_heat_flux_up/stable
+       0.2s [91mFAIL[0m ocean/column/thermo/forward_sensible_heat_flux
+       0.6s [91mFAIL[0m ocean/planar/manufactured_solution/default/forward/50km_75s
+       0.5s [91mFAIL[0m ocean/planar/manufactured_solution/del2/forward/50km_75s
+       0.5s [91mFAIL[0m ocean/planar/manufactured_solution/del4/forward/50km_75s
+       4.7s [92mSUCCESS[0m ocean/column/thermo/forward_short_wave_heat_flux
+       4.7s [92mSUCCESS[0m ocean/column/thermo/forward_sea_ice_salinity_flux
+      11.7s [92mSUCCESS[0m ocean/column/init/evaporation_flux/stable
+       5.3s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_hadv
+       0.2s [91mFAIL[0m ocean/column/thermo/forward_evaporation_flux
+       5.0s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/decomp/8proc
+       6.9s [91mFAIL[0m ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant
+      13.8s [92mSUCCESS[0m ocean/planar/barotropic_gyre/munk/free-slip/init
+       0.3s [91mFAIL[0m ocean/planar/barotropic_gyre/munk/free-slip/short_forward
+       8.4s [92mSUCCESS[0m ocean/column/vmix_stable/forward
+       0.2s [92mSUCCESS[0m ocean/column/vmix_stable/analysis
+       7.9s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/init/480km
+      16.4s [92mSUCCESS[0m ocean/planar/seamount/linear/zstar/init
+      16.5s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/100km
+       0.3s [91mFAIL[0m ocean/spherical/icos/cosine_bell/decomp/12proc
+       0.3s [91mFAIL[0m ocean/spherical/icos/cosine_bell/decomp/24proc
+       0.5s [91mFAIL[0m ocean/planar/manufactured_solution/default/forward/100km_150s
+       0.6s [91mFAIL[0m ocean/planar/seamount/linear/zstar/short/forward
+       0.5s [91mFAIL[0m ocean/planar/manufactured_solution/del4/forward/100km_150s
+       0.6s [91mFAIL[0m ocean/planar/manufactured_solution/del2/forward/100km_150s
+      11.5s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_hadv_restoring
+      20.0s [92mSUCCESS[0m ocean/column/init/long_wave_heat_flux_down/stable
+       0.2s [91mFAIL[0m ocean/column/thermo/forward_long_wave_heat_flux_down
+      21.0s [92mSUCCESS[0m ocean/column/init/sea_ice_fresh_water_flux/stable
+      21.2s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_750m
+       0.2s [91mFAIL[0m ocean/column/thermo/forward_sea_ice_fresh_water_flux
+      14.9s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/restart/full_run
+       0.3s [91mFAIL[0m ocean/planar/baroclinic_channel/10km/restart/restart_run
+      17.6s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_vadv_no_hadv
+      25.3s [92mSUCCESS[0m ocean/column/init/no_forcing/stable
+      18.9s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_1km
+       0.2s [91mFAIL[0m ocean/column/inertial/forward
+      13.4s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/restart/full_run
+       0.3s [91mFAIL[0m ocean/spherical/icos/cosine_bell/restart/restart_run
+       9.6s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_750m
+      34.0s [92mSUCCESS[0m ocean/column/init/latent_heat_flux/stable
+       0.2s [91mFAIL[0m ocean/column/thermo/forward_latent_heat_flux
+      26.1s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/threads/2thread
+      35.2s [92mSUCCESS[0m ocean/column/init/sea_ice_heat_flux/stable
+       0.2s [91mFAIL[0m ocean/column/thermo/forward_sea_ice_heat_flux
+      27.2s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/threads/1thread
+       0.2s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/threads/validate
+      50.7s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/200km
+       0.3s [91mFAIL[0m ocean/planar/manufactured_solution/default/forward/200km_300s
+      52.8s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_1.5km
+       0.2s [91mFAIL[0m ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km
+      58.6s [92mSUCCESS[0m ocean/column/init/snow_flux/stable
+       0.2s [91mFAIL[0m ocean/column/thermo/forward_snow_flux
+       9.8s [92mSUCCESS[0m ocean/planar/manufactured_solution/del4/forward/200km_300s
+      72.2s [92mSUCCESS[0m ocean/column/init/river_runoff_flux/stable
+       0.2s [91mFAIL[0m ocean/column/thermo/forward_river_runoff_flux
+      66.9s [92mSUCCESS[0m ocean/column/thermo/forward_long_wave_heat_flux_up
+      77.8s [92mSUCCESS[0m ocean/column/init/ice_runoff_flux/stable
+       0.2s [91mFAIL[0m ocean/column/thermo/forward_ice_runoff_flux
+      83.2s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/25km
+      95.3s [92mSUCCESS[0m ocean/column/init/wind/neutral
+       0.2s [91mFAIL[0m ocean/column/ekman/forward_constant
+      45.9s [92mSUCCESS[0m ocean/planar/manufactured_solution/del2/forward/200km_300s
+     101.3s [92mSUCCESS[0m ocean/column/init/no_forcing/unstable
+       0.2s [91mFAIL[0m ocean/column/vmix_unstable/forward_no_hadv
+       5.3s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_vadv_no_hadv_constant
+       6.1s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_vadv_no_hadv
+      36.4s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_hadv_restoring
+     150.2s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_500m
+       0.2s [91mFAIL[0m ocean/column/horiz_press_grad/salinity_gradient/forward_500m
+     186.6s [92mSUCCESS[0m ocean/planar/overflow/nonlinear/pstar/init
+       0.3s [91mFAIL[0m ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward
+     227.3s [92mSUCCESS[0m ocean/planar/merry_go_round/forward/5m_90s_limiter
+     232.9s [92mSUCCESS[0m ocean/column/vmix_unstable/forward
+     761.7s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_3km
+       0.2s [91mFAIL[0m ocean/column/horiz_press_grad/salinity_gradient/forward_3km
+     774.2s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/init
+       0.3s [91mFAIL[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward
+       7.8s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4/forward
+       8.0s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3/forward
+     801.2s [92mSUCCESS[0m ocean/column/init/rain_flux/stable
+       0.2s [91mFAIL[0m ocean/column/thermo/forward_rain_flux
+     813.7s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_2km
+       0.2s [91mFAIL[0m ocean/column/horiz_press_grad/salinity_gradient/forward_2km
+       0.5s [91mFAIL[0m ocean/planar/manufactured_solution/default/forward/25km_38s
+       0.5s [91mFAIL[0m ocean/planar/manufactured_solution/del2/forward/25km_38s
+       0.5s [91mFAIL[0m ocean/planar/manufactured_solution/del4/forward/25km_38s
+Total runtime: 0:13:36
+Step time was 5229s, so this run did 6.4x the work of running one step at a time for as long.
+
+Baseline comparison: 60 passed, 0 failed
+
+Property checks: 12 passed, 2 failed
+  [91mFAIL[0m ocean/column/vmix_unstable/forward
+  [91mFAIL[0m ocean/column/vmix_unstable/forward_no_hadv_restoring
+
+33 step(s) did not get the part of the allocation they were placed on, so the packing above does not describe how this run used the machine: ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward, ocean/column/horiz_press_grad/salinity_gradient/init_4km, ocean/column/horiz_press_grad/salinity_gradient/forward_4km, ocean/planar/seamount/nonlinear/sigma/short/forward, ocean/planar/baroclinic_channel/10km/decomp/4proc, ocean/column/thermo/forward_sensible_heat_flux, ocean/column/thermo/forward_evaporation_flux, ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant, ocean/planar/barotropic_gyre/munk/free-slip/short_forward, ocean/column/vmix_stable/analysis, ocean/spherical/icos/cosine_bell/decomp/12proc, ocean/spherical/icos/cosine_bell/decomp/24proc, ocean/column/thermo/forward_long_wave_heat_flux_down, ocean/column/thermo/forward_sea_ice_fresh_water_flux, ocean/planar/baroclinic_channel/10km/restart/restart_run, ocean/column/inertial/forward, ocean/spherical/icos/cosine_bell/restart/restart_run, ocean/column/thermo/forward_latent_heat_flux, ocean/column/thermo/forward_sea_ice_heat_flux, ocean/planar/baroclinic_channel/10km/threads/validate, ocean/planar/manufactured_solution/default/forward/200km_300s, ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km, ocean/column/thermo/forward_snow_flux, ocean/column/thermo/forward_river_runoff_flux, ocean/column/thermo/forward_ice_runoff_flux, ocean/column/ekman/forward_constant, ocean/column/vmix_unstable/forward_no_hadv, ocean/column/horiz_press_grad/salinity_gradient/forward_500m, ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward, ocean/column/horiz_press_grad/salinity_gradient/forward_3km, ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward, ocean/column/thermo/forward_rain_flux, ocean/column/horiz_press_grad/salinity_gradient/forward_2km
+FAIL: 40 step(s) failed or differed from the baseline, see above.

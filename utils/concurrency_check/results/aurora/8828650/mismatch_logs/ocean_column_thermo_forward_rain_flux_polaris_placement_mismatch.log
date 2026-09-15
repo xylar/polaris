@@ -1,0 +1,7 @@
+The placement of step ocean/column/thermo/forward_rain_flux does not describe how it ran.
+
+  This process was given 1 cores (0) but is allowed 204 (1-51,53-103,105-155,157-207).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
