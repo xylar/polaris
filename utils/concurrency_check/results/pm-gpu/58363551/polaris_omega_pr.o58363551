@@ -1,0 +1,523 @@
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.6.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+Running 115 step(s)
+
+Allocation:
+  nid001600: 64 cores, 4 gpus, 237769 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid001601: 64 cores, 4 gpus, 238451 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid002172: 64 cores, 4 gpus, 238461 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid002173: 64 cores, 4 gpus, 238669 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid003232: 64 cores, 4 gpus, 238429 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid003233: 64 cores, 4 gpus, 238601 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid003284: 64 cores, 4 gpus, 238250 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid003896: 64 cores, 4 gpus, 237712 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid001600 credits 19431 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid001601 credits 18749 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid002172 credits 18739 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid002173 credits 18531 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid003232 credits 18771 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid003233 credits 18599 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid003284 credits 18950 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid003896 credits 19488 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  * ocean/column/horiz_press_grad/salinity_gradient/init_4km: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_3km: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_2km: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1.5km: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1km: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_750m: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_500m: started on ['nid001600']
+  * ocean/column/init/wind_evap/stable: started on ['nid001600']
+  * ocean/column/init/no_forcing/unstable: started on ['nid001600']
+  * ocean/column/init/latent_heat_flux/stable: started on ['nid001600']
+  * ocean/column/init/sensible_heat_flux/stable: started on ['nid001600']
+  * ocean/column/init/short_wave_heat_flux/stable: started on ['nid001600']
+  * ocean/column/init/long_wave_heat_flux_up/stable: started on ['nid001600']
+  * ocean/column/init/long_wave_heat_flux_down/stable: started on ['nid001600']
+  * ocean/column/init/evaporation_flux/stable: started on ['nid001600']
+  * ocean/column/init/snow_flux/stable: started on ['nid001600']
+  * ocean/column/init/rain_flux/stable: started on ['nid001600']
+  * ocean/column/init/river_runoff_flux/stable: started on ['nid001600']
+  * ocean/column/init/ice_runoff_flux/stable: started on ['nid001600']
+  * ocean/column/init/sea_ice_fresh_water_flux/stable: started on ['nid001600']
+  * ocean/column/init/sea_ice_heat_flux/stable: started on ['nid001600']
+  * ocean/column/init/sea_ice_salinity_flux/stable: started on ['nid001600']
+  * ocean/column/thermo/conservation_summary: started on ['nid001600']
+  * ocean/planar/baroclinic_channel/10km/init: started on ['nid001600']
+  * ocean/planar/barotropic_gyre/munk/free-slip/init: started on ['nid001600']
+  * ocean/planar/manufactured_solution/init/200km: started on ['nid001600']
+  * ocean/planar/manufactured_solution/init/100km: started on ['nid001600']
+  * ocean/planar/manufactured_solution/init/50km: started on ['nid001600']
+  * ocean/planar/manufactured_solution/init/25km: started on ['nid001600']
+  * ocean/planar/merry_go_round/init/5m: started on ['nid001600']
+  * ocean/planar/overflow/linear/zstar/init: started on ['nid001600']
+  * ocean/planar/overflow/nonlinear/pstar/init: started on ['nid001600']
+  * ocean/planar/seamount/linear/zstar/init: started on ['nid001600']
+  * ocean/planar/seamount/nonlinear/sigma/init: started on ['nid001600']
+  * mesh/spherical/icos/base_mesh/480km: started on ['nid001600']
+  * ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward: started on ['nid001600']
+  * ocean/column/init/wind/neutral: started on ['nid001600']
+  * ocean/column/init/no_forcing/stable: started on ['nid001600']
+  * ocean/column/thermo/conservation_summary: [92mSUCCESS[0m [94m0.2s[0m
+  * ocean/column/init/sea_ice_heat_flux/stable: [92mSUCCESS[0m [94m13.4s[0m
+  * ocean/column/thermo/forward_sea_ice_heat_flux: started on ['nid001600']
+  * ocean/column/init/short_wave_heat_flux/stable: [92mSUCCESS[0m [94m13.5s[0m
+  * ocean/column/thermo/forward_short_wave_heat_flux: started on ['nid001600']
+  * ocean/column/init/long_wave_heat_flux_down/stable: [92mSUCCESS[0m [94m13.5s[0m
+  * ocean/column/thermo/forward_long_wave_heat_flux_down: started on ['nid001600']
+  * ocean/column/init/wind_evap/stable: [92mSUCCESS[0m [94m13.5s[0m
+  * ocean/column/init/no_forcing/unstable: [92mSUCCESS[0m [94m13.5s[0m
+  * ocean/column/init/snow_flux/stable: [92mSUCCESS[0m [94m13.5s[0m
+  * ocean/planar/manufactured_solution/init/200km: [92mSUCCESS[0m [94m13.4s[0m
+  * ocean/column/init/no_forcing/stable: [92mSUCCESS[0m [94m13.3s[0m
+  * ocean/column/init/evaporation_flux/stable: [92mSUCCESS[0m [94m13.5s[0m
+  * ocean/column/init/long_wave_heat_flux_up/stable: [92mSUCCESS[0m [94m13.5s[0m
+  * ocean/column/init/latent_heat_flux/stable: [92mSUCCESS[0m [94m13.7s[0m
+  * ocean/column/init/sensible_heat_flux/stable: [92mSUCCESS[0m [94m13.7s[0m
+  * ocean/column/init/sea_ice_salinity_flux/stable: [92mSUCCESS[0m [94m13.6s[0m
+  * ocean/column/init/ice_runoff_flux/stable: [92mSUCCESS[0m [94m13.6s[0m
+  * ocean/column/init/rain_flux/stable: [92mSUCCESS[0m [94m13.6s[0m
+  * ocean/planar/overflow/linear/zstar/init: [92mSUCCESS[0m [94m13.5s[0m
+  * ocean/column/init/wind/neutral: [92mSUCCESS[0m [94m13.5s[0m
+  * ocean/column/init/sea_ice_fresh_water_flux/stable: [92mSUCCESS[0m [94m13.6s[0m
+  * ocean/planar/seamount/linear/zstar/init: [92mSUCCESS[0m [94m13.5s[0m
+  * ocean/column/init/river_runoff_flux/stable: [92mSUCCESS[0m [94m13.7s[0m
+  * ocean/planar/seamount/nonlinear/sigma/init: [92mSUCCESS[0m [94m13.6s[0m
+  * ocean/planar/overflow/nonlinear/pstar/init: [92mSUCCESS[0m [94m13.8s[0m
+  * ocean/planar/manufactured_solution/init/100km: [92mSUCCESS[0m [94m14.0s[0m
+  * mesh/spherical/icos/base_mesh/480km: [92mSUCCESS[0m [94m14.0s[0m
+  * ocean/spherical/icos/cosine_bell/init/480km: started on ['nid001600']
+  * ocean/planar/manufactured_solution/init/50km: [92mSUCCESS[0m [94m15.2s[0m
+  * ocean/planar/manufactured_solution/default/forward/50km_75s: started on ['nid001601']
+  * ocean/planar/manufactured_solution/del2/forward/50km_75s: started on ['nid002172']
+  * ocean/planar/manufactured_solution/del4/forward/50km_75s: started on ['nid002173']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_500m: [92mSUCCESS[0m [94m15.5s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1km: [92mSUCCESS[0m [94m15.5s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_2km: [92mSUCCESS[0m [94m15.6s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1.5km: [92mSUCCESS[0m [94m15.5s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_750m: [92mSUCCESS[0m [94m15.5s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_3km: [92mSUCCESS[0m [94m15.6s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_4km: [92mSUCCESS[0m [94m15.8s[0m
+  * ocean/spherical/icos/cosine_bell/init/480km: [92mSUCCESS[0m [94m1.7s[0m
+  * ocean/spherical/icos/cosine_bell/decomp/12proc: started on ['nid003232', 'nid003233', 'nid003284']
+  * ocean/planar/baroclinic_channel/10km/init: [92mSUCCESS[0m [94m15.9s[0m
+  * ocean/planar/baroclinic_channel/10km/decomp/4proc: started on ['nid003896']
+  * ocean/planar/manufactured_solution/init/25km: [92mSUCCESS[0m [94m19.8s[0m
+  * ocean/column/thermo/forward_long_wave_heat_flux_down: [92mSUCCESS[0m [94m7.8s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_4km: started on ['nid001600']
+  * ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward: [92mSUCCESS[0m [94m21.1s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_3km: started on ['nid001600']
+  * ocean/column/thermo/forward_sea_ice_heat_flux: [92mSUCCESS[0m [94m8.0s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_2km: started on ['nid001600']
+  * ocean/column/thermo/forward_short_wave_heat_flux: [92mSUCCESS[0m [94m8.0s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km: started on ['nid001600']
+
+The placement of step ocean/planar/baroclinic_channel/10km/decomp/4proc does not describe how it ran.
+
+  On nid003896 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/baroclinic_channel/10km/decomp/4proc: [92mSUCCESS[0m [94m7.0s[0m
+  * ocean/planar/baroclinic_channel/10km/threads/1thread: started on ['nid003896']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_4km: [92mSUCCESS[0m [94m2.5s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1km: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_3km: [92mSUCCESS[0m [94m2.9s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_750m: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_2km: [92mSUCCESS[0m [94m2.9s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_500m: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km: [92mSUCCESS[0m [94m2.9s[0m
+  * ocean/column/vmix_stable/forward_no_hadv: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1km: [92mSUCCESS[0m [94m1.3s[0m
+  * ocean/column/vmix_stable/forward: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_750m: [92mSUCCESS[0m [94m2.4s[0m
+  * ocean/column/vmix_stable/forward_no_hadv_restoring: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_500m: [92mSUCCESS[0m [94m2.6s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/analysis: started on ['nid001600']
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv: started on ['nid001600']
+  * ocean/planar/merry_go_round/init/5m: [92mSUCCESS[0m [94m27.3s[0m
+  * ocean/planar/barotropic_gyre/munk/free-slip/init: [92mSUCCESS[0m [94m28.3s[0m
+
+The placement of step ocean/planar/baroclinic_channel/10km/threads/1thread does not describe how it ran.
+
+  On nid003896 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/baroclinic_channel/10km/threads/1thread: [92mSUCCESS[0m [94m5.9s[0m
+  * ocean/planar/baroclinic_channel/10km/threads/2thread: started on ['nid003896']
+  * ocean/column/vmix_stable/forward_no_hadv: [92mSUCCESS[0m [94m6.9s[0m
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant: started on ['nid001600']
+
+The placement of step ocean/spherical/icos/cosine_bell/decomp/12proc does not describe how it ran.
+
+  On nid003232 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid003233 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid003284 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/spherical/icos/cosine_bell/decomp/12proc: [92mSUCCESS[0m [94m16.8s[0m
+  * ocean/planar/baroclinic_channel/10km/decomp/8proc: started on ['nid003232', 'nid003233']
+  * ocean/column/vmix_stable/forward: [92mSUCCESS[0m [94m7.8s[0m
+  * ocean/column/vmix_stable/analysis: started on ['nid001600']
+  * ocean/column/vmix_unstable/forward_no_hadv: started on ['nid001600']
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv: [92mSUCCESS[0m [94m6.3s[0m
+  * ocean/column/vmix_unstable/forward: started on ['nid001600']
+  * ocean/column/vmix_stable/analysis: [92mSUCCESS[0m [94m0.5s[0m
+  * ocean/column/vmix_stable/forward_no_hadv_restoring: [92mSUCCESS[0m [94m6.7s[0m
+  * ocean/column/vmix_unstable/forward_no_hadv_restoring: started on ['nid001600']
+
+The placement of step ocean/planar/baroclinic_channel/10km/threads/2thread does not describe how it ran.
+
+  On nid003896 the launch was allowed 8 cores (0,16,32,48,64,80,96,112) but was given 8 (0-7).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/baroclinic_channel/10km/threads/2thread: [92mSUCCESS[0m [94m5.4s[0m
+  * ocean/planar/baroclinic_channel/10km/threads/validate: started on ['nid001600']
+  * ocean/planar/baroclinic_channel/10km/threads/validate: [92mSUCCESS[0m [94m0.4s[0m
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant: [92mSUCCESS[0m [94m6.7s[0m
+  * ocean/column/vmix_stable/viz: started on ['nid001600']
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv: started on ['nid001600']
+  * ocean/column/vmix_unstable/forward_no_hadv: [92mSUCCESS[0m [94m6.0s[0m
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv_constant: started on ['nid001600']
+
+The placement of step ocean/planar/baroclinic_channel/10km/decomp/8proc does not describe how it ran.
+
+  On nid003232 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid003233 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/baroclinic_channel/10km/decomp/8proc: [92mSUCCESS[0m [94m6.8s[0m
+  * ocean/planar/baroclinic_channel/10km/decomp/validate: started on ['nid001600']
+  * ocean/column/vmix_unstable/forward: [92mSUCCESS[0m [94m6.7s[0m
+  * ocean/column/thermo/forward_latent_heat_flux: started on ['nid001600']
+  * ocean/planar/baroclinic_channel/10km/decomp/validate: [92mSUCCESS[0m [94m0.3s[0m
+  * ocean/column/vmix_unstable/forward_no_hadv_restoring: [92mSUCCESS[0m [94m6.5s[0m
+  * ocean/column/thermo/forward_sensible_heat_flux: started on ['nid001600']
+  * ocean/column/vmix_stable/viz: [92mSUCCESS[0m [94m3.3s[0m
+
+The placement of step ocean/planar/manufactured_solution/del4/forward/50km_75s does not describe how it ran.
+
+  On nid002173 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/manufactured_solution/del4/forward/50km_75s: [92mSUCCESS[0m [94m26.1s[0m
+  * ocean/planar/manufactured_solution/default/forward/25km_38s: started on ['nid002173', 'nid003232', 'nid003233', 'nid003284', 'nid003896']
+
+The placement of step ocean/planar/manufactured_solution/del2/forward/50km_75s does not describe how it ran.
+
+  On nid002172 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/manufactured_solution/del2/forward/50km_75s: [92mSUCCESS[0m [94m26.1s[0m
+
+The placement of step ocean/planar/manufactured_solution/default/forward/50km_75s does not describe how it ran.
+
+  On nid001601 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/manufactured_solution/default/forward/50km_75s: [92mSUCCESS[0m [94m26.2s[0m
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv: [92mSUCCESS[0m [94m6.3s[0m
+  * ocean/column/thermo/forward_long_wave_heat_flux_up: started on ['nid001600']
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv_constant: [92mSUCCESS[0m [94m5.7s[0m
+  * ocean/column/vmix_unstable/viz: started on ['nid001600']
+  * ocean/column/thermo/forward_evaporation_flux: started on ['nid001600']
+  * ocean/column/thermo/forward_latent_heat_flux: [92mSUCCESS[0m [94m6.3s[0m
+  * ocean/column/thermo/forward_snow_flux: started on ['nid001600']
+  * ocean/column/thermo/forward_sensible_heat_flux: [92mSUCCESS[0m [94m6.6s[0m
+  * ocean/column/thermo/forward_rain_flux: started on ['nid001600']
+  * ocean/column/vmix_unstable/viz: [92mSUCCESS[0m [94m3.6s[0m
+  * ocean/column/thermo/forward_long_wave_heat_flux_up: [92mSUCCESS[0m [94m6.0s[0m
+  * ocean/column/thermo/forward_river_runoff_flux: started on ['nid001600']
+  * ocean/column/thermo/forward_evaporation_flux: [92mSUCCESS[0m [94m6.8s[0m
+  * ocean/column/thermo/forward_ice_runoff_flux: started on ['nid001600']
+  * ocean/column/thermo/forward_snow_flux: [92mSUCCESS[0m [94m5.8s[0m
+  * ocean/column/thermo/forward_sea_ice_fresh_water_flux: started on ['nid001600']
+  * ocean/column/thermo/forward_rain_flux: [92mSUCCESS[0m [94m6.1s[0m
+  * ocean/column/thermo/forward_sea_ice_salinity_flux: started on ['nid001600']
+  * ocean/column/thermo/forward_river_runoff_flux: [92mSUCCESS[0m [94m6.6s[0m
+  * ocean/planar/baroclinic_channel/10km/restart/full_run: started on ['nid001600']
+  * ocean/column/thermo/forward_ice_runoff_flux: [92mSUCCESS[0m [94m6.6s[0m
+  * ocean/planar/barotropic_gyre/munk/free-slip/short_forward: started on ['nid001600']
+  * ocean/column/thermo/forward_sea_ice_fresh_water_flux: [92mSUCCESS[0m [94m6.1s[0m
+  * ocean/planar/manufactured_solution/default/forward/200km_300s: started on ['nid001600']
+  * ocean/column/thermo/forward_sea_ice_salinity_flux: [92mSUCCESS[0m [94m6.1s[0m
+  * ocean/planar/manufactured_solution/default/forward/100km_150s: started on ['nid001600']
+  * ocean/planar/baroclinic_channel/10km/restart/full_run: [92mSUCCESS[0m [94m2.9s[0m
+  * ocean/planar/baroclinic_channel/10km/restart/restart_run: started on ['nid001600']
+  * ocean/column/horiz_press_grad/salinity_gradient/analysis: [92mSUCCESS[0m [94m33.3s[0m
+  * ocean/planar/baroclinic_channel/10km/restart/restart_run: [92mSUCCESS[0m [94m2.0s[0m
+  * ocean/planar/baroclinic_channel/10km/restart/validate: started on ['nid001600']
+  * ocean/planar/manufactured_solution/del2/forward/200km_300s: started on ['nid001600']
+  * ocean/planar/manufactured_solution/default/forward/200km_300s: [92mSUCCESS[0m [94m4.0s[0m
+  * ocean/planar/manufactured_solution/del2/forward/100km_150s: started on ['nid001600']
+  * ocean/planar/baroclinic_channel/10km/restart/validate: [92mSUCCESS[0m [94m0.4s[0m
+  * ocean/planar/barotropic_gyre/munk/free-slip/short_forward: [92mSUCCESS[0m [94m6.0s[0m
+  * ocean/planar/manufactured_solution/del4/forward/200km_300s: started on ['nid001600']
+  * ocean/planar/manufactured_solution/del2/forward/200km_300s: [92mSUCCESS[0m [94m3.0s[0m
+  * ocean/planar/manufactured_solution/del4/forward/100km_150s: started on ['nid001600']
+  * ocean/planar/manufactured_solution/default/forward/100km_150s: [92mSUCCESS[0m [94m6.1s[0m
+  * ocean/planar/merry_go_round/forward/5m_90s_limiter: started on ['nid001600']
+  * ocean/planar/manufactured_solution/del4/forward/200km_300s: [92mSUCCESS[0m [94m3.2s[0m
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward: started on ['nid001600']
+  * ocean/planar/manufactured_solution/del2/forward/100km_150s: [92mSUCCESS[0m [94m5.4s[0m
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3/forward: started on ['nid001600']
+  * ocean/planar/merry_go_round/forward/5m_90s_limiter: [92mSUCCESS[0m [94m3.0s[0m
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4/forward: started on ['nid001600']
+  * ocean/planar/manufactured_solution/del4/forward/100km_150s: [92mSUCCESS[0m [94m6.2s[0m
+  * ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward: started on ['nid001600']
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward: [92mSUCCESS[0m [94m8.2s[0m
+  * ocean/planar/seamount/linear/zstar/short/forward: started on ['nid001600']
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3/forward: [92mSUCCESS[0m [94m8.1s[0m
+  * ocean/planar/seamount/nonlinear/sigma/short/forward: started on ['nid001600']
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4/forward: [92mSUCCESS[0m [94m7.9s[0m
+  * ocean/spherical/icos/cosine_bell/restart/full_run: started on ['nid001600']
+
+The placement of step ocean/planar/manufactured_solution/default/forward/25km_38s does not describe how it ran.
+
+  On nid002173 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid003232 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid003233 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid003284 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid003896 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/manufactured_solution/default/forward/25km_38s: [92mSUCCESS[0m [94m35.6s[0m
+  * ocean/planar/manufactured_solution/convergence_both/default/analysis: started on ['nid001600']
+  * ocean/planar/manufactured_solution/del2/forward/25km_38s: started on ['nid001601', 'nid002172', 'nid002173', 'nid003232', 'nid003233']
+  * ocean/planar/manufactured_solution/convergence_both/default/analysis: [92mSUCCESS[0m [94m1.8s[0m
+  * ocean/planar/seamount/linear/zstar/short/forward: [92mSUCCESS[0m [94m3.8s[0m
+  * ocean/column/ekman/forward_constant: started on ['nid001600']
+  * ocean/planar/seamount/nonlinear/sigma/short/forward: [92mSUCCESS[0m [94m3.8s[0m
+  * ocean/column/inertial/forward: started on ['nid001600']
+  * ocean/spherical/icos/cosine_bell/restart/full_run: [92mSUCCESS[0m [94m3.6s[0m
+  * ocean/spherical/icos/cosine_bell/restart/restart_run: started on ['nid001600']
+  * ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward: [92mSUCCESS[0m [94m8.6s[0m
+  * ocean/spherical/icos/cosine_bell/restart/restart_run: [92mSUCCESS[0m [94m3.0s[0m
+  * ocean/spherical/icos/cosine_bell/restart/validate: started on ['nid001600']
+  * ocean/spherical/icos/cosine_bell/restart/validate: [92mSUCCESS[0m [94m0.5s[0m
+  * ocean/column/ekman/forward_constant: [92mSUCCESS[0m [94m4.8s[0m
+  * ocean/column/ekman/analysis: started on ['nid001600']
+  * ocean/column/ekman/analysis: [92mSUCCESS[0m [94m3.2s[0m
+  * ocean/column/inertial/forward: [92mSUCCESS[0m [94m12.6s[0m
+  * ocean/column/inertial/analysis: started on ['nid001600']
+  * ocean/column/inertial/analysis: [92mSUCCESS[0m [94m2.9s[0m
+
+The placement of step ocean/planar/manufactured_solution/del2/forward/25km_38s does not describe how it ran.
+
+  On nid001601 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid002172 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid002173 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid003232 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+  On nid003233 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/manufactured_solution/del2/forward/25km_38s: [92mSUCCESS[0m [94m35.8s[0m
+  * ocean/planar/manufactured_solution/convergence_both/del2/analysis: started on ['nid001600']
+  * ocean/planar/manufactured_solution/del4/forward/25km_38s: started on ['nid001600', 'nid001601', 'nid002172', 'nid002173', 'nid003232']
+  * ocean/planar/manufactured_solution/convergence_both/del2/analysis: [92mSUCCESS[0m [94m1.8s[0m
+
+The placement of step ocean/planar/manufactured_solution/del4/forward/25km_38s does not describe how it ran.
+
+  On nid001600 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid001601 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid002172 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid002173 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid003232 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/planar/manufactured_solution/del4/forward/25km_38s: [92mSUCCESS[0m [94m35.3s[0m
+  * ocean/planar/manufactured_solution/convergence_both/del4/analysis: started on ['nid001600']
+  * ocean/spherical/icos/cosine_bell/decomp/24proc: started on ['nid001600', 'nid001601', 'nid002172', 'nid002173', 'nid003232', 'nid003233']
+  * ocean/planar/manufactured_solution/convergence_both/del4/analysis: [92mSUCCESS[0m [94m1.3s[0m
+
+The placement of step ocean/spherical/icos/cosine_bell/decomp/24proc does not describe how it ran.
+
+  On nid001600 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid001601 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid002172 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid002173 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid003232 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid003233 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
+  * ocean/spherical/icos/cosine_bell/decomp/24proc: [92mSUCCESS[0m [94m16.5s[0m
+  * ocean/spherical/icos/cosine_bell/decomp/validate: started on ['nid001600']
+  * ocean/spherical/icos/cosine_bell/decomp/validate: [92mSUCCESS[0m [94m0.3s[0m
+
+Step runtimes:
+       0.2s [92mSUCCESS[0m ocean/column/thermo/conservation_summary
+      13.4s [92mSUCCESS[0m ocean/column/init/sea_ice_heat_flux/stable
+      13.5s [92mSUCCESS[0m ocean/column/init/short_wave_heat_flux/stable
+      13.5s [92mSUCCESS[0m ocean/column/init/long_wave_heat_flux_down/stable
+      13.5s [92mSUCCESS[0m ocean/column/init/wind_evap/stable
+      13.5s [92mSUCCESS[0m ocean/column/init/no_forcing/unstable
+      13.5s [92mSUCCESS[0m ocean/column/init/snow_flux/stable
+      13.4s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/200km
+      13.3s [92mSUCCESS[0m ocean/column/init/no_forcing/stable
+      13.5s [92mSUCCESS[0m ocean/column/init/evaporation_flux/stable
+      13.5s [92mSUCCESS[0m ocean/column/init/long_wave_heat_flux_up/stable
+      13.7s [92mSUCCESS[0m ocean/column/init/latent_heat_flux/stable
+      13.7s [92mSUCCESS[0m ocean/column/init/sensible_heat_flux/stable
+      13.6s [92mSUCCESS[0m ocean/column/init/sea_ice_salinity_flux/stable
+      13.6s [92mSUCCESS[0m ocean/column/init/ice_runoff_flux/stable
+      13.6s [92mSUCCESS[0m ocean/column/init/rain_flux/stable
+      13.5s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/init
+      13.5s [92mSUCCESS[0m ocean/column/init/wind/neutral
+      13.6s [92mSUCCESS[0m ocean/column/init/sea_ice_fresh_water_flux/stable
+      13.5s [92mSUCCESS[0m ocean/planar/seamount/linear/zstar/init
+      13.7s [92mSUCCESS[0m ocean/column/init/river_runoff_flux/stable
+      13.6s [92mSUCCESS[0m ocean/planar/seamount/nonlinear/sigma/init
+      13.8s [92mSUCCESS[0m ocean/planar/overflow/nonlinear/pstar/init
+      14.0s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/100km
+      14.0s [92mSUCCESS[0m mesh/spherical/icos/base_mesh/480km
+      15.2s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/50km
+      15.5s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_500m
+      15.5s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_1km
+      15.6s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_2km
+      15.5s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_1.5km
+      15.5s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_750m
+      15.6s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_3km
+      15.8s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_4km
+       1.7s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/init/480km
+      15.9s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/init
+      19.8s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/25km
+       7.8s [92mSUCCESS[0m ocean/column/thermo/forward_long_wave_heat_flux_down
+      21.1s [92mSUCCESS[0m ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward
+       8.0s [92mSUCCESS[0m ocean/column/thermo/forward_sea_ice_heat_flux
+       8.0s [92mSUCCESS[0m ocean/column/thermo/forward_short_wave_heat_flux
+       7.0s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/decomp/4proc
+       2.5s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_4km
+       2.9s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_3km
+       2.9s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_2km
+       2.9s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km
+       1.3s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_1km
+       2.4s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_750m
+       2.6s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_500m
+      27.3s [92mSUCCESS[0m ocean/planar/merry_go_round/init/5m
+      28.3s [92mSUCCESS[0m ocean/planar/barotropic_gyre/munk/free-slip/init
+       5.9s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/threads/1thread
+       6.9s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_hadv
+      16.8s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/decomp/12proc
+       7.8s [92mSUCCESS[0m ocean/column/vmix_stable/forward
+       6.3s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_vadv_no_hadv
+       0.5s [92mSUCCESS[0m ocean/column/vmix_stable/analysis
+       6.7s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_hadv_restoring
+       5.4s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/threads/2thread
+       0.4s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/threads/validate
+       6.7s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant
+       6.0s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_hadv
+       6.8s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/decomp/8proc
+       6.7s [92mSUCCESS[0m ocean/column/vmix_unstable/forward
+       0.3s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/decomp/validate
+       6.5s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_hadv_restoring
+       3.3s [92mSUCCESS[0m ocean/column/vmix_stable/viz
+      26.1s [92mSUCCESS[0m ocean/planar/manufactured_solution/del4/forward/50km_75s
+      26.1s [92mSUCCESS[0m ocean/planar/manufactured_solution/del2/forward/50km_75s
+      26.2s [92mSUCCESS[0m ocean/planar/manufactured_solution/default/forward/50km_75s
+       6.3s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_vadv_no_hadv
+       5.7s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_vadv_no_hadv_constant
+       6.3s [92mSUCCESS[0m ocean/column/thermo/forward_latent_heat_flux
+       6.6s [92mSUCCESS[0m ocean/column/thermo/forward_sensible_heat_flux
+       3.6s [92mSUCCESS[0m ocean/column/vmix_unstable/viz
+       6.0s [92mSUCCESS[0m ocean/column/thermo/forward_long_wave_heat_flux_up
+       6.8s [92mSUCCESS[0m ocean/column/thermo/forward_evaporation_flux
+       5.8s [92mSUCCESS[0m ocean/column/thermo/forward_snow_flux
+       6.1s [92mSUCCESS[0m ocean/column/thermo/forward_rain_flux
+       6.6s [92mSUCCESS[0m ocean/column/thermo/forward_river_runoff_flux
+       6.6s [92mSUCCESS[0m ocean/column/thermo/forward_ice_runoff_flux
+       6.1s [92mSUCCESS[0m ocean/column/thermo/forward_sea_ice_fresh_water_flux
+       6.1s [92mSUCCESS[0m ocean/column/thermo/forward_sea_ice_salinity_flux
+       2.9s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/restart/full_run
+      33.3s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/analysis
+       2.0s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/restart/restart_run
+       4.0s [92mSUCCESS[0m ocean/planar/manufactured_solution/default/forward/200km_300s
+       0.4s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/restart/validate
+       6.0s [92mSUCCESS[0m ocean/planar/barotropic_gyre/munk/free-slip/short_forward
+       3.0s [92mSUCCESS[0m ocean/planar/manufactured_solution/del2/forward/200km_300s
+       6.1s [92mSUCCESS[0m ocean/planar/manufactured_solution/default/forward/100km_150s
+       3.2s [92mSUCCESS[0m ocean/planar/manufactured_solution/del4/forward/200km_300s
+       5.4s [92mSUCCESS[0m ocean/planar/manufactured_solution/del2/forward/100km_150s
+       3.0s [92mSUCCESS[0m ocean/planar/merry_go_round/forward/5m_90s_limiter
+       6.2s [92mSUCCESS[0m ocean/planar/manufactured_solution/del4/forward/100km_150s
+       8.2s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward
+       8.1s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3/forward
+       7.9s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4/forward
+      35.6s [92mSUCCESS[0m ocean/planar/manufactured_solution/default/forward/25km_38s
+       1.8s [92mSUCCESS[0m ocean/planar/manufactured_solution/convergence_both/default/analysis
+       3.8s [92mSUCCESS[0m ocean/planar/seamount/linear/zstar/short/forward
+       3.8s [92mSUCCESS[0m ocean/planar/seamount/nonlinear/sigma/short/forward
+       3.6s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/restart/full_run
+       8.6s [92mSUCCESS[0m ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward
+       3.0s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/restart/restart_run
+       0.5s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/restart/validate
+       4.8s [92mSUCCESS[0m ocean/column/ekman/forward_constant
+       3.2s [92mSUCCESS[0m ocean/column/ekman/analysis
+      12.6s [92mSUCCESS[0m ocean/column/inertial/forward
+       2.9s [92mSUCCESS[0m ocean/column/inertial/analysis
+      35.8s [92mSUCCESS[0m ocean/planar/manufactured_solution/del2/forward/25km_38s
+       1.8s [92mSUCCESS[0m ocean/planar/manufactured_solution/convergence_both/del2/analysis
+      35.3s [92mSUCCESS[0m ocean/planar/manufactured_solution/del4/forward/25km_38s
+       1.3s [92mSUCCESS[0m ocean/planar/manufactured_solution/convergence_both/del4/analysis
+      16.5s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/decomp/24proc
+       0.3s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/decomp/validate
+Total runtime: 0:02:45
+Step time was 1134s, so this run did 6.9x the work of running one step at a time for as long.
+
+Property checks: 32 passed, 10 failed
+  [91mFAIL[0m ocean/column/inertial/forward
+  [91mFAIL[0m ocean/column/vmix_stable/forward
+  [91mFAIL[0m ocean/column/vmix_stable/forward_no_hadv
+  [91mFAIL[0m ocean/column/vmix_stable/forward_no_hadv_restoring
+  [91mFAIL[0m ocean/column/vmix_stable/forward_no_vadv_no_hadv
+  [91mFAIL[0m ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant
+  [91mFAIL[0m ocean/column/vmix_unstable/forward
+  [91mFAIL[0m ocean/column/vmix_unstable/forward_no_hadv
+  [91mFAIL[0m ocean/column/vmix_unstable/forward_no_hadv_restoring
+  [91mFAIL[0m ocean/column/vmix_unstable/forward_no_vadv_no_hadv
+
+12 step(s) did not get the part of the allocation they were placed on, so the packing above does not describe how this run used the machine: ocean/planar/baroclinic_channel/10km/decomp/4proc, ocean/planar/baroclinic_channel/10km/threads/1thread, ocean/spherical/icos/cosine_bell/decomp/12proc, ocean/planar/baroclinic_channel/10km/threads/2thread, ocean/planar/baroclinic_channel/10km/decomp/8proc, ocean/planar/manufactured_solution/del4/forward/50km_75s, ocean/planar/manufactured_solution/del2/forward/50km_75s, ocean/planar/manufactured_solution/default/forward/50km_75s, ocean/planar/manufactured_solution/default/forward/25km_38s, ocean/planar/manufactured_solution/del2/forward/25km_38s, ocean/planar/manufactured_solution/del4/forward/25km_38s, ocean/spherical/icos/cosine_bell/decomp/24proc
+PASS: All passed successfully!

@@ -1,0 +1,7 @@
+The placement of step ocean/planar/baroclinic_channel/10km/decomp/4proc does not describe how it ran.
+
+  On nid003896 the launch was allowed 4 cores (0,16,64,80) but was given 4 (0-3).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.

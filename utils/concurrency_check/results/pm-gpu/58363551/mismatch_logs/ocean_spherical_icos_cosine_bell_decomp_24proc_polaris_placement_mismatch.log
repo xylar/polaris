@@ -1,0 +1,12 @@
+The placement of step ocean/spherical/icos/cosine_bell/decomp/24proc does not describe how it ran.
+
+  On nid001600 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid001601 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid002172 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid002173 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid003232 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+  On nid003233 the launch was allowed 4 cores (0,16,64,80) but was given 4 (1-4).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
