@@ -1,0 +1,101 @@
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.6.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+== job 8828632.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov ==
+
+== what PBS says this job holds ==
+PBS_JOBID=8828632.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov
+PBS_NODEFILE=/var/spool/pbs/aux/8828632.aurora-pbs-0001.hostmgmt.cm.aurora.alcf.anl.gov
+PBS_O_WORKDIR=/home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b
+NCPUS=208
+
+PBS_NODEFILE holds:
+x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov
+x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov
+
+== what pbsnodes says about these nodes, for comparison ==
+x4207c5s4b0n0:
+     resources_available.mem = 1190359584kb
+     resources_available.ncpus = 208
+x4207c5s5b0n0:
+     resources_available.mem = 1190359516kb
+     resources_available.ncpus = 208
+
+mache's aurora.cfg says memory_per_node = 960000 MB (provisional)
+
+node_names: ['x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov']
+cores_per_node: 102
+gpus_per_node: 0
+placement_support: PlacementSupport.CPU_BINDING
+
+== what each node says about its memory ==
+Asking the nodes about memory failed with exit code 139. Using the configured figure.
+x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov -1: ERROR: affinity setup: object has too few CPUs for rank
+x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov: shepherd died from signal 11
+x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov -1: ERROR: affinity setup: object has too few CPUs for rank
+
+Allocation:
+  x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov: 102 cores, 0 gpus, 960000 MiB (config)
+      configured: 960000 MiB
+  x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov: 102 cores, 0 gpus, 960000 MiB (config)
+      configured: 960000 MiB
+
+== does a placement spanning nodes land where it was placed? ==
+== one node, two tasks ==
+placement nodes: ['x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov']
+  x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov: 1-4
+tasks: 2, cpus_per_task: 2
+chunks in task order: [[1, 2], [3, 4]]
+command: mpiexec --label -n 2 --ppn 2 --depth 2 --hosts x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov --cpu-bind list:1,2:3,4 /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/pixi-env/.pixi/envs/default/bin/python -c import os, socket; print('POLARIS_CONFINEMENT', socket.gethostname().split('.')[0], ','.join(str(core) for core in sorted(os.sched_getaffinity(0))), flush=True)
+  raw probe output:
+    x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov 1: POLARIS_CONFINEMENT x4207c5s4b0n0 3,4
+    x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov 0: POLARIS_CONFINEMENT x4207c5s4b0n0 1,2
+  x4207c5s4b0n0: allowed exactly its 4 cores (1-4)
+== two nodes, one task each ==
+placement nodes: ['x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov']
+  x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov: 1
+  x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov: 60
+tasks: 2, cpus_per_task: 1
+chunks in task order: [[1], [60]]
+command: mpiexec --label -n 2 --ppn 1 --depth 1 --hosts x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov,x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov --cpu-bind list:1:60 /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/pixi-env/.pixi/envs/default/bin/python -c import os, socket; print('POLARIS_CONFINEMENT', socket.gethostname().split('.')[0], ','.join(str(core) for core in sorted(os.sched_getaffinity(0))), flush=True)
+  raw probe output:
+    x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov 0: POLARIS_CONFINEMENT x4207c5s4b0n0 1
+    x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov 1: POLARIS_CONFINEMENT x4207c5s5b0n0 1
+  x4207c5s4b0n0: allowed exactly its 1 cores (1)
+  x4207c5s5b0n0: allowed 1 cores (1) but was given 1 (60)
+== two nodes, two tasks each ==
+placement nodes: ['x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov']
+  x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov: 1-4
+  x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov: 61-64
+tasks: 4, cpus_per_task: 2
+chunks in task order: [[1, 2], [3, 4], [61, 62], [63, 64]]
+command: mpiexec --label -n 4 --ppn 2 --depth 2 --hosts x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov,x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov --cpu-bind list:1,2:3,4:61,62:63,64 /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/pixi-env/.pixi/envs/default/bin/python -c import os, socket; print('POLARIS_CONFINEMENT', socket.gethostname().split('.')[0], ','.join(str(core) for core in sorted(os.sched_getaffinity(0))), flush=True)
+  raw probe output:
+    x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov 0: POLARIS_CONFINEMENT x4207c5s4b0n0 1,2
+    x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov 1: POLARIS_CONFINEMENT x4207c5s4b0n0 3,4
+    x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov 2: POLARIS_CONFINEMENT x4207c5s5b0n0 1,2
+    x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov 3: POLARIS_CONFINEMENT x4207c5s5b0n0 3,4
+  x4207c5s4b0n0: allowed exactly its 4 cores (1-4)
+  x4207c5s5b0n0: allowed 4 cores (1-4) but was given 4 (61-64)
+== two nodes, three tasks ==
+placement nodes: ['x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov', 'x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov']
+  x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov: 5-6
+  x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov: 65
+tasks: 3, cpus_per_task: 1
+chunks in task order: [[5], [6], [65]]
+command: mpiexec --label -n 3 --ppn 2 --depth 1 --hosts x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov,x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov --cpu-bind list:5:6:65 /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/pixi-env/.pixi/envs/default/bin/python -c import os, socket; print('POLARIS_CONFINEMENT', socket.gethostname().split('.')[0], ','.join(str(core) for core in sorted(os.sched_getaffinity(0))), flush=True)
+  raw probe output:
+    x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov 0: POLARIS_CONFINEMENT x4207c5s4b0n0 5
+    x4207c5s4b0n0.hsn.cm.aurora.alcf.anl.gov 1: POLARIS_CONFINEMENT x4207c5s4b0n0 6
+    x4207c5s5b0n0.hsn.cm.aurora.alcf.anl.gov 2: POLARIS_CONFINEMENT x4207c5s5b0n0 5
+  x4207c5s4b0n0: allowed exactly its 2 cores (5-6)
+  x4207c5s5b0n0: allowed 1 cores (5) but was given 1 (65)
+
+3 of 4 case(s) did not land where they were placed.
+
+== spike exited 1 ==

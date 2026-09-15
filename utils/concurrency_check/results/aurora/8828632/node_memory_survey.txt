@@ -1,0 +1,16 @@
+resources_available.mem from 'pbsnodes -a' on an Aurora login node,
+2026/09/15.  This is the figure mache's aurora.cfg asks for and has
+never been given; it needs no job to read.
+
+nodes reported: 10624
+smallest:       1030518 MB
+largest:        1162470 MB
+configured:     960000 MB
+
+classes, rounded to the nearest GiB:
+   8561 nodes at ~1135 GiB
+   1036 nodes at ~1007 GiB
+    916 nodes at ~1134 GiB
+     93 nodes at ~1006 GiB
+     15 nodes at ~1072 GiB
+      3 nodes at ~1071 GiB
