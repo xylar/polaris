@@ -4,9 +4,10 @@ Peak and mean concurrency of a `polaris parallel` run, from its event stream.
     python utils/concurrency_check/concurrency.py <suite>_events.jsonl
 
 A finish record's `seconds` was its duration rather than a timestamp until
-`Stop a record from overwriting when it happened`, so the end of a span is
-reconstructed from the start plus the duration.  That reads correctly either
-way, which is what lets one script answer for runs on both sides of the fix.
+`Stop a record from overwriting when it happened`, which also added a separate
+`duration`.  So a record carrying `duration` is read the new way and one
+without it the old way, which is what lets one script answer for runs on both
+sides of the fix.
 """
 
 import sys
@@ -23,11 +24,19 @@ for event in events:
         begin = starts.pop(event['step'], None)
         if begin is None:
             continue
-        # 'seconds' on a finish record is the step's duration, not a
-        # timestamp, so the end has to be reconstructed
-        spans.append((begin, begin + event['seconds'], event['step']))
+        # after the fix a finish record says when it happened and carries
+        # the duration beside it; before the fix 'seconds' was the duration
+        duration = event.get('duration')
+        if duration is None:
+            end = begin + event['seconds']
+        else:
+            end = event['seconds']
+        spans.append((begin, end, event['step']))
 
 wall = max(e['seconds'] for e in events if e['event'] == 'run_finished')
+# the allocation the run was actually given, so the busy figure below is
+# against this machine rather than against whichever one it was written on
+allocated = max(e['cores'] for e in events if e['event'] == 'run_started')
 moments = sorted(
     [(b, 1) for b, _, _ in spans] + [(e, -1) for _, e, _ in spans]
 )
@@ -51,6 +60,6 @@ print(f'step time         {step_time:.0f}s  ({step_time / wall:.1f}x wall)')
 print(f'peak concurrency  {peak}')
 print(f'mean concurrency  {conc_area / wall:.1f}')
 print(
-    f'mean busy cores   {core_area / wall:.0f} of 192 '
-    f'({100 * core_area / wall / 192:.0f}%)'
+    f'mean busy cores   {core_area / wall:.0f} of {allocated} '
+    f'({100 * core_area / wall / allocated:.0f}%)'
 )
