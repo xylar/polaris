@@ -1,0 +1,7 @@
+The placement of step ocean/planar/manufactured_solution/del4/forward/200km_300s does not describe how it ran.
+
+  On nid004493 the launch was allowed 12 cores (0,16,32,48,64,80,128,144,160,176,192,208) but was given 12 (0-11).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.

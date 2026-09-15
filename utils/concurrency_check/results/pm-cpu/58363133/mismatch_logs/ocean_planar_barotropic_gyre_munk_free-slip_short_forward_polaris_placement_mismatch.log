@@ -1,0 +1,7 @@
+The placement of step ocean/planar/barotropic_gyre/munk/free-slip/short_forward does not describe how it ran.
+
+  On nid004494 the launch was allowed 56 cores (0-3,16-19,32-35,48-51,64-66,80-82,96-98,112-114,128-131,144-147,160-163,176-179,192-194,208-210,224-226,240-242) but was given 56 (0-55).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.

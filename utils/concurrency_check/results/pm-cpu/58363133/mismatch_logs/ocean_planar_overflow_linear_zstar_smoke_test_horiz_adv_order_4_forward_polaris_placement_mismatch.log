@@ -1,0 +1,7 @@
+The placement of step ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4/forward does not describe how it ran.
+
+  On nid004494 the launch was allowed 12 cores (3,19,35,51,67,83,131,147,163,179,195,211) but was given 12 (48-59).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.

@@ -1,0 +1,7 @@
+The placement of step ocean/spherical/icos/cosine_bell/restart/restart_run does not describe how it ran.
+
+  On nid004492 the launch was allowed 12 cores (5,19,34,50,66,82,133,147,162,178,194,210) but was given 12 (7-8,15,19-23,26,28,30,44).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.

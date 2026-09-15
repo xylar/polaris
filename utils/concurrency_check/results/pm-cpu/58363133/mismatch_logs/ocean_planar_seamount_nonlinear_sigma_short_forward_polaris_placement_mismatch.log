@@ -1,0 +1,7 @@
+The placement of step ocean/planar/seamount/nonlinear/sigma/short/forward does not describe how it ran.
+
+  On nid004492 the launch was allowed 16 cores (39-40,53-54,69,85,99,114,167-168,181-182,197,213,227,242) but was given 16 (5-6,16,27,32-43).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.

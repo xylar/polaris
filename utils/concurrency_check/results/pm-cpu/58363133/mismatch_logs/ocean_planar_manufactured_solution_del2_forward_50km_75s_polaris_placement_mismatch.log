@@ -1,0 +1,8 @@
+The placement of step ocean/planar/manufactured_solution/del2/forward/50km_75s does not describe how it ran.
+
+  On nid004492 the launch was allowed 100 cores (1-7,16-22,32-37,48-53,64-69,80-85,96-101,112-117,129-135,144-150,160-165,176-181,192-197,208-213,224-229,240-245) but was given 100 (0,3-101).
+  On nid004493 the launch was allowed 100 cores (0-6,16-22,32-37,48-53,64-69,80-85,96-101,112-117,128-134,144-150,160-165,176-181,192-197,208-213,224-229,240-245) but was given 100 (0,3-101).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.

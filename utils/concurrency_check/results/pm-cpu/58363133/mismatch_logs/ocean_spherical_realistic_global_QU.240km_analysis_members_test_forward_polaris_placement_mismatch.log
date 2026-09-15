@@ -1,0 +1,7 @@
+The placement of step ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward does not describe how it ran.
+
+  On nid004492 the launch was allowed 36 cores (0-2,16-18,32-33,48-49,64-65,80-81,96-97,112-113,128-130,144-146,160-161,176-177,192-193,208-209,224-225,240-241) but was given 36 (50-85).
+
+Nothing has been changed. The step ran, and its results are as good as they ever were;
+what is wrong is the accounting, which believes this step is using less of the machine
+than it is. Other steps are being started against that belief.
