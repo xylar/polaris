@@ -1,0 +1,81 @@
+polaris calling: polaris.run.serial._run_task()
+  in /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/run/serial.py
+
+Running step: full_run
+  * step: full_run
+
+polaris calling: polaris.tasks.ocean.baroclinic_channel.forward.Forward.constrain_resources()
+  inherited from: polaris.ocean.model.ocean_model_step.OceanModelStep.constrain_resources()
+  in /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/ocean/model/ocean_model_step.py
+
+sizing (after sizing): ntasks=4 cpus_per_task=1 cores=4 min_tasks=1; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+placement: this process has the 4 cores it was given
+placement: not checked; the probe launch ran but no rank reported, so this machine may not pass a payload through
+
+polaris calling: polaris.tasks.ocean.baroclinic_channel.forward.Forward.runtime_setup()
+  inherited from: polaris.model_step.ModelStep.runtime_setup()
+  in /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/model_step.py
+
+Warning: replacing yaml options in omega.yml
+  IO: IOTasks = 1
+  IO: IOStride = 4
+  adding:   HorzMeshIn
+  adding:   InitialVertCoord
+  adding:   InitialState
+  TimeIntegration: TimeStep = 0000_00:00:50.000
+  TimeIntegration: RunDuration = 0000_00:01:40.000
+  Tendencies: ViscDel2 = 10.0
+  TimeIntegration: StopTime = none
+  TimeIntegration: TimeStepper = RungeKutta4
+  Tendencies: VelDiffTendencyEnable = True
+  Tendencies: TracerDiffTendencyEnable = False
+  Tendencies: VelHyperDiffTendencyEnable = False
+  Tendencies: TracerHyperDiffTendencyEnable = False
+  VertMix: Convective: Enable = True
+  VertMix: Shear: Enable = True
+  VertMix: Background: Diffusivity = 1e-05
+  VertMix: Background: Viscosity = 0.0001
+  Advection: HorzTracerFluxOrder = 2
+  Advection: VerticalTracerFluxOrder = 3
+  updating: InitialVertCoord
+  updating: InitialState
+  adding:   RestartRead
+  adding:   RestartWrite
+  adding:   History
+  IO: IOStride = 1
+  Advection: VerticalTracerFluxLimiterEnable = False
+  Eos: EosType = linear
+  Tracers: Base = ['Temperature', 'Salinity']
+  updating: HorzMeshIn
+  updating: InitialVertCoord
+  updating: InitialState
+  updating: RestartRead
+  updating: RestartWrite
+  updating: History
+
+Bypassing step's run() method and running with command line args
+
+polaris calling: polaris.tasks.ocean.Ocean.run_parallel_command()
+  inherited from: polaris.component.Component.run_parallel_command()
+  in /home/xylar/e3sm_work/polaris/add-task-parallelism-phase-b/polaris/component.py
+
+sizing (at launch): ntasks=4 cpus_per_task=1 cores=4 min_tasks=1; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+Running: mpiexec --label -n 4 --ppn 4 --depth 1 --hosts x4713c2s1b0n0.hsn.cm.aurora.alcf.anl.gov --cpu-bind list:92:93:94:95 ./omega.exe
+          execution:        [92mSUCCESS[0m
+temperature          Time index: 0
+  [92mPASS[0m /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent_2/ocean/planar/baroclinic_channel/10km/restart/full_run/output.nc
+
+       /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_serial/ocean/planar/baroclinic_channel/10km/restart/full_run/output.nc
+
+salinity             Time index: 0
+  [92mPASS[0m /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent_2/ocean/planar/baroclinic_channel/10km/restart/full_run/output.nc
+
+       /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_serial/ocean/planar/baroclinic_channel/10km/restart/full_run/output.nc
+
+normalVelocity       Time index: 0
+  [92mPASS[0m /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_concurrent_2/ocean/planar/baroclinic_channel/10km/restart/full_run/output.nc
+
+       /lus/flare/projects/E3SM_Dec/xylar/polaris_0.10/aurora/test_20260915/omega_pr_serial/ocean/planar/baroclinic_channel/10km/restart/full_run/output.nc
+
+          baseline comp.:   [92mPASS[0m
+          runtime:          [94m0:00:02[0m
