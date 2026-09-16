@@ -73,6 +73,23 @@ On chr-0495 the launch was allowed 19 cores (2-6,14,23-24,27-29,32-33,57-62)
 
 Read it as: *allowed* is where the ranks actually ran, *given* is the placement. Equal counts with different numbers is the signature of a launcher applying the wrong list -- which is what Chrysalis did.
 
+**That shape only appears where the launcher binds cores explicitly** (Chrysalis, Aurora). On Perlmutter and Frontier the scheduler reserves a *count* and picks the cores itself, so particular numbers were never promised there and the check holds only the count. The pm-cpu and pm-gpu runs were made before the check knew that, which is why they recorded 39 and 32 "mismatches" that were nothing of the kind. A real one on those machines now reads:
+
+```
+On nid004492 the launch was allowed 128 cores but was given 12. This machine
+reserves cores by count and chooses which, so only the count is held.
+```
+
+A launch given a whole node is allowed that node's hardware threads as well -- 256 for 128 on Perlmutter CPU -- and that is not reported.
+
+**GPUs are now asked about too**, which they were not when pm-gpu ran. Each rank reports the devices it can see, and the step log says so per node:
+
+```
+placement: on nid001600 the ranks see device(s) 0,1,2,3
+```
+
+A step seeing *more* devices than its placement gave is a mismatch and appears in the summary line like any other. Seeing *fewer* is logged and not held against, because a launcher may number each rank's devices from zero. And a GPU step whose ranks report no device variable at all is said to be `GPUs not checked` -- **that is not a pass**, and on Frontier it would mean `ROCR_VISIBLE_DEVICES` was not what the ranks were given. Capture those per-node lines: they are what decides whether the GPU check can be tightened.
+
 **Step failures are a separate question from placement.** `omega_pr` has failures on `main` that have nothing to do with any of this, and they will appear on your machine too. At the time of writing the property checks on `ocean/column/ekman/forward_constant` and the three `ocean/column/vmix_unstable/forward*` steps fail on `main`, with a fix in flight on `fix-omega-pr-failures`. A crash in the single-column viz steps was fixed by #750 and a race in `ocean/spherical/icos/cosine_bell/restart/restart_run` by #761, so neither should reappear -- if either does, that *is* worth reporting.
 
 If you are unsure whether a failure is yours or the suite's, run the same suite serially on the same machine and compare. Only the placement summary line speaks to what this exercise is testing; a step can fail for its own reasons while placement is perfect, and placement can be wrong while every step passes, which is exactly how the Chrysalis bug hid.
