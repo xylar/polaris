@@ -22,11 +22,30 @@ That check now runs on every step of every concurrent run, which is what makes t
 | Frontier | Slurm 20.11+ | SCHEDULER | `--exact`, GPUs |
 | Aurora | PBS / PALS | CPU_BINDING | `--hosts`, `--cpu-bind list:`, `ZE_AFFINITY_MASK` |
 
-**Aurora is the one to run first.** Its `--cpu-bind list:` is built from one entry per task across *all* nodes -- structurally the same shape as the Slurm bug above. If PALS also applies its list per node, mache is rendering something wrong on Aurora today and the placement check will say so on the first multi-node step. This was left alone in #477 deliberately, because it cannot be measured from Chrysalis, and the PR says so.
-
 **Perlmutter and Frontier carry a different untested risk: GPUs.** Nothing has exercised `--gpus=N` through a placement, and the pool's rule that a placement spanning nodes leaves GPU indices unnamed -- because indices are node-local while the count is a total -- has never met a real GPU allocation.
 
-**Chrysalis is done**, and by more than the original two runs: a serial/concurrent pair, a fork spike, a JIGSAW thread benchmark, and node sweeps of both `omega_pr` and `omega_nightly` at 3, 5, 8 and 13 nodes. All recorded on the branch under `utils/concurrency_check/results/chrysalis/`.
+## Where each machine stands, and what to run next
+
+| machine | mechanism | state |
+| --- | --- | --- |
+| Chrysalis | CPU_BINDING, Slurm 20.02 | **done** -- serial/concurrent pair, fork spike, JIGSAW benchmark, node sweeps of `omega_pr` and `omega_nightly` at 3, 5, 8 and 13 nodes |
+| Aurora | CPU_BINDING, PALS | **done** -- two clean concurrent runs (8831416, 8831432), 99/0 against the serial baseline, zero mismatches |
+| Perlmutter GPU | SCHEDULER + CUDA | **run next** -- ran once (58363551) before the GPU probe and the count rule existed; the GPU axis is unverified |
+| Frontier | SCHEDULER + ROCm, Slurm 25.11 | **after that** -- never run |
+| Perlmutter CPU | SCHEDULER | optional -- ran once (58363133) before the count rule; one run confirms the whole-node 256/128 case, gates nothing |
+
+All results are on the branch under `utils/concurrency_check/results/<machine>/`.
+
+**What Aurora answered.** PALS restarts `--cpu-bind list:` on every node, exactly as Slurm 20.02 does -- the failure this note predicted -- and mache now renders one node's list there and refuses what cannot be said that way (`bf3e2905` on `xylar/mache`). Polaris was never misplacing steps by that route, because the pool gives a spanning step the same cores on every node. What *was* wrong was the id space: Aurora holds cores 0 and 52 back, and Polaris numbered from zero, so 40 of 115 steps were placed on a core the job did not have. That is fixed -- a node's cores are now read from what the job may use, one id per physical core -- and a run there says so at the top: `A node here keeps back core(s) [0, 52]; steps are placed on the other 102.`
+
+**Why Perlmutter GPU before Frontier.** Two things are new since Perlmutter ran and have never touched a real machine: the placement check now holds a SCHEDULER machine to a *count* of physical cores rather than to particular ids, and it now asks every rank which GPUs it can see. pm-gpu exercises both on a machine whose environment, queue and known failures are already understood, so whatever it reports is about the checks and not the machine. Frontier exercises the same two on a machine this branch has never been deployed to, where a surprise would be ambiguous. So pm-gpu settles the checks, then Frontier is the last new machine.
+
+**What pm-gpu has to capture**, beyond the usual:
+
+- The per-node lines `placement: on <node> the ranks see device(s) ...`. The open question is what `CUDA_VISIBLE_DEVICES` holds under `--exact --gpus=N`: global indices, or `0` for every rank. If every rank reports `0` the GPU check can only ever catch a step seeing *more* than it was given, and the docs should say so; if they report global indices the check can be made exact. This one run decides that.
+- Zero core mismatches. The earlier run recorded 32; every one was the count rule not yet existing. Any that appear now are real.
+- A serial run on the same nodes, which the earlier visit did not make. Ten property checks failed there against four on pm-cpu, all salt conservation just over tolerance (1.6e-14 against 1e-14), which reads as GPU round-off but was never confirmed against a serial baseline.
+- The node count the job script asks for. The sizing rule was changed after that run to take the suite's minima in cores on every machine; it asked pm-gpu for 29 nodes then and should ask for about 3 now.
 
 ## What to run
 
@@ -96,8 +115,8 @@ If you are unsure whether a failure is yours or the suite's, run the same suite 
 
 **Also worth capturing**, since these runs are the only chance to collect it cheaply:
 
-- The allocation report at the top of the run, which says what each node credits for memory against what the machine's config claims. On Aurora the configured 960000 MB is marked provisional in mache's own config and has never been checked against `pbsnodes -a`.
-- Whether any step reports `placement: not checked` -- that means the probe launch could not run, which is a different failure from a mismatch and should not be read as a pass.
+- The allocation report at the top of the run, which says what each node credits for memory against what the machine's config claims. Aurora's is now read: nodes report 1128000-1147000 MiB against the configured 960000, so that figure is conservative by about 16%, and one node was credited from a cgroup limit, the first time that branch of the reader has run on a real allocation.
+- Whether any step reports `placement: not checked` -- that means the probe launch could not run or did not answer, which is a different failure from a mismatch and should not be read as a pass. It is also not, on its own, evidence about the machine: Aurora job 8831416 had two, both single-node steps started in a burst of nineteen on one node, and the next run had none. The check's own wording, `this machine may not pass a payload through`, overstates what one silent probe can show. Two in a burst is output lost under load; the same step silent twice is worth chasing.
 
 
 ## Reporting what you find
