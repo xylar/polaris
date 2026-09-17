@@ -1,0 +1,337 @@
+mesh_spherical_icos_base_mesh_480km.log:sizing (after sizing): ntasks=1 cpus_per_task=16 cores=16 min_tasks=1; offered 16 cores on 1 nodes; placement: 1 nodes, 16 cores, per node [16]
+mesh_spherical_icos_base_mesh_480km.log:placement: this process has the 16 cores it was given
+ocean_column_ekman_analysis.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_ekman_analysis.log:placement: this process has the 1 cores it was given
+ocean_column_ekman_forward_constant.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_ekman_forward_constant.log:placement: this process has the 1 cores it was given
+ocean_column_ekman_forward_constant.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_analysis.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_analysis.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_forward_1.5km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_1.5km.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_forward_1.5km.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_1km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_1km.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_forward_1km.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_2km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_2km.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_forward_2km.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_3km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_3km.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_forward_3km.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_4km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_4km.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_forward_4km.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_500m.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_500m.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_forward_500m.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_750m.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_forward_750m.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_forward_750m.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_init_1.5km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_init_1.5km.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_init_1km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_init_1km.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_init_2km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_init_2km.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_init_3km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_init_3km.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_init_4km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_init_4km.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_init_500m.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_init_500m.log:placement: this process has the 1 cores it was given
+ocean_column_horiz_press_grad_salinity_gradient_init_750m.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_horiz_press_grad_salinity_gradient_init_750m.log:placement: this process has the 1 cores it was given
+ocean_column_inertial_analysis.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_inertial_analysis.log:placement: this process has the 1 cores it was given
+ocean_column_inertial_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_inertial_forward.log:placement: this process has the 1 cores it was given
+ocean_column_inertial_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_evaporation_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_evaporation_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_ice_runoff_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_ice_runoff_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_latent_heat_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_latent_heat_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_long_wave_heat_flux_down_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_long_wave_heat_flux_down_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_long_wave_heat_flux_up_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_long_wave_heat_flux_up_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_no_forcing_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_no_forcing_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_no_forcing_unstable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_no_forcing_unstable.log:placement: this process has the 1 cores it was given
+ocean_column_init_rain_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_rain_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_river_runoff_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_river_runoff_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_sea_ice_fresh_water_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_sea_ice_fresh_water_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_sea_ice_heat_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_sea_ice_heat_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_sea_ice_salinity_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_sea_ice_salinity_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_sensible_heat_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_sensible_heat_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_short_wave_heat_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_short_wave_heat_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_snow_flux_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_snow_flux_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_wind_evap_stable.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_wind_evap_stable.log:placement: this process has the 1 cores it was given
+ocean_column_init_wind_neutral.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_init_wind_neutral.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_conservation_summary.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_conservation_summary.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_evaporation_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_evaporation_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_evaporation_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_ice_runoff_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_ice_runoff_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_ice_runoff_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_latent_heat_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_latent_heat_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_latent_heat_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_long_wave_heat_flux_down.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_long_wave_heat_flux_down.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_long_wave_heat_flux_down.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_long_wave_heat_flux_up.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_long_wave_heat_flux_up.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_long_wave_heat_flux_up.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_rain_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_rain_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_rain_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_river_runoff_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_river_runoff_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_river_runoff_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_sea_ice_fresh_water_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_sea_ice_fresh_water_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_sea_ice_fresh_water_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_sea_ice_heat_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_sea_ice_heat_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_sea_ice_heat_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_sea_ice_salinity_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_sea_ice_salinity_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_sea_ice_salinity_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_sensible_heat_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_sensible_heat_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_sensible_heat_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_short_wave_heat_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_short_wave_heat_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_short_wave_heat_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_snow_flux.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_thermo_forward_snow_flux.log:placement: this process has the 1 cores it was given
+ocean_column_thermo_forward_snow_flux.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_analysis.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_analysis.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_stable_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_forward.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_stable_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_forward_no_hadv.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_forward_no_hadv.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_stable_forward_no_hadv.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_forward_no_hadv_restoring.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_forward_no_hadv_restoring.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_stable_forward_no_hadv_restoring.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_forward_no_vadv_no_hadv_constant.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_forward_no_vadv_no_hadv_constant.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_stable_forward_no_vadv_no_hadv_constant.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_forward_no_vadv_no_hadv.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_forward_no_vadv_no_hadv.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_stable_forward_no_vadv_no_hadv.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_viz.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_stable_viz.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_unstable_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_forward.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_unstable_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_forward_no_hadv.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_forward_no_hadv.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_unstable_forward_no_hadv.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_forward_no_hadv_restoring.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_forward_no_hadv_restoring.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_unstable_forward_no_hadv_restoring.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_forward_no_vadv_no_hadv_constant.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_forward_no_vadv_no_hadv_constant.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_unstable_forward_no_vadv_no_hadv_constant.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_forward_no_vadv_no_hadv.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_forward_no_vadv_no_hadv.log:placement: this process has the 1 cores it was given
+ocean_column_vmix_unstable_forward_no_vadv_no_hadv.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_viz.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_column_vmix_unstable_viz.log:placement: this process has the 1 cores it was given
+ocean_planar_baroclinic_channel_10km_decomp_4proc.log:sizing (after sizing): ntasks=4 cpus_per_task=1 cores=4 min_tasks=4; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+ocean_planar_baroclinic_channel_10km_decomp_4proc.log:placement: this process is not bound; the step is placed on 1 nodes and its launcher confines it
+ocean_planar_baroclinic_channel_10km_decomp_4proc.log:placement: on nid003413 the ranks see device(s) 0,1,2,3
+ocean_planar_baroclinic_channel_10km_decomp_4proc.log:placement: the launch used 4 hardware threads, on no more cores than it was given, on 1 node(s), all of them within its placement
+ocean_planar_baroclinic_channel_10km_decomp_4proc.log:sizing (at launch): ntasks=4 cpus_per_task=1 cores=4 min_tasks=4; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+ocean_planar_baroclinic_channel_10km_decomp_8proc.log:sizing (after sizing): ntasks=8 cpus_per_task=1 cores=8 min_tasks=8; offered 8 cores on 2 nodes; placement: 2 nodes, 8 cores, per node [4, 4]
+ocean_planar_baroclinic_channel_10km_decomp_8proc.log:placement: this process is not bound; the step is placed on 2 nodes and its launcher confines it
+ocean_planar_baroclinic_channel_10km_decomp_8proc.log:placement: on nid003413 the ranks see device(s) 0,1,2,3
+ocean_planar_baroclinic_channel_10km_decomp_8proc.log:placement: on nid003416 the ranks see device(s) 0,1,2,3
+ocean_planar_baroclinic_channel_10km_decomp_8proc.log:placement: the launch used 8 hardware threads, on no more cores than it was given, on 2 node(s), all of them within its placement
+ocean_planar_baroclinic_channel_10km_decomp_8proc.log:sizing (at launch): ntasks=8 cpus_per_task=1 cores=8 min_tasks=8; offered 8 cores on 2 nodes; placement: 2 nodes, 8 cores, per node [4, 4]
+ocean_planar_baroclinic_channel_10km_decomp_validate.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_baroclinic_channel_10km_decomp_validate.log:placement: this process has the 1 cores it was given
+ocean_planar_baroclinic_channel_10km_init.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_baroclinic_channel_10km_init.log:placement: this process has the 1 cores it was given
+ocean_planar_baroclinic_channel_10km_restart_full_run.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_baroclinic_channel_10km_restart_full_run.log:placement: this process has the 1 cores it was given
+ocean_planar_baroclinic_channel_10km_restart_full_run.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_baroclinic_channel_10km_restart_restart_run.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_baroclinic_channel_10km_restart_restart_run.log:placement: this process has the 1 cores it was given
+ocean_planar_baroclinic_channel_10km_restart_restart_run.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_baroclinic_channel_10km_restart_validate.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_baroclinic_channel_10km_restart_validate.log:placement: this process has the 1 cores it was given
+ocean_planar_baroclinic_channel_10km_threads_1thread.log:sizing (after sizing): ntasks=4 cpus_per_task=1 cores=4 min_tasks=4; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+ocean_planar_baroclinic_channel_10km_threads_1thread.log:placement: this process is not bound; the step is placed on 1 nodes and its launcher confines it
+ocean_planar_baroclinic_channel_10km_threads_1thread.log:placement: on nid003416 the ranks see device(s) 0,1,2,3
+ocean_planar_baroclinic_channel_10km_threads_1thread.log:placement: the launch used 4 hardware threads, on no more cores than it was given, on 1 node(s), all of them within its placement
+ocean_planar_baroclinic_channel_10km_threads_1thread.log:sizing (at launch): ntasks=4 cpus_per_task=1 cores=4 min_tasks=4; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+ocean_planar_baroclinic_channel_10km_threads_2thread.log:sizing (after sizing): ntasks=4 cpus_per_task=2 cores=8 min_tasks=4; offered 8 cores on 1 nodes; placement: 1 nodes, 8 cores, per node [8]
+ocean_planar_baroclinic_channel_10km_threads_2thread.log:placement: this process is not bound; the step is placed on 1 nodes and its launcher confines it
+ocean_planar_baroclinic_channel_10km_threads_2thread.log:placement: on nid003416 the ranks see device(s) 0,1,2,3
+ocean_planar_baroclinic_channel_10km_threads_2thread.log:placement: the launch used 8 hardware threads, on no more cores than it was given, on 1 node(s), all of them within its placement
+ocean_planar_baroclinic_channel_10km_threads_2thread.log:sizing (at launch): ntasks=4 cpus_per_task=2 cores=8 min_tasks=4; offered 8 cores on 1 nodes; placement: 1 nodes, 8 cores, per node [8]
+ocean_planar_baroclinic_channel_10km_threads_validate.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_baroclinic_channel_10km_threads_validate.log:placement: this process has the 1 cores it was given
+ocean_planar_barotropic_gyre_munk_free-slip_init.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_barotropic_gyre_munk_free-slip_init.log:placement: this process has the 1 cores it was given
+ocean_planar_barotropic_gyre_munk_free-slip_short_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_barotropic_gyre_munk_free-slip_short_forward.log:placement: this process has the 1 cores it was given
+ocean_planar_barotropic_gyre_munk_free-slip_short_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_convergence_both_default_analysis.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_convergence_both_default_analysis.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_convergence_both_del2_analysis.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_convergence_both_del2_analysis.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_convergence_both_del4_analysis.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_convergence_both_del4_analysis.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_default_forward_100km_150s.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_default_forward_100km_150s.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_default_forward_100km_150s.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_default_forward_200km_300s.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_default_forward_200km_300s.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_default_forward_200km_300s.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_default_forward_25km_38s.log:sizing (after sizing): ntasks=20 cpus_per_task=1 cores=20 min_tasks=1; offered 20 cores on 5 nodes; placement: 5 nodes, 20 cores, per node [4, 4, 4, 4, 4]
+ocean_planar_manufactured_solution_default_forward_25km_38s.log:placement: this process is not bound; the step is placed on 5 nodes and its launcher confines it
+ocean_planar_manufactured_solution_default_forward_25km_38s.log:placement: on nid002305 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_default_forward_25km_38s.log:placement: on nid002308 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_default_forward_25km_38s.log:placement: on nid003412 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_default_forward_25km_38s.log:placement: on nid003413 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_default_forward_25km_38s.log:placement: on nid003416 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_default_forward_25km_38s.log:placement: the launch used 20 hardware threads, on no more cores than it was given, on 5 node(s), all of them within its placement
+ocean_planar_manufactured_solution_default_forward_25km_38s.log:sizing (at launch): ntasks=20 cpus_per_task=1 cores=20 min_tasks=1; offered 20 cores on 5 nodes; placement: 5 nodes, 20 cores, per node [4, 4, 4, 4, 4]
+ocean_planar_manufactured_solution_default_forward_50km_75s.log:sizing (after sizing): ntasks=4 cpus_per_task=1 cores=4 min_tasks=1; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+ocean_planar_manufactured_solution_default_forward_50km_75s.log:placement: this process is not bound; the step is placed on 1 nodes and its launcher confines it
+ocean_planar_manufactured_solution_default_forward_50km_75s.log:placement: on nid002305 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_default_forward_50km_75s.log:placement: the launch used 4 hardware threads, on no more cores than it was given, on 1 node(s), all of them within its placement
+ocean_planar_manufactured_solution_default_forward_50km_75s.log:sizing (at launch): ntasks=4 cpus_per_task=1 cores=4 min_tasks=1; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+ocean_planar_manufactured_solution_del2_forward_100km_150s.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_del2_forward_100km_150s.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_del2_forward_100km_150s.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_del2_forward_200km_300s.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_del2_forward_200km_300s.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_del2_forward_200km_300s.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_del2_forward_25km_38s.log:sizing (after sizing): ntasks=20 cpus_per_task=1 cores=20 min_tasks=1; offered 20 cores on 5 nodes; placement: 5 nodes, 20 cores, per node [4, 4, 4, 4, 4]
+ocean_planar_manufactured_solution_del2_forward_25km_38s.log:placement: this process is not bound; the step is placed on 5 nodes and its launcher confines it
+ocean_planar_manufactured_solution_del2_forward_25km_38s.log:placement: on nid002304 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del2_forward_25km_38s.log:placement: on nid002305 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del2_forward_25km_38s.log:placement: on nid002308 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del2_forward_25km_38s.log:placement: on nid003412 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del2_forward_25km_38s.log:placement: on nid003413 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del2_forward_25km_38s.log:placement: the launch used 20 hardware threads, on no more cores than it was given, on 5 node(s), all of them within its placement
+ocean_planar_manufactured_solution_del2_forward_25km_38s.log:sizing (at launch): ntasks=20 cpus_per_task=1 cores=20 min_tasks=1; offered 20 cores on 5 nodes; placement: 5 nodes, 20 cores, per node [4, 4, 4, 4, 4]
+ocean_planar_manufactured_solution_del2_forward_50km_75s.log:sizing (after sizing): ntasks=4 cpus_per_task=1 cores=4 min_tasks=1; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+ocean_planar_manufactured_solution_del2_forward_50km_75s.log:placement: this process is not bound; the step is placed on 1 nodes and its launcher confines it
+ocean_planar_manufactured_solution_del2_forward_50km_75s.log:placement: on nid002308 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del2_forward_50km_75s.log:placement: the launch used 4 hardware threads, on no more cores than it was given, on 1 node(s), all of them within its placement
+ocean_planar_manufactured_solution_del2_forward_50km_75s.log:sizing (at launch): ntasks=4 cpus_per_task=1 cores=4 min_tasks=1; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+ocean_planar_manufactured_solution_del4_forward_100km_150s.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_del4_forward_100km_150s.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_del4_forward_100km_150s.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_del4_forward_200km_300s.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_del4_forward_200km_300s.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_del4_forward_200km_300s.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_del4_forward_25km_38s.log:sizing (after sizing): ntasks=20 cpus_per_task=1 cores=20 min_tasks=1; offered 20 cores on 5 nodes; placement: 5 nodes, 20 cores, per node [4, 4, 4, 4, 4]
+ocean_planar_manufactured_solution_del4_forward_25km_38s.log:placement: this process is not bound; the step is placed on 5 nodes and its launcher confines it
+ocean_planar_manufactured_solution_del4_forward_25km_38s.log:placement: on nid002304 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del4_forward_25km_38s.log:placement: on nid002305 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del4_forward_25km_38s.log:placement: on nid002308 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del4_forward_25km_38s.log:placement: on nid003412 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del4_forward_25km_38s.log:placement: on nid003413 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del4_forward_25km_38s.log:placement: the launch used 20 hardware threads, on no more cores than it was given, on 5 node(s), all of them within its placement
+ocean_planar_manufactured_solution_del4_forward_25km_38s.log:sizing (at launch): ntasks=20 cpus_per_task=1 cores=20 min_tasks=1; offered 20 cores on 5 nodes; placement: 5 nodes, 20 cores, per node [4, 4, 4, 4, 4]
+ocean_planar_manufactured_solution_del4_forward_50km_75s.log:sizing (after sizing): ntasks=4 cpus_per_task=1 cores=4 min_tasks=1; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+ocean_planar_manufactured_solution_del4_forward_50km_75s.log:placement: this process is not bound; the step is placed on 1 nodes and its launcher confines it
+ocean_planar_manufactured_solution_del4_forward_50km_75s.log:placement: on nid003412 the ranks see device(s) 0,1,2,3
+ocean_planar_manufactured_solution_del4_forward_50km_75s.log:placement: the launch used 4 hardware threads, on no more cores than it was given, on 1 node(s), all of them within its placement
+ocean_planar_manufactured_solution_del4_forward_50km_75s.log:sizing (at launch): ntasks=4 cpus_per_task=1 cores=4 min_tasks=1; offered 4 cores on 1 nodes; placement: 1 nodes, 4 cores, per node [4]
+ocean_planar_manufactured_solution_init_100km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_init_100km.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_init_200km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_init_200km.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_init_25km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_init_25km.log:placement: this process has the 1 cores it was given
+ocean_planar_manufactured_solution_init_50km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_manufactured_solution_init_50km.log:placement: this process has the 1 cores it was given
+ocean_planar_merry_go_round_forward_5m_90s_limiter.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_merry_go_round_forward_5m_90s_limiter.log:placement: this process has the 1 cores it was given
+ocean_planar_merry_go_round_forward_5m_90s_limiter.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_merry_go_round_init_5m.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_merry_go_round_init_5m.log:placement: this process has the 1 cores it was given
+ocean_planar_overflow_linear_zstar_init.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_overflow_linear_zstar_init.log:placement: this process has the 1 cores it was given
+ocean_planar_overflow_linear_zstar_smoke_test_horiz_adv_order_2_del4_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_overflow_linear_zstar_smoke_test_horiz_adv_order_2_del4_forward.log:placement: this process has the 1 cores it was given
+ocean_planar_overflow_linear_zstar_smoke_test_horiz_adv_order_2_del4_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_overflow_linear_zstar_smoke_test_horiz_adv_order_3_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_overflow_linear_zstar_smoke_test_horiz_adv_order_3_forward.log:placement: this process has the 1 cores it was given
+ocean_planar_overflow_linear_zstar_smoke_test_horiz_adv_order_3_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_overflow_linear_zstar_smoke_test_horiz_adv_order_4_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_overflow_linear_zstar_smoke_test_horiz_adv_order_4_forward.log:placement: this process has the 1 cores it was given
+ocean_planar_overflow_linear_zstar_smoke_test_horiz_adv_order_4_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_overflow_nonlinear_pstar_init.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_overflow_nonlinear_pstar_init.log:placement: this process has the 1 cores it was given
+ocean_planar_overflow_nonlinear_pstar_smoke_test_horiz_adv_order_4_del4_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_overflow_nonlinear_pstar_smoke_test_horiz_adv_order_4_del4_forward.log:placement: this process has the 1 cores it was given
+ocean_planar_overflow_nonlinear_pstar_smoke_test_horiz_adv_order_4_del4_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_seamount_linear_zstar_init.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_seamount_linear_zstar_init.log:placement: this process has the 1 cores it was given
+ocean_planar_seamount_linear_zstar_short_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_seamount_linear_zstar_short_forward.log:placement: this process has the 1 cores it was given
+ocean_planar_seamount_linear_zstar_short_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_seamount_nonlinear_sigma_init.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_seamount_nonlinear_sigma_init.log:placement: this process has the 1 cores it was given
+ocean_planar_seamount_nonlinear_sigma_short_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_planar_seamount_nonlinear_sigma_short_forward.log:placement: this process has the 1 cores it was given
+ocean_planar_seamount_nonlinear_sigma_short_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_spherical_icos_cosine_bell_decomp_12proc.log:sizing (after sizing): ntasks=12 cpus_per_task=1 cores=12 min_tasks=12; offered 12 cores on 3 nodes; placement: 3 nodes, 12 cores, per node [4, 4, 4]
+ocean_spherical_icos_cosine_bell_decomp_12proc.log:placement: this process is not bound; the step is placed on 3 nodes and its launcher confines it
+ocean_spherical_icos_cosine_bell_decomp_12proc.log:placement: on nid003412 the ranks see device(s) 0,1,2,3
+ocean_spherical_icos_cosine_bell_decomp_12proc.log:placement: on nid003413 the ranks see device(s) 0,1,2,3
+ocean_spherical_icos_cosine_bell_decomp_12proc.log:placement: on nid003416 the ranks see device(s) 0,1,2,3
+ocean_spherical_icos_cosine_bell_decomp_12proc.log:placement: the launch used 12 hardware threads, on no more cores than it was given, on 3 node(s), all of them within its placement
+ocean_spherical_icos_cosine_bell_decomp_12proc.log:sizing (at launch): ntasks=12 cpus_per_task=1 cores=12 min_tasks=12; offered 12 cores on 3 nodes; placement: 3 nodes, 12 cores, per node [4, 4, 4]
+ocean_spherical_icos_cosine_bell_decomp_24proc.log:sizing (after sizing): ntasks=24 cpus_per_task=1 cores=24 min_tasks=24; offered 24 cores on 6 nodes; placement: 6 nodes, 24 cores, per node [4, 4, 4, 4, 4, 4]
+ocean_spherical_icos_cosine_bell_decomp_24proc.log:placement: this process is not bound; the step is placed on 6 nodes and its launcher confines it
+ocean_spherical_icos_cosine_bell_decomp_24proc.log:placement: on nid002304 the ranks see device(s) 0,1,2,3
+ocean_spherical_icos_cosine_bell_decomp_24proc.log:placement: on nid002305 the ranks see device(s) 0,1,2,3
+ocean_spherical_icos_cosine_bell_decomp_24proc.log:placement: on nid002308 the ranks see device(s) 0,1,2,3
+ocean_spherical_icos_cosine_bell_decomp_24proc.log:placement: on nid003412 the ranks see device(s) 0,1,2,3
+ocean_spherical_icos_cosine_bell_decomp_24proc.log:placement: on nid003413 the ranks see device(s) 0,1,2,3
+ocean_spherical_icos_cosine_bell_decomp_24proc.log:placement: on nid003416 the ranks see device(s) 0,1,2,3
+ocean_spherical_icos_cosine_bell_decomp_24proc.log:placement: the launch used 24 hardware threads, on no more cores than it was given, on 6 node(s), all of them within its placement
+ocean_spherical_icos_cosine_bell_decomp_24proc.log:sizing (at launch): ntasks=24 cpus_per_task=1 cores=24 min_tasks=24; offered 24 cores on 6 nodes; placement: 6 nodes, 24 cores, per node [4, 4, 4, 4, 4, 4]
+ocean_spherical_icos_cosine_bell_decomp_validate.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_spherical_icos_cosine_bell_decomp_validate.log:placement: this process has the 1 cores it was given
+ocean_spherical_icos_cosine_bell_init_480km.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_spherical_icos_cosine_bell_init_480km.log:placement: this process has the 1 cores it was given
+ocean_spherical_icos_cosine_bell_restart_full_run.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_spherical_icos_cosine_bell_restart_full_run.log:placement: this process has the 1 cores it was given
+ocean_spherical_icos_cosine_bell_restart_full_run.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_spherical_icos_cosine_bell_restart_restart_run.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_spherical_icos_cosine_bell_restart_restart_run.log:placement: this process has the 1 cores it was given
+ocean_spherical_icos_cosine_bell_restart_restart_run.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_spherical_icos_cosine_bell_restart_validate.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_spherical_icos_cosine_bell_restart_validate.log:placement: this process has the 1 cores it was given
+ocean_spherical_realistic_global_QU.240km_analysis_members_test_forward.log:sizing (after sizing): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]
+ocean_spherical_realistic_global_QU.240km_analysis_members_test_forward.log:placement: this process has the 1 cores it was given
+ocean_spherical_realistic_global_QU.240km_analysis_members_test_forward.log:sizing (at launch): ntasks=1 cpus_per_task=1 cores=1 min_tasks=1; offered 1 cores on 1 nodes; placement: 1 nodes, 1 cores, per node [1]

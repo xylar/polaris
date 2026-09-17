@@ -1,0 +1,29 @@
+=== node view: every GPU the job has ===
+0, GPU-f0767e56-8992-9268-5691-d0066bd9d04e
+1, GPU-e1ac23ac-2814-f5c6-e609-81f4282c3243
+2, GPU-21e5c867-4030-8c75-5b7b-3062a33b6ddd
+3, GPU-38d988da-a439-620c-3f0e-d5cb60ec367e
+
+=== A: one launch, 4 tasks, --gpus=4 (what every probed step looked like) ===
+2: A host=nid008485 rank=2 CUDA_VISIBLE_DEVICES=0,1,2,3 nvidia-smi=[0, GPU-f0767e56-8992-9268-5691-d0066bd9d04e|1, GPU-e1ac23ac-2814-f5c6-e609-81f4282c3243|2, GPU-21e5c867-4030-8c75-5b7b-3062a33b6ddd|3, GPU-38d988da-a439-620c-3f0e-d5cb60ec367e|]
+1: A host=nid008485 rank=1 CUDA_VISIBLE_DEVICES=0,1,2,3 nvidia-smi=[0, GPU-f0767e56-8992-9268-5691-d0066bd9d04e|1, GPU-e1ac23ac-2814-f5c6-e609-81f4282c3243|2, GPU-21e5c867-4030-8c75-5b7b-3062a33b6ddd|3, GPU-38d988da-a439-620c-3f0e-d5cb60ec367e|]
+0: A host=nid008485 rank=0 CUDA_VISIBLE_DEVICES=0,1,2,3 nvidia-smi=[0, GPU-f0767e56-8992-9268-5691-d0066bd9d04e|1, GPU-e1ac23ac-2814-f5c6-e609-81f4282c3243|2, GPU-21e5c867-4030-8c75-5b7b-3062a33b6ddd|3, GPU-38d988da-a439-620c-3f0e-d5cb60ec367e|]
+3: A host=nid008485 rank=3 CUDA_VISIBLE_DEVICES=0,1,2,3 nvidia-smi=[0, GPU-f0767e56-8992-9268-5691-d0066bd9d04e|1, GPU-e1ac23ac-2814-f5c6-e609-81f4282c3243|2, GPU-21e5c867-4030-8c75-5b7b-3062a33b6ddd|3, GPU-38d988da-a439-620c-3f0e-d5cb60ec367e|]
+
+=== B: one launch, 2 tasks, --gpus=2 (a partial node, never probed) ===
+srun: Step created for StepId=58471743.2
+0: B host=nid008485 rank=0 CUDA_VISIBLE_DEVICES=0,1 nvidia-smi=[0, GPU-f0767e56-8992-9268-5691-d0066bd9d04e|1, GPU-e1ac23ac-2814-f5c6-e609-81f4282c3243|]
+1: B host=nid008485 rank=1 CUDA_VISIBLE_DEVICES=0,1 nvidia-smi=[0, GPU-f0767e56-8992-9268-5691-d0066bd9d04e|1, GPU-e1ac23ac-2814-f5c6-e609-81f4282c3243|]
+
+=== C: four concurrent launches, 1 task each, --gpus=1 (the one-GPU steps' shape) ===
+0: C4 host=nid008485 rank=0 CUDA_VISIBLE_DEVICES=0 nvidia-smi=[0, GPU-f0767e56-8992-9268-5691-d0066bd9d04e|]
+0: C3 host=nid008485 rank=0 CUDA_VISIBLE_DEVICES=0 nvidia-smi=[0, GPU-21e5c867-4030-8c75-5b7b-3062a33b6ddd|]
+0: C1 host=nid008485 rank=0 CUDA_VISIBLE_DEVICES=0 nvidia-smi=[0, GPU-e1ac23ac-2814-f5c6-e609-81f4282c3243|]
+0: C2 host=nid008485 rank=0 CUDA_VISIBLE_DEVICES=0 nvidia-smi=[0, GPU-38d988da-a439-620c-3f0e-d5cb60ec367e|]
+
+=== D: two concurrent launches, 2 tasks each, --gpus=2 ===
+0: D1 host=nid008485 rank=0 CUDA_VISIBLE_DEVICES=0,1 nvidia-smi=[0, GPU-f0767e56-8992-9268-5691-d0066bd9d04e|1, GPU-e1ac23ac-2814-f5c6-e609-81f4282c3243|]
+1: D2 host=nid008485 rank=1 CUDA_VISIBLE_DEVICES=0,1 nvidia-smi=[0, GPU-21e5c867-4030-8c75-5b7b-3062a33b6ddd|1, GPU-38d988da-a439-620c-3f0e-d5cb60ec367e|]
+1: D1 host=nid008485 rank=1 CUDA_VISIBLE_DEVICES=0,1 nvidia-smi=[0, GPU-f0767e56-8992-9268-5691-d0066bd9d04e|1, GPU-e1ac23ac-2814-f5c6-e609-81f4282c3243|]
+0: D2 host=nid008485 rank=0 CUDA_VISIBLE_DEVICES=0,1 nvidia-smi=[0, GPU-21e5c867-4030-8c75-5b7b-3062a33b6ddd|1, GPU-38d988da-a439-620c-3f0e-d5cb60ec367e|]
+done
