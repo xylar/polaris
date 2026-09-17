@@ -1,0 +1,399 @@
+verifying deployed polaris version...
+  Verified version 1.1.0-alpha.6.
+loading compute pixi env...
+   pixi env loaded.
+activating spack env...
+   spack env activated.
+loading polaris environment variables...
+   polaris environment variables loaded.
+Running 115 step(s)
+
+Allocation:
+  nid001868: 64 cores, 4 gpus, 237383 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid001869: 64 cores, 4 gpus, 238348 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid001889: 64 cores, 4 gpus, 238272 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid001892: 64 cores, 4 gpus, 238100 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid001893: 64 cores, 4 gpus, 238123 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid001896: 64 cores, 4 gpus, 238294 MiB (available)
+      hardware: 257232 MiB
+      configured: 257200 MiB
+  nid001868 credits 19817 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid001869 credits 18852 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid001889 credits 18928 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid001892 credits 19100 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid001893 credits 19077 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  nid001896 credits 18906 MiB less than the machine's configured 257200 MiB, which is what a job does not get to use.
+  * ocean/column/horiz_press_grad/salinity_gradient/init_4km: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_3km: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_2km: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1.5km: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1km: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_750m: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_500m: started on ['nid001868']
+  * ocean/column/init/wind_evap/stable: started on ['nid001868']
+  * ocean/column/init/no_forcing/unstable: started on ['nid001868']
+  * ocean/column/init/latent_heat_flux/stable: started on ['nid001868']
+  * ocean/column/init/sensible_heat_flux/stable: started on ['nid001868']
+  * ocean/column/init/short_wave_heat_flux/stable: started on ['nid001868']
+  * ocean/column/init/long_wave_heat_flux_up/stable: started on ['nid001868']
+  * ocean/column/init/long_wave_heat_flux_down/stable: started on ['nid001868']
+  * ocean/column/init/evaporation_flux/stable: started on ['nid001868']
+  * ocean/column/init/snow_flux/stable: started on ['nid001868']
+  * ocean/column/init/rain_flux/stable: started on ['nid001868']
+  * ocean/column/init/river_runoff_flux/stable: started on ['nid001868']
+  * ocean/column/init/ice_runoff_flux/stable: started on ['nid001868']
+  * ocean/column/init/sea_ice_fresh_water_flux/stable: started on ['nid001868']
+  * ocean/column/init/sea_ice_heat_flux/stable: started on ['nid001868']
+  * ocean/column/init/sea_ice_salinity_flux/stable: started on ['nid001868']
+  * ocean/column/thermo/conservation_summary: started on ['nid001868']
+  * ocean/planar/baroclinic_channel/10km/init: started on ['nid001868']
+  * ocean/planar/barotropic_gyre/munk/free-slip/init: started on ['nid001868']
+  * ocean/planar/manufactured_solution/init/200km: started on ['nid001868']
+  * ocean/planar/manufactured_solution/init/100km: started on ['nid001868']
+  * ocean/planar/manufactured_solution/init/50km: started on ['nid001868']
+  * ocean/planar/manufactured_solution/init/25km: started on ['nid001868']
+  * ocean/planar/merry_go_round/init/5m: started on ['nid001868']
+  * ocean/planar/overflow/linear/zstar/init: started on ['nid001868']
+  * ocean/planar/overflow/nonlinear/pstar/init: started on ['nid001868']
+  * ocean/planar/seamount/linear/zstar/init: started on ['nid001868']
+  * ocean/planar/seamount/nonlinear/sigma/init: started on ['nid001868']
+  * mesh/spherical/icos/base_mesh/480km: started on ['nid001868']
+  * ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward: started on ['nid001868']
+  * ocean/column/init/wind/neutral: started on ['nid001868']
+  * ocean/column/init/no_forcing/stable: started on ['nid001868']
+  * ocean/column/thermo/conservation_summary: [92mSUCCESS[0m [94m0.1s[0m
+  * ocean/planar/seamount/linear/zstar/init: [92mSUCCESS[0m [94m15.5s[0m
+  * ocean/planar/seamount/linear/zstar/short/forward: started on ['nid001868']
+  * ocean/planar/seamount/nonlinear/sigma/init: [92mSUCCESS[0m [94m15.7s[0m
+  * ocean/planar/seamount/nonlinear/sigma/short/forward: started on ['nid001868']
+  * ocean/column/init/no_forcing/unstable: [92mSUCCESS[0m [94m16.0s[0m
+  * ocean/column/vmix_unstable/forward_no_hadv: started on ['nid001868']
+  * ocean/column/init/sea_ice_heat_flux/stable: [92mSUCCESS[0m [94m16.0s[0m
+  * ocean/column/init/wind_evap/stable: [92mSUCCESS[0m [94m16.1s[0m
+  * ocean/column/init/river_runoff_flux/stable: [92mSUCCESS[0m [94m16.0s[0m
+  * ocean/column/init/evaporation_flux/stable: [92mSUCCESS[0m [94m16.1s[0m
+  * ocean/column/init/latent_heat_flux/stable: [92mSUCCESS[0m [94m16.2s[0m
+  * ocean/column/init/snow_flux/stable: [92mSUCCESS[0m [94m16.2s[0m
+  * ocean/column/init/long_wave_heat_flux_down/stable: [92mSUCCESS[0m [94m16.2s[0m
+  * ocean/column/init/sea_ice_salinity_flux/stable: [92mSUCCESS[0m [94m16.2s[0m
+  * ocean/column/init/sensible_heat_flux/stable: [92mSUCCESS[0m [94m16.3s[0m
+  * ocean/planar/manufactured_solution/init/200km: [92mSUCCESS[0m [94m16.3s[0m
+  * ocean/column/init/long_wave_heat_flux_up/stable: [92mSUCCESS[0m [94m16.4s[0m
+  * ocean/column/init/ice_runoff_flux/stable: [92mSUCCESS[0m [94m16.4s[0m
+  * mesh/spherical/icos/base_mesh/480km: [92mSUCCESS[0m [94m16.2s[0m
+  * ocean/spherical/icos/cosine_bell/init/480km: started on ['nid001868']
+  * ocean/column/init/rain_flux/stable: [92mSUCCESS[0m [94m16.4s[0m
+  * ocean/planar/manufactured_solution/init/100km: [92mSUCCESS[0m [94m16.4s[0m
+  * ocean/planar/overflow/linear/zstar/init: [92mSUCCESS[0m [94m16.4s[0m
+  * ocean/planar/overflow/nonlinear/pstar/init: [92mSUCCESS[0m [94m16.4s[0m
+  * ocean/column/init/no_forcing/stable: [92mSUCCESS[0m [94m16.5s[0m
+  * ocean/column/init/wind/neutral: [92mSUCCESS[0m [94m16.5s[0m
+  * ocean/column/init/short_wave_heat_flux/stable: [92mSUCCESS[0m [94m16.7s[0m
+  * ocean/column/init/sea_ice_fresh_water_flux/stable: [92mSUCCESS[0m [94m16.8s[0m
+  * ocean/planar/manufactured_solution/init/50km: [92mSUCCESS[0m [94m18.1s[0m
+  * ocean/planar/manufactured_solution/default/forward/50km_75s: started on ['nid001869']
+  * ocean/planar/manufactured_solution/del2/forward/50km_75s: started on ['nid001889']
+  * ocean/planar/manufactured_solution/del4/forward/50km_75s: started on ['nid001892']
+  * ocean/planar/baroclinic_channel/10km/init: [92mSUCCESS[0m [94m18.9s[0m
+  * ocean/planar/baroclinic_channel/10km/decomp/4proc: started on ['nid001893']
+  * ocean/planar/baroclinic_channel/10km/threads/1thread: started on ['nid001896']
+  * ocean/planar/seamount/linear/zstar/short/forward: [92mSUCCESS[0m [94m4.7s[0m
+  * ocean/column/vmix_stable/forward_no_hadv: started on ['nid001868']
+  * ocean/planar/seamount/nonlinear/sigma/short/forward: [92mSUCCESS[0m [94m4.5s[0m
+  * ocean/column/vmix_stable/forward: started on ['nid001868']
+  * ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward: [92mSUCCESS[0m [94m20.4s[0m
+  * ocean/column/vmix_stable/forward_no_hadv_restoring: started on ['nid001868']
+  * ocean/spherical/icos/cosine_bell/init/480km: [92mSUCCESS[0m [94m4.6s[0m
+  * ocean/planar/manufactured_solution/init/25km: [92mSUCCESS[0m [94m22.2s[0m
+  * ocean/column/vmix_unstable/forward_no_hadv: [92mSUCCESS[0m [94m7.6s[0m
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv: started on ['nid001868']
+  * ocean/planar/baroclinic_channel/10km/decomp/4proc: [92mSUCCESS[0m [94m8.0s[0m
+  * ocean/planar/baroclinic_channel/10km/threads/2thread: started on ['nid001893']
+  * ocean/planar/baroclinic_channel/10km/threads/1thread: [92mSUCCESS[0m [94m8.0s[0m
+  * ocean/column/vmix_stable/forward_no_hadv: [92mSUCCESS[0m [94m7.6s[0m
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant: started on ['nid001868']
+  * ocean/column/vmix_stable/forward_no_hadv_restoring: [92mSUCCESS[0m [94m7.5s[0m
+  * ocean/column/vmix_unstable/forward: started on ['nid001868']
+  * ocean/column/vmix_stable/forward: [92mSUCCESS[0m [94m7.9s[0m
+  * ocean/column/vmix_stable/analysis: started on ['nid001868']
+  * ocean/column/vmix_unstable/forward_no_hadv_restoring: started on ['nid001868']
+  * ocean/column/vmix_stable/analysis: [92mSUCCESS[0m [94m0.6s[0m
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv: [92mSUCCESS[0m [94m7.0s[0m
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv: started on ['nid001868']
+  * ocean/planar/baroclinic_channel/10km/threads/2thread: [92mSUCCESS[0m [94m6.9s[0m
+  * ocean/planar/baroclinic_channel/10km/decomp/8proc: started on ['nid001893', 'nid001896']
+  * ocean/planar/baroclinic_channel/10km/threads/validate: started on ['nid001868']
+  * ocean/planar/baroclinic_channel/10km/threads/validate: [92mSUCCESS[0m [94m0.6s[0m
+  * ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant: [92mSUCCESS[0m [94m7.5s[0m
+  * ocean/column/vmix_stable/viz: started on ['nid001868']
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv_constant: started on ['nid001868']
+  * ocean/column/vmix_unstable/forward_no_hadv_restoring: [92mSUCCESS[0m [94m7.7s[0m
+  * ocean/column/thermo/forward_latent_heat_flux: started on ['nid001868']
+  * ocean/column/vmix_unstable/forward: [92mSUCCESS[0m [94m8.0s[0m
+  * ocean/column/thermo/forward_sensible_heat_flux: started on ['nid001868']
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv: [92mSUCCESS[0m [94m6.9s[0m
+  * ocean/column/thermo/forward_short_wave_heat_flux: started on ['nid001868']
+  * ocean/column/vmix_unstable/forward_no_vadv_no_hadv_constant: [92mSUCCESS[0m [94m6.7s[0m
+  * ocean/column/vmix_unstable/viz: started on ['nid001868']
+  * ocean/column/thermo/forward_long_wave_heat_flux_up: started on ['nid001868']
+  * ocean/planar/baroclinic_channel/10km/decomp/8proc: [92mSUCCESS[0m [94m8.8s[0m
+  * ocean/planar/baroclinic_channel/10km/decomp/validate: started on ['nid001868']
+  * ocean/column/vmix_stable/viz: [92mSUCCESS[0m [94m7.5s[0m
+  * ocean/column/thermo/forward_latent_heat_flux: [92mSUCCESS[0m [94m7.0s[0m
+  * ocean/column/thermo/forward_long_wave_heat_flux_down: started on ['nid001868']
+  * ocean/column/thermo/forward_sensible_heat_flux: [92mSUCCESS[0m [94m6.9s[0m
+  * ocean/column/thermo/forward_evaporation_flux: started on ['nid001868']
+  * ocean/planar/baroclinic_channel/10km/decomp/validate: [92mSUCCESS[0m [94m0.6s[0m
+  * ocean/column/thermo/forward_short_wave_heat_flux: [92mSUCCESS[0m [94m7.2s[0m
+  * ocean/column/thermo/forward_snow_flux: started on ['nid001868']
+  * ocean/planar/manufactured_solution/default/forward/50km_75s: [92mSUCCESS[0m [94m27.0s[0m
+  * ocean/spherical/icos/cosine_bell/decomp/12proc: started on ['nid001869', 'nid001893', 'nid001896']
+  * ocean/planar/manufactured_solution/del4/forward/50km_75s: [92mSUCCESS[0m [94m27.0s[0m
+  * ocean/planar/manufactured_solution/del2/forward/50km_75s: [92mSUCCESS[0m [94m27.1s[0m
+  * ocean/column/thermo/forward_long_wave_heat_flux_up: [92mSUCCESS[0m [94m7.1s[0m
+  * ocean/column/thermo/forward_rain_flux: started on ['nid001868']
+  * ocean/column/vmix_unstable/viz: [92mSUCCESS[0m [94m7.4s[0m
+  * ocean/column/thermo/forward_evaporation_flux: [92mSUCCESS[0m [94m7.3s[0m
+  * ocean/column/thermo/forward_river_runoff_flux: started on ['nid001868']
+  * ocean/column/thermo/forward_long_wave_heat_flux_down: [92mSUCCESS[0m [94m7.3s[0m
+  * ocean/column/thermo/forward_ice_runoff_flux: started on ['nid001868']
+  * ocean/column/thermo/forward_snow_flux: [92mSUCCESS[0m [94m7.1s[0m
+  * ocean/column/thermo/forward_sea_ice_fresh_water_flux: started on ['nid001868']
+  * ocean/column/thermo/forward_rain_flux: [92mSUCCESS[0m [94m7.0s[0m
+  * ocean/column/thermo/forward_sea_ice_heat_flux: started on ['nid001868']
+  * ocean/column/thermo/forward_ice_runoff_flux: [92mSUCCESS[0m [94m7.4s[0m
+  * ocean/column/thermo/forward_sea_ice_salinity_flux: started on ['nid001868']
+  * ocean/column/thermo/forward_river_runoff_flux: [92mSUCCESS[0m [94m7.4s[0m
+  * ocean/planar/baroclinic_channel/10km/restart/full_run: started on ['nid001868']
+  * ocean/column/thermo/forward_sea_ice_fresh_water_flux: [92mSUCCESS[0m [94m6.8s[0m
+  * ocean/planar/manufactured_solution/default/forward/200km_300s: started on ['nid001868']
+  * ocean/planar/baroclinic_channel/10km/restart/full_run: [92mSUCCESS[0m [94m3.2s[0m
+  * ocean/planar/baroclinic_channel/10km/restart/restart_run: started on ['nid001868']
+  * ocean/spherical/icos/cosine_bell/decomp/12proc: [92mSUCCESS[0m [94m16.5s[0m
+  * ocean/planar/manufactured_solution/default/forward/25km_38s: started on ['nid001869', 'nid001889', 'nid001892', 'nid001893', 'nid001896']
+  * ocean/planar/manufactured_solution/default/forward/200km_300s: [92mSUCCESS[0m [94m4.2s[0m
+  * ocean/planar/manufactured_solution/default/forward/100km_150s: started on ['nid001868']
+  * ocean/column/thermo/forward_sea_ice_heat_flux: [92mSUCCESS[0m [94m7.1s[0m
+  * ocean/planar/manufactured_solution/del2/forward/200km_300s: started on ['nid001868']
+  * ocean/planar/baroclinic_channel/10km/restart/restart_run: [92mSUCCESS[0m [94m2.9s[0m
+  * ocean/planar/baroclinic_channel/10km/restart/validate: started on ['nid001868']
+  * ocean/planar/manufactured_solution/del2/forward/100km_150s: started on ['nid001868']
+  * ocean/planar/baroclinic_channel/10km/restart/validate: [92mSUCCESS[0m [94m0.5s[0m
+  * ocean/column/thermo/forward_sea_ice_salinity_flux: [92mSUCCESS[0m [94m7.0s[0m
+  * ocean/planar/manufactured_solution/del4/forward/200km_300s: started on ['nid001868']
+  * ocean/planar/manufactured_solution/del2/forward/200km_300s: [92mSUCCESS[0m [94m3.9s[0m
+  * ocean/planar/manufactured_solution/del4/forward/100km_150s: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/init_750m: [92mSUCCESS[0m [94m68.2s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_3km: [92mSUCCESS[0m [94m68.2s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1.5km: [92mSUCCESS[0m [94m68.2s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_2km: [92mSUCCESS[0m [94m68.2s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_500m: [92mSUCCESS[0m [94m68.2s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_1km: [92mSUCCESS[0m [94m68.2s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/init_4km: [92mSUCCESS[0m [94m68.4s[0m
+  * ocean/planar/manufactured_solution/del4/forward/200km_300s: [92mSUCCESS[0m [94m4.1s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_4km: started on ['nid001868']
+  * ocean/planar/manufactured_solution/default/forward/100km_150s: [92mSUCCESS[0m [94m6.1s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_3km: started on ['nid001868']
+  * ocean/planar/manufactured_solution/del2/forward/100km_150s: [92mSUCCESS[0m [94m5.8s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_2km: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_3km: [92mSUCCESS[0m [94m2.7s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_4km: [92mSUCCESS[0m [94m2.8s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1km: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_2km: [92mSUCCESS[0m [94m2.6s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_750m: started on ['nid001868']
+  * ocean/planar/manufactured_solution/del4/forward/100km_150s: [92mSUCCESS[0m [94m6.1s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_500m: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1km: [92mSUCCESS[0m [94m2.7s[0m
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km: [92mSUCCESS[0m [94m2.8s[0m
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3/forward: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_750m: [92mSUCCESS[0m [94m2.6s[0m
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4/forward: started on ['nid001868']
+  * ocean/column/horiz_press_grad/salinity_gradient/forward_500m: [92mSUCCESS[0m [94m2.1s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/analysis: started on ['nid001868']
+  * ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward: started on ['nid001868']
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3/forward: [92mSUCCESS[0m [94m13.8s[0m
+  * ocean/spherical/icos/cosine_bell/restart/full_run: started on ['nid001868']
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4/forward: [92mSUCCESS[0m [94m13.6s[0m
+  * ocean/column/ekman/forward_constant: started on ['nid001868']
+  * ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward: [92mSUCCESS[0m [94m14.2s[0m
+  * ocean/column/inertial/forward: started on ['nid001868']
+  * ocean/planar/merry_go_round/init/5m: [92mSUCCESS[0m [94m90.9s[0m
+  * ocean/spherical/icos/cosine_bell/restart/full_run: [92mSUCCESS[0m [94m4.1s[0m
+  * ocean/planar/merry_go_round/forward/5m_90s_limiter: started on ['nid001868']
+  * ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward: [92mSUCCESS[0m [94m17.0s[0m
+  * ocean/spherical/icos/cosine_bell/restart/restart_run: started on ['nid001868']
+  * ocean/planar/barotropic_gyre/munk/free-slip/init: [92mSUCCESS[0m [94m92.5s[0m
+  * ocean/column/ekman/forward_constant: [92mSUCCESS[0m [94m5.4s[0m
+  * ocean/planar/barotropic_gyre/munk/free-slip/short_forward: started on ['nid001868']
+  * ocean/column/ekman/analysis: started on ['nid001868']
+  * ocean/planar/merry_go_round/forward/5m_90s_limiter: [92mSUCCESS[0m [94m3.4s[0m
+  * ocean/spherical/icos/cosine_bell/restart/restart_run: [92mSUCCESS[0m [94m3.4s[0m
+  * ocean/spherical/icos/cosine_bell/restart/validate: started on ['nid001868']
+  * ocean/spherical/icos/cosine_bell/restart/validate: [92mSUCCESS[0m [94m0.6s[0m
+  * ocean/planar/manufactured_solution/default/forward/25km_38s: [92mSUCCESS[0m [94m36.1s[0m
+  * ocean/planar/manufactured_solution/convergence_both/default/analysis: started on ['nid001868']
+  * ocean/planar/manufactured_solution/del2/forward/25km_38s: started on ['nid001869', 'nid001889', 'nid001892', 'nid001893', 'nid001896']
+  * ocean/column/ekman/analysis: [92mSUCCESS[0m [94m4.5s[0m
+  * ocean/planar/barotropic_gyre/munk/free-slip/short_forward: [92mSUCCESS[0m [94m6.3s[0m
+  * ocean/planar/manufactured_solution/convergence_both/default/analysis: [92mSUCCESS[0m [94m2.6s[0m
+  * ocean/column/inertial/forward: [92mSUCCESS[0m [94m14.3s[0m
+  * ocean/column/inertial/analysis: started on ['nid001868']
+  * ocean/column/inertial/analysis: [92mSUCCESS[0m [94m5.3s[0m
+  * ocean/column/horiz_press_grad/salinity_gradient/analysis: [92mSUCCESS[0m [94m35.7s[0m
+  * ocean/planar/manufactured_solution/del2/forward/25km_38s: [92mSUCCESS[0m [94m35.9s[0m
+  * ocean/planar/manufactured_solution/convergence_both/del2/analysis: started on ['nid001868']
+  * ocean/planar/manufactured_solution/del4/forward/25km_38s: started on ['nid001868', 'nid001869', 'nid001889', 'nid001892', 'nid001893']
+  * ocean/planar/manufactured_solution/convergence_both/del2/analysis: [92mSUCCESS[0m [94m2.4s[0m
+  * ocean/planar/manufactured_solution/del4/forward/25km_38s: [92mSUCCESS[0m [94m36.0s[0m
+  * ocean/planar/manufactured_solution/convergence_both/del4/analysis: started on ['nid001868']
+  * ocean/spherical/icos/cosine_bell/decomp/24proc: started on ['nid001868', 'nid001869', 'nid001889', 'nid001892', 'nid001893', 'nid001896']
+  * ocean/planar/manufactured_solution/convergence_both/del4/analysis: [92mSUCCESS[0m [94m2.5s[0m
+  * ocean/spherical/icos/cosine_bell/decomp/24proc: [92mSUCCESS[0m [94m17.4s[0m
+  * ocean/spherical/icos/cosine_bell/decomp/validate: started on ['nid001868']
+  * ocean/spherical/icos/cosine_bell/decomp/validate: [92mSUCCESS[0m [94m0.6s[0m
+
+Step runtimes:
+       0.1s [92mSUCCESS[0m ocean/column/thermo/conservation_summary
+      15.5s [92mSUCCESS[0m ocean/planar/seamount/linear/zstar/init
+      15.7s [92mSUCCESS[0m ocean/planar/seamount/nonlinear/sigma/init
+      16.0s [92mSUCCESS[0m ocean/column/init/no_forcing/unstable
+      16.0s [92mSUCCESS[0m ocean/column/init/sea_ice_heat_flux/stable
+      16.1s [92mSUCCESS[0m ocean/column/init/wind_evap/stable
+      16.0s [92mSUCCESS[0m ocean/column/init/river_runoff_flux/stable
+      16.1s [92mSUCCESS[0m ocean/column/init/evaporation_flux/stable
+      16.2s [92mSUCCESS[0m ocean/column/init/latent_heat_flux/stable
+      16.2s [92mSUCCESS[0m ocean/column/init/snow_flux/stable
+      16.2s [92mSUCCESS[0m ocean/column/init/long_wave_heat_flux_down/stable
+      16.2s [92mSUCCESS[0m ocean/column/init/sea_ice_salinity_flux/stable
+      16.3s [92mSUCCESS[0m ocean/column/init/sensible_heat_flux/stable
+      16.3s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/200km
+      16.4s [92mSUCCESS[0m ocean/column/init/long_wave_heat_flux_up/stable
+      16.4s [92mSUCCESS[0m ocean/column/init/ice_runoff_flux/stable
+      16.2s [92mSUCCESS[0m mesh/spherical/icos/base_mesh/480km
+      16.4s [92mSUCCESS[0m ocean/column/init/rain_flux/stable
+      16.4s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/100km
+      16.4s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/init
+      16.4s [92mSUCCESS[0m ocean/planar/overflow/nonlinear/pstar/init
+      16.5s [92mSUCCESS[0m ocean/column/init/no_forcing/stable
+      16.5s [92mSUCCESS[0m ocean/column/init/wind/neutral
+      16.7s [92mSUCCESS[0m ocean/column/init/short_wave_heat_flux/stable
+      16.8s [92mSUCCESS[0m ocean/column/init/sea_ice_fresh_water_flux/stable
+      18.1s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/50km
+      18.9s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/init
+       4.7s [92mSUCCESS[0m ocean/planar/seamount/linear/zstar/short/forward
+       4.5s [92mSUCCESS[0m ocean/planar/seamount/nonlinear/sigma/short/forward
+      20.4s [92mSUCCESS[0m ocean/spherical/realistic_global/QU.240km/analysis_members_test/forward
+       4.6s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/init/480km
+      22.2s [92mSUCCESS[0m ocean/planar/manufactured_solution/init/25km
+       7.6s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_hadv
+       8.0s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/decomp/4proc
+       8.0s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/threads/1thread
+       7.6s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_hadv
+       7.5s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_hadv_restoring
+       7.9s [92mSUCCESS[0m ocean/column/vmix_stable/forward
+       0.6s [92mSUCCESS[0m ocean/column/vmix_stable/analysis
+       7.0s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_vadv_no_hadv
+       6.9s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/threads/2thread
+       0.6s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/threads/validate
+       7.5s [92mSUCCESS[0m ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant
+       7.7s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_hadv_restoring
+       8.0s [92mSUCCESS[0m ocean/column/vmix_unstable/forward
+       6.9s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_vadv_no_hadv
+       6.7s [92mSUCCESS[0m ocean/column/vmix_unstable/forward_no_vadv_no_hadv_constant
+       8.8s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/decomp/8proc
+       7.5s [92mSUCCESS[0m ocean/column/vmix_stable/viz
+       7.0s [92mSUCCESS[0m ocean/column/thermo/forward_latent_heat_flux
+       6.9s [92mSUCCESS[0m ocean/column/thermo/forward_sensible_heat_flux
+       0.6s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/decomp/validate
+       7.2s [92mSUCCESS[0m ocean/column/thermo/forward_short_wave_heat_flux
+      27.0s [92mSUCCESS[0m ocean/planar/manufactured_solution/default/forward/50km_75s
+      27.0s [92mSUCCESS[0m ocean/planar/manufactured_solution/del4/forward/50km_75s
+      27.1s [92mSUCCESS[0m ocean/planar/manufactured_solution/del2/forward/50km_75s
+       7.1s [92mSUCCESS[0m ocean/column/thermo/forward_long_wave_heat_flux_up
+       7.4s [92mSUCCESS[0m ocean/column/vmix_unstable/viz
+       7.3s [92mSUCCESS[0m ocean/column/thermo/forward_evaporation_flux
+       7.3s [92mSUCCESS[0m ocean/column/thermo/forward_long_wave_heat_flux_down
+       7.1s [92mSUCCESS[0m ocean/column/thermo/forward_snow_flux
+       7.0s [92mSUCCESS[0m ocean/column/thermo/forward_rain_flux
+       7.4s [92mSUCCESS[0m ocean/column/thermo/forward_ice_runoff_flux
+       7.4s [92mSUCCESS[0m ocean/column/thermo/forward_river_runoff_flux
+       6.8s [92mSUCCESS[0m ocean/column/thermo/forward_sea_ice_fresh_water_flux
+       3.2s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/restart/full_run
+      16.5s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/decomp/12proc
+       4.2s [92mSUCCESS[0m ocean/planar/manufactured_solution/default/forward/200km_300s
+       7.1s [92mSUCCESS[0m ocean/column/thermo/forward_sea_ice_heat_flux
+       2.9s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/restart/restart_run
+       0.5s [92mSUCCESS[0m ocean/planar/baroclinic_channel/10km/restart/validate
+       7.0s [92mSUCCESS[0m ocean/column/thermo/forward_sea_ice_salinity_flux
+       3.9s [92mSUCCESS[0m ocean/planar/manufactured_solution/del2/forward/200km_300s
+      68.2s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_750m
+      68.2s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_3km
+      68.2s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_1.5km
+      68.2s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_2km
+      68.2s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_500m
+      68.2s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_1km
+      68.4s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/init_4km
+       4.1s [92mSUCCESS[0m ocean/planar/manufactured_solution/del4/forward/200km_300s
+       6.1s [92mSUCCESS[0m ocean/planar/manufactured_solution/default/forward/100km_150s
+       5.8s [92mSUCCESS[0m ocean/planar/manufactured_solution/del2/forward/100km_150s
+       2.7s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_3km
+       2.8s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_4km
+       2.6s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_2km
+       6.1s [92mSUCCESS[0m ocean/planar/manufactured_solution/del4/forward/100km_150s
+       2.7s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_1km
+       2.8s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_1.5km
+       2.6s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_750m
+       2.1s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/forward_500m
+      13.8s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_3/forward
+      13.6s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_4/forward
+      14.2s [92mSUCCESS[0m ocean/planar/overflow/linear/zstar/smoke_test_horiz_adv_order_2_del4/forward
+      90.9s [92mSUCCESS[0m ocean/planar/merry_go_round/init/5m
+       4.1s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/restart/full_run
+      17.0s [92mSUCCESS[0m ocean/planar/overflow/nonlinear/pstar/smoke_test_horiz_adv_order_4_del4/forward
+      92.5s [92mSUCCESS[0m ocean/planar/barotropic_gyre/munk/free-slip/init
+       5.4s [92mSUCCESS[0m ocean/column/ekman/forward_constant
+       3.4s [92mSUCCESS[0m ocean/planar/merry_go_round/forward/5m_90s_limiter
+       3.4s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/restart/restart_run
+       0.6s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/restart/validate
+      36.1s [92mSUCCESS[0m ocean/planar/manufactured_solution/default/forward/25km_38s
+       4.5s [92mSUCCESS[0m ocean/column/ekman/analysis
+       6.3s [92mSUCCESS[0m ocean/planar/barotropic_gyre/munk/free-slip/short_forward
+       2.6s [92mSUCCESS[0m ocean/planar/manufactured_solution/convergence_both/default/analysis
+      14.3s [92mSUCCESS[0m ocean/column/inertial/forward
+       5.3s [92mSUCCESS[0m ocean/column/inertial/analysis
+      35.7s [92mSUCCESS[0m ocean/column/horiz_press_grad/salinity_gradient/analysis
+      35.9s [92mSUCCESS[0m ocean/planar/manufactured_solution/del2/forward/25km_38s
+       2.4s [92mSUCCESS[0m ocean/planar/manufactured_solution/convergence_both/del2/analysis
+      36.0s [92mSUCCESS[0m ocean/planar/manufactured_solution/del4/forward/25km_38s
+       2.5s [92mSUCCESS[0m ocean/planar/manufactured_solution/convergence_both/del4/analysis
+      17.4s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/decomp/24proc
+       0.6s [92mSUCCESS[0m ocean/spherical/icos/cosine_bell/decomp/validate
+Total runtime: 0:03:08
+Step time was 1784s, so this run did 9.5x the work of running one step at a time for as long.
+
+Baseline comparison: 99 passed, 0 failed
+
+Property checks: 32 passed, 10 failed
+  [91mFAIL[0m ocean/column/inertial/forward
+  [91mFAIL[0m ocean/column/vmix_stable/forward
+  [91mFAIL[0m ocean/column/vmix_stable/forward_no_hadv
+  [91mFAIL[0m ocean/column/vmix_stable/forward_no_hadv_restoring
+  [91mFAIL[0m ocean/column/vmix_stable/forward_no_vadv_no_hadv
+  [91mFAIL[0m ocean/column/vmix_stable/forward_no_vadv_no_hadv_constant
+  [91mFAIL[0m ocean/column/vmix_unstable/forward
+  [91mFAIL[0m ocean/column/vmix_unstable/forward_no_hadv
+  [91mFAIL[0m ocean/column/vmix_unstable/forward_no_hadv_restoring
+  [91mFAIL[0m ocean/column/vmix_unstable/forward_no_vadv_no_hadv
+PASS: All passed successfully!
