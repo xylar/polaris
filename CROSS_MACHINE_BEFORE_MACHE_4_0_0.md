@@ -30,13 +30,15 @@ That check now runs on every step of every concurrent run, which is what makes t
 | --- | --- | --- |
 | Chrysalis | CPU_BINDING, Slurm 20.02 | **done** -- serial/concurrent pair, fork spike, JIGSAW benchmark, node sweeps of `omega_pr` and `omega_nightly` at 3, 5, 8 and 13 nodes |
 | Aurora | CPU_BINDING, PALS | **done** -- two clean concurrent runs (8831416, 8831432), 99/0 against the serial baseline, zero mismatches |
-| Perlmutter GPU | SCHEDULER + CUDA | **run next** -- ran once (58363551) before the GPU probe and the count rule existed; the GPU axis is unverified |
-| Frontier | SCHEDULER + ROCm, Slurm 25.11 | **after that** -- never run |
+| Perlmutter GPU | SCHEDULER + CUDA | **done** -- GPU spike (58471743), concurrent/serial pair (58471188, 58471187), 99/0 against the baseline (58482480), zero mismatches |
+| Frontier | SCHEDULER + ROCm, Slurm 25.11 | **done** -- GPU spike (5515624), concurrent/serial pair (5515650, 5515651), 99/0 against the baseline (5515656), zero mismatches, zero `not checked` |
 | Perlmutter CPU | SCHEDULER | optional -- ran once (58363133) before the count rule; one run confirms the whole-node 256/128 case, gates nothing |
 
 All results are on the branch under `utils/concurrency_check/results/<machine>/`.
 
 **What Aurora answered.** PALS restarts `--cpu-bind list:` on every node, exactly as Slurm 20.02 does -- the failure this note predicted -- and mache now renders one node's list there and refuses what cannot be said that way (`bf3e2905` on `xylar/mache`). Polaris was never misplacing steps by that route, because the pool gives a spanning step the same cores on every node. What *was* wrong was the id space: Aurora holds cores 0 and 52 back, and Polaris numbered from zero, so 40 of 115 steps were placed on a core the job did not have. That is fixed -- a node's cores are now read from what the job may use, one id per physical core -- and a run there says so at the top: `A node here keeps back core(s) [0, 52]; steps are placed on the other 102.`
+
+**What Frontier answered.** The opposite of pm-gpu on both GPU questions: `ROCR_VISIBLE_DEVICES` holds the node's own device indices rather than a renumbering from zero, so the device check can be exact there, and nothing but that variable confines a launch -- with it cleared, every launch can open all eight GPUs. Slurm still hands concurrent launches disjoint sets, and the pool's named devices agreed with Slurm's choice on every single-node step of `omega_pr`, though that is two bookkeepers agreeing rather than one enforcing the other. Frontier also keeps back one core per L3 region, which the reader handled: `A node here keeps back core(s) [0, 8, 16, 24, 32, 40, 48]; steps are placed on the other 56.` Nodes credit 497940-499202 MiB against the configured 512000.
 
 **Why Perlmutter GPU before Frontier.** Two things are new since Perlmutter ran and have never touched a real machine: the placement check now holds a SCHEDULER machine to a *count* of physical cores rather than to particular ids, and it now asks every rank which GPUs it can see. pm-gpu exercises both on a machine whose environment, queue and known failures are already understood, so whatever it reports is about the checks and not the machine. Frontier exercises the same two on a machine this branch has never been deployed to, where a surprise would be ambiguous. So pm-gpu settles the checks, then Frontier is the last new machine.
 
