@@ -1,0 +1,82 @@
+=== node view: every GPU the job has ===
+  Node:                    0                                  
+  Node:                    1                                  
+  Node:                    2                                  
+  Node:                    3                                  
+  Uuid:                    GPU-3b2fff1efcc33492               
+  Node:                    4                                  
+  Uuid:                    GPU-eca343d3a045224a               
+  Node:                    5                                  
+  Uuid:                    GPU-598ca0f57ebc8c4a               
+  Node:                    6                                  
+  Uuid:                    GPU-fe2e19f79da5532f               
+  Node:                    7                                  
+  Uuid:                    GPU-41e1ef6bfa774438               
+  Node:                    8                                  
+  Uuid:                    GPU-3e5eea712cc16ef1               
+  Node:                    9                                  
+  Uuid:                    GPU-1dfdf7a6a1d5c145               
+  Node:                    10                                 
+  Uuid:                    GPU-ce64648d57398daf               
+  Node:                    11                                 
+device,Unique ID,PCI Bus
+card0,0x3b2fff1efcc33492,0000:C1:00.0
+card1,0xeca343d3a045224a,0000:C6:00.0
+card2,0x598ca0f57ebc8c4a,0000:C9:00.0
+card3,0xfe2e19f79da5532f,0000:CE:00.0
+card4,0x41e1ef6bfa774438,0000:D1:00.0
+card5,0x3e5eea712cc16ef1,0000:D6:00.0
+card6,0x1dfdf7a6a1d5c145,0000:D9:00.0
+card7,0xce64648d57398daf,0000:DE:00.0
+
+
+=== A: one launch, 8 tasks, --gpus=8 (a whole node) ===
+0: A host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,]
+5: A host=frontier05084 rank=5 ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,]
+7: A host=frontier05084 rank=7 ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,]
+2: A host=frontier05084 rank=2 ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,]
+6: A host=frontier05084 rank=6 ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,]
+4: A host=frontier05084 rank=4 ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,]
+1: A host=frontier05084 rank=1 ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,]
+3: A host=frontier05084 rank=3 ROCR_VISIBLE_DEVICES=0,1,2,3,4,5,6,7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,]
+
+=== B: one launch, 2 tasks, --gpus=2 (a partial node) ===
+0: B host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=0,1 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,]
+1: B host=frontier05084 rank=1 ROCR_VISIBLE_DEVICES=0,1 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,]
+
+=== C: eight concurrent launches, 1 task each, --gpus=1 (the one-GPU steps' shape) ===
+0: C1 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=0 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,]
+0: C2 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=1 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-eca343d3a045224a,]
+0: C3 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=3 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-fe2e19f79da5532f,]
+0: C7 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=4 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-41e1ef6bfa774438,]
+0: C8 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=2 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-598ca0f57ebc8c4a,]
+0: C4 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=5 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3e5eea712cc16ef1,]
+0: C6 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=6 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-1dfdf7a6a1d5c145,]
+0: C5 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-ce64648d57398daf,]
+
+=== D: two concurrent launches, 2 tasks each, --gpus=2 ===
+0: D2 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=2,3 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,]
+0: D1 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=0,1 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,]
+1: D2 host=frontier05084 rank=1 ROCR_VISIBLE_DEVICES=2,3 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,]
+1: D1 host=frontier05084 rank=1 ROCR_VISIBLE_DEVICES=0,1 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,]
+
+=== E: as A, with --gpu-bind=closest (what mache renders for Omega here) ===
+7: E host=frontier05084 rank=7 ROCR_VISIBLE_DEVICES=1 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-eca343d3a045224a,]
+0: E host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=4 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-41e1ef6bfa774438,]
+6: E host=frontier05084 rank=6 ROCR_VISIBLE_DEVICES=0 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,]
+5: E host=frontier05084 rank=5 ROCR_VISIBLE_DEVICES=7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-ce64648d57398daf,]
+1: E host=frontier05084 rank=1 ROCR_VISIBLE_DEVICES=5 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3e5eea712cc16ef1,]
+3: E host=frontier05084 rank=3 ROCR_VISIBLE_DEVICES=3 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-fe2e19f79da5532f,]
+4: E host=frontier05084 rank=4 ROCR_VISIBLE_DEVICES=6 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-1dfdf7a6a1d5c145,]
+2: E host=frontier05084 rank=2 ROCR_VISIBLE_DEVICES=2 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-598ca0f57ebc8c4a,]
+
+=== F: two concurrent launches, 4 tasks each, --gpus=4 --gpu-bind=closest ===
+3: F1 host=frontier05084 rank=3 ROCR_VISIBLE_DEVICES=1 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-eca343d3a045224a,]
+0: F1 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=2 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-598ca0f57ebc8c4a,]
+2: F1 host=frontier05084 rank=2 ROCR_VISIBLE_DEVICES=0 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3b2fff1efcc33492,]
+3: F2 host=frontier05084 rank=3 ROCR_VISIBLE_DEVICES=7 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-ce64648d57398daf,]
+2: F2 host=frontier05084 rank=2 ROCR_VISIBLE_DEVICES=6 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-1dfdf7a6a1d5c145,]
+1: F1 host=frontier05084 rank=1 ROCR_VISIBLE_DEVICES=3 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-fe2e19f79da5532f,]
+0: F2 host=frontier05084 rank=0 ROCR_VISIBLE_DEVICES=4 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-41e1ef6bfa774438,]
+1: F2 host=frontier05084 rank=1 ROCR_VISIBLE_DEVICES=5 physical=[GPU-3b2fff1efcc33492,GPU-eca343d3a045224a,GPU-598ca0f57ebc8c4a,GPU-fe2e19f79da5532f,GPU-41e1ef6bfa774438,GPU-3e5eea712cc16ef1,GPU-1dfdf7a6a1d5c145,GPU-ce64648d57398daf,] seen=[GPU-3e5eea712cc16ef1,]
+done
