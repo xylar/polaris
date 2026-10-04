@@ -6,6 +6,7 @@ from typing import Any, cast
 
 import pytest
 import xarray as xr
+from jinja2 import Template
 from ruamel.yaml import YAML
 
 from polaris import Step
@@ -53,6 +54,7 @@ def _forward_config(**overrides):
         use_KPP='True',
         use_submesoscale='True',
         pressure_gradient_type='Jacobian_from_TS',
+        omega_pressure_gradient_type='',
         use_frazil_ice_formation='False',
         output_density='True',
         start_time='0001-01-01_00:00:00',
@@ -399,20 +401,51 @@ def test_bottom_drag_options():
     }
 
 
-def test_damping_is_an_error_for_omega():
-    # Omega has no Rayleigh damping, so a damped stage cannot run there
-    stage = ForwardStage(name='damped_adjustment_1', damping=1.0e-4)
-    with pytest.raises(ValueError, match='Omega/issues/495'):
-        stage.check_damping_supported('omega')
-    # ... but it is fine for MPAS-Ocean
-    stage.check_damping_supported('mpas-ocean')
+def test_omega_physics_replacements_turn_damping_on_with_its_coeff():
+    replacements = ForwardStage(
+        damping=1.0e-5, use_KPP=True
+    ).omega_physics_replacements()
+    assert replacements == dict(
+        rayleigh_enable='true',
+        rayleigh_coeff='1.000000e-05',
+        use_kpp='true',
+        pressure_grad_type='',
+    )
 
 
-def test_no_damping_is_fine_for_either_model():
-    # an undamped stage -- the final `simulation` stage, and every stage of a
-    # simple forward run -- is unaffected
-    for model in ('mpas-ocean', 'omega'):
-        ForwardStage(name='simulation').check_damping_supported(model)
+def test_omega_physics_replacements_state_an_undamped_stage():
+    # as for MPAS-Ocean, an undamped stage says so with a zero coefficient
+    replacements = ForwardStage(
+        omega_pressure_gradient_type='FiniteVolume'
+    ).omega_physics_replacements()
+    assert replacements['rayleigh_enable'] == 'false'
+    assert float(replacements['rayleigh_coeff']) == 0.0
+    # Omega's KPP is on by default, so off has to be stated
+    assert replacements['use_kpp'] == 'false'
+    assert replacements['pressure_grad_type'] == 'FiniteVolume'
+
+
+def test_omega_physics_yaml_renders_for_omega():
+    text = (
+        imp_res.files('polaris.tasks.ocean.realistic_global.forward')
+        .joinpath('omega_physics.yaml')
+        .read_text()
+    )
+    for pgrad, expected in (('', None), ('FiniteVolume', 'FiniteVolume')):
+        replacements = ForwardStage(
+            damping=1.0e-4, omega_pressure_gradient_type=pgrad or None
+        ).omega_physics_replacements()
+        rendered = Template(text).render(**replacements)
+        omega = YAML(typ='safe').load(rendered)['Omega']
+        assert omega['RayleighDamping'] == {
+            'Enable': True,
+            'DampingCoeff': 1.0e-4,
+        }
+        assert omega['VertMix']['KPP']['Enable'] is False
+        if expected is None:
+            assert 'PressureGrad' not in omega
+        else:
+            assert omega['PressureGrad']['PressureGradType'] == expected
 
 
 # --- physics options ---
@@ -586,6 +619,7 @@ def test_mpaso_only_physics_is_always_stated():
         use_KPP=True,
         use_submesoscale=True,
         pressure_gradient_type='Jacobian_from_TS',
+        omega_pressure_gradient_type='',
     ).mpaso_physics_options()
     assert on['config_use_cvmix_kpp']
     assert on['config_submesoscale_enable']

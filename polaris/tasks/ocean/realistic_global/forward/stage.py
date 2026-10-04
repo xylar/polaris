@@ -182,6 +182,12 @@ class ForwardStage:
         ordinary counterpart to Omega's ``Centered``.  ``Jacobian_from_TS`` is
         how E3SM runs and has no Omega equivalent.
 
+    omega_pressure_gradient_type : str or None
+        Omega's ``PressureGradType``, ``Centered`` or ``FiniteVolume``;
+        ``None`` leaves Omega's default of ``Centered``.  Separate from
+        ``pressure_gradient_type`` because the two models' formulations do not
+        correspond one to one.
+
     use_frazil_ice_formation : bool
         Whether to form frazil ice.
 
@@ -243,6 +249,7 @@ class ForwardStage:
     use_KPP: bool = False
     use_submesoscale: bool = False
     pressure_gradient_type: Optional[str] = None
+    omega_pressure_gradient_type: Optional[str] = None
     use_frazil_ice_formation: bool = False
     output_density: bool = True
     do_restart: bool = False
@@ -317,6 +324,9 @@ class ForwardStage:
             use_submesoscale=config.getboolean(section, 'use_submesoscale'),
             pressure_gradient_type=_opt_str(
                 config, section, 'pressure_gradient_type'
+            ),
+            omega_pressure_gradient_type=_opt_str(
+                config, section, 'omega_pressure_gradient_type'
             ),
             use_frazil_ice_formation=config.getboolean(
                 section, 'use_frazil_ice_formation'
@@ -477,41 +487,6 @@ class ForwardStage:
         prefix = output_filename.split('.')[0]
         return f'{prefix}_{self.stats_period()}Instants'
 
-    def check_damping_supported(self, model: str) -> None:
-        """
-        Raise when the configured model cannot honor this stage's damping.
-
-        Omega has no Rayleigh damping
-        (https://github.com/E3SM-Project/Omega/issues/495), and
-        ``config_Rayleigh_damping_coeff`` has no counterpart in
-        ``mpaso_to_omega``, so a damped stage would run undamped with nothing
-        said.  For a staged adjustment that is not a small difference in a
-        low-level control: the ramp is the whole purpose of the damped stages,
-        and dropping it silently would make a run look adjusted when it is not.
-
-        A stage with no damping -- the final ``simulation`` stage, and every
-        stage of a simple forward run -- is unaffected.
-
-        Parameters
-        ----------
-        model : str
-            The configured ocean model, ``'mpas-ocean'`` or ``'omega'``.
-
-        Raises
-        ------
-        ValueError
-            If ``damping`` is set and ``model`` is Omega.
-        """
-        if self.damping is None or model != 'omega':
-            return
-        raise ValueError(
-            f'Stage {self.name!r} sets Rayleigh damping '
-            f'({self.damping:g} 1/s), which Omega does not support; see '
-            f'https://github.com/E3SM-Project/Omega/issues/495.  Run this '
-            f'stage with MPAS-Ocean, or drop "damping" from the schedule to '
-            f'run it undamped.'
-        )
-
     def bottom_drag_options(self) -> Dict[str, Any]:
         """
         MPAS-Ocean bottom-drag config options implied by the damping setting.
@@ -524,9 +499,8 @@ class ForwardStage:
         reads as though the run were damped.  An undamped stage should look
         undamped.
 
-        Applied by the forward step for MPAS-Ocean only, because Omega has no
-        Rayleigh damping; :py:meth:`check_damping_supported` is what keeps that
-        from being a silent omission.
+        Applied by the forward step for MPAS-Ocean only; Omega's counterpart is
+        in :py:meth:`omega_physics_replacements`.
 
         Returns
         -------
@@ -539,6 +513,31 @@ class ForwardStage:
             'config_implicit_bottom_drag_type': 'constant_and_rayleigh',
             'config_Rayleigh_damping_coeff': self.damping,
         }
+
+    def omega_physics_replacements(self) -> Dict[str, str]:
+        """
+        Template replacements for ``omega_physics.yaml``: the Omega physics
+        that has no counterpart in ``mpaso_to_omega``.
+
+        Rayleigh damping is Omega's ``RayleighDamping`` group, which is
+        applied in every layer in the implicit vertical-mixing solve, as
+        MPAS-Ocean's ``constant_and_rayleigh`` is.  As for MPAS-Ocean (see
+        :py:meth:`bottom_drag_options`), an undamped stage states a zero
+        coefficient.  KPP is stated either way, since Omega turns it on by
+        default.
+
+        Returns
+        -------
+        dict of str
+            The template replacements for ``omega_physics.yaml``.
+        """
+        damping = 0.0 if self.damping is None else self.damping
+        return dict(
+            rayleigh_enable='true' if self.damping is not None else 'false',
+            rayleigh_coeff=f'{damping:.6e}',
+            use_kpp='true' if self.use_KPP else 'false',
+            pressure_grad_type=self.omega_pressure_gradient_type or '',
+        )
 
     def restart_stream_replacements(self) -> Dict[str, str]:
         """

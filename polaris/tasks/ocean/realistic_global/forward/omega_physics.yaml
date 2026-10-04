@@ -1,0 +1,19 @@
+# Omega physics with no counterpart in mpaso_to_omega.yaml, added by the
+# Forward step for Omega only.  The values come from the ForwardStage; see
+# ForwardStage.omega_physics_replacements.
+Omega:
+    # Rayleigh damping of the velocity in every layer, inside the implicit
+    # vertical-mixing solve, as MPAS-Ocean's constant_and_rayleigh bottom drag
+    # type does.  An undamped stage states a zero coefficient, as it does for
+    # MPAS-Ocean, so that it looks undamped.
+    RayleighDamping:
+        Enable: {{ rayleigh_enable }}
+        DampingCoeff: {{ rayleigh_coeff }}
+    # the KPP boundary layer, on by default in Omega, so stated either way
+    VertMix:
+        KPP:
+            Enable: {{ use_kpp }}
+    {%- if pressure_grad_type %}
+    PressureGrad:
+        PressureGradType: {{ pressure_grad_type }}
+    {%- endif %}
