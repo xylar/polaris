@@ -40,6 +40,9 @@ class IdealAge(Task):
             openmp_threads=1,
             validate_vars=validate_vars,
             task_name=name,
+            # salinity restoring is enabled in forward.yaml and its flux is
+            # not available to the salt budget
+            check_properties=['mass conservation', 'energy conservation'],
         )
 
         self.add_step(step)

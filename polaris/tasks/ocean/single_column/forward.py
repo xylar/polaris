@@ -32,6 +32,7 @@ class Forward(OceanModelStep):
         enable_restoring=False,
         constant_diff=False,
         conservation_intervals=None,
+        check_properties=None,
         run_duration_steps=None,
     ):
         """
@@ -82,6 +83,12 @@ class Forward(OceanModelStep):
             the time index in ``output.nc`` at the end of the interval.  By
             default, conservation is checked between the initial condition
             and the end of the run.
+
+        check_properties : list of str, optional
+            The conservation properties to check over each interval.  By
+            default, mass, salt and energy are checked, except that salt is
+            not checked if surface restoring is enabled, because the
+            restoring flux is not available to the salt budget.
         """
         if not enable_vadv:
             name = f'{name}_no_vadv'
@@ -124,11 +131,11 @@ class Forward(OceanModelStep):
         )
         if conservation_intervals is None:
             conservation_intervals = [('init', -1)]
-        check_properties = [
-            'mass conservation',
-            'salt conservation',
-            'energy conservation',
-        ]
+        if check_properties is None:
+            check_properties = ['mass conservation']
+            if not enable_restoring:
+                check_properties.append('salt conservation')
+            check_properties.append('energy conservation')
         for baseline, time_index_end in conservation_intervals:
             self.add_property_check(
                 filename='output.nc',

@@ -296,7 +296,9 @@ wind_stress_zonal = 0.1
 ```
 
 The cvmix case has both surface forcing and restoring, which are controlled by
-the config options given in {ref}`ocean-single-column`.
+the config options given in {ref}`ocean-single-column`.  The restoring flux is
+not written to the output, so the `forward_no_hadv_restoring` step checks mass
+and energy conservation but not salt.
 
 ### time step and run duration
 
@@ -422,7 +424,9 @@ See {ref}`ocean-single-column-stable`.
 ### forcing
 
 `idealAgeTracers` is set to zero seconds within the first surface grid layer at
-every time step.
+every time step.  Surface and interior restoring of temperature and salinity
+are enabled.  The restoring flux is not written to the output, so salt
+conservation is not checked.
 
 ### time step and run duration
 
