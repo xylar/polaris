@@ -265,10 +265,9 @@ tracer_conservation_tolerance = 1e-14
 energy_conservation_tolerance = 1e-14
 ```
 
-A failed check does not currently fail its step or task.  The result is
-logged and recorded, and nothing else acts on it.  Whether that should
-change, and what the tolerances should be, is under discussion in
-[issue #753](https://github.com/E3SM-Project/polaris/issues/753).
+A failed check fails its task, though the step itself still completes, so
+later steps run and the failure is reported alongside any baseline
+comparison.
 
 As shown in the previous example, we have added a mesh file with the name
 'mesh.nc' because conservation checks require the area of cells.

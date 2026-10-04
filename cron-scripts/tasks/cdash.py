@@ -5,9 +5,10 @@ that CTest recorded, so the two can be submitted together.
 CTest writes ``Testing/TAG`` and ``Testing/<tag>/Build.xml`` when Omega is
 built through ``omega_ctest.py --dashboard``.  Polaris writes one log per
 task under ``case_outputs/`` with a ``POLARIS TASK: PASS`` or ``FAIL`` line
-(and ``POLARIS BASELINE:`` when a baseline was compared).  This module reads
-the logs and writes ``Test.xml`` into the same tag directory, copying the
-``<Site>`` attributes from ``Build.xml`` so CDash files both under one build.
+(and ``POLARIS BASELINE:`` or ``POLARIS PROPERTY:`` when a baseline was
+compared or properties were checked).  This module reads the logs and writes
+``Test.xml`` into the same tag directory, copying the ``<Site>`` attributes
+from ``Build.xml`` so CDash files both under one build.
 """
 
 import glob
@@ -84,8 +85,9 @@ def task_results(log_dir):
             output = _ANSI_ESCAPE.sub('', f.read())
 
         passed = 'POLARIS TASK: PASS' in output
-        if 'POLARIS BASELINE:' in output:
-            passed = passed and 'POLARIS BASELINE: PASS' in output
+        for check in ('BASELINE', 'PROPERTY'):
+            if f'POLARIS {check}:' in output:
+                passed = passed and f'POLARIS {check}: PASS' in output
 
         results.append({'name': name, 'passed': passed, 'output': output})
     return results

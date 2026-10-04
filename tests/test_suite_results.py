@@ -70,8 +70,10 @@ class _FakeRunTask:
                 },
                 'salinity': {'l1': math.nan, 'l2': math.inf, 'linf': 0.0},
             }
-            return False, diffs
-        return None, {}
+            return False, None, diffs
+        if task.path.endswith('property'):
+            return None, False, {}
+        return None, True, {}
 
 
 def _set_up(tmp_path, monkeypatch, paths, name='omega_pr', is_task=False):
@@ -137,7 +139,7 @@ def _read_output_for_pr(work_dir, name):
 
 
 def test_results_file_records_each_outcome(tmp_path, monkeypatch):
-    paths = ['ocean/pass', 'ocean/error', 'ocean/diff']
+    paths = ['ocean/pass', 'ocean/error', 'ocean/diff', 'ocean/property']
     work_dir, _ = _set_up(tmp_path, monkeypatch, paths)
 
     with pytest.raises(SystemExit):
@@ -149,9 +151,9 @@ def test_results_file_records_each_outcome(tmp_path, monkeypatch):
     assert results['complete'] is True
     assert results['elapsed_seconds'] >= 0.0
     assert results['summary'] == {
-        'total': 3,
+        'total': 4,
         'passed': 1,
-        'failed': 2,
+        'failed': 3,
         'pending': 0,
     }
 
@@ -172,6 +174,7 @@ def test_results_file_records_each_outcome(tmp_path, monkeypatch):
     assert passed['status'] == 'pass'
     assert passed['execution'] == 'pass'
     assert passed['baseline'] is None
+    assert passed['property'] == 'pass'
     assert passed['steps_to_run'] == ['init', 'forward']
     assert passed['log'] == 'case_outputs/ocean_pass.log'
     assert os.path.exists(os.path.join(work_dir, passed['log']))
@@ -181,6 +184,7 @@ def test_results_file_records_each_outcome(tmp_path, monkeypatch):
     assert error['status'] == 'fail'
     assert error['execution'] == 'fail'
     assert error['baseline'] is None
+    assert error['property'] is None
 
     diff = tasks['ocean/diff']
     assert diff['status'] == 'fail'
@@ -191,6 +195,12 @@ def test_results_file_records_each_outcome(tmp_path, monkeypatch):
         'salinity': {'l1': 'NaN', 'l2': 'Infinity', 'linf': 0.0},
     }
 
+    prop = tasks['ocean/property']
+    assert prop['status'] == 'fail'
+    assert prop['execution'] == 'pass'
+    assert prop['baseline'] is None
+    assert prop['property'] == 'fail'
+
     for task in results['tasks']:
         assert task['elapsed_seconds'] >= 0.0
 
@@ -198,6 +208,12 @@ def test_results_file_records_each_outcome(tmp_path, monkeypatch):
     assert os.path.exists(os.path.join(work_dir, 'omega_pr_output_for_pr.md'))
     with open(os.path.join(work_dir, 'case_outputs/ocean_diff.log')) as log:
         assert 'POLARIS BASELINE: FAIL' in log.read()
+    property_log = os.path.join(work_dir, 'case_outputs/ocean_property.log')
+    with open(property_log) as log:
+        assert 'POLARIS PROPERTY: FAIL' in log.read()
+    output = _read_output_for_pr(work_dir, 'omega_pr')
+    assert '- Property check failures (1 of 4):' in output
+    assert '    - `ocean/property`' in output
 
 
 def test_results_file_is_written_before_each_task(tmp_path, monkeypatch):
@@ -299,4 +315,8 @@ def test_task_result_status():
     result = TaskResult(path='a', execution_passed=True, baseline_passed=True)
     assert result.status == 'pass'
     result.baseline_passed = False
+    assert result.status == 'fail'
+    result = TaskResult(path='a', execution_passed=True, property_passed=True)
+    assert result.status == 'pass'
+    result.property_passed = False
     assert result.status == 'fail'

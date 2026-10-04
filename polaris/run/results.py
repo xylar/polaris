@@ -38,6 +38,10 @@ class TaskResult:
         Whether the baseline comparisons passed, or ``None`` if none were
         made
 
+    property_passed : bool, optional
+        Whether the property (e.g. conservation) checks passed, or ``None``
+        if none were made
+
     elapsed_seconds : float, optional
         The wall-clock time the task took to run, or ``None`` if the task
         has not been run yet
@@ -53,6 +57,7 @@ class TaskResult:
     log: Optional[str] = None
     execution_passed: Optional[bool] = None
     baseline_passed: Optional[bool] = None
+    property_passed: Optional[bool] = None
     elapsed_seconds: Optional[float] = None
     baseline_diffs: Dict = field(default_factory=dict)
 
@@ -64,11 +69,13 @@ class TaskResult:
     @property
     def success(self) -> bool:
         """
-        Whether the task ran without error and no baseline comparison
-        failed
+        Whether the task ran without error and no baseline comparison or
+        property check failed
         """
-        return self.execution_passed is True and (
-            self.baseline_passed is not False
+        return (
+            self.execution_passed is True
+            and self.baseline_passed is not False
+            and self.property_passed is not False
         )
 
     @property
@@ -92,6 +99,7 @@ class TaskResult:
             'status': self.status,
             'execution': _pass_fail(self.execution_passed),
             'baseline': _pass_fail(self.baseline_passed),
+            'property': _pass_fail(self.property_passed),
             'elapsed_seconds': self.elapsed_seconds,
             'steps_to_run': self.steps_to_run,
             'log': self.log,

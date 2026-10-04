@@ -112,7 +112,10 @@ output for each step to a log file starting with the step's name. In either
 case (suite or individual test), it displays a `SUCCESS` or `ERROR` message for
 the execution of each step, indicates whether baseline comparisons `PASS` or
 `FAIL` for any steps that include them (and if a baseline was provided),
+whether property checks `PASS` or `FAIL` for any steps that have them,
 and finally indicates if the overall task execution was `SUCCESS` or `ERROR`.
+A task fails if its execution, a baseline comparison or a property check
+fails.
 Execution times are provided for individual steps, tasks and the suite as a
 whole.
 

@@ -161,6 +161,11 @@ def run_tasks(
                     for name, result in task_results.items()
                     if result.baseline_passed is False
                 ],
+                'property_failures': [
+                    name
+                    for name, result in task_results.items()
+                    if result.property_passed is False
+                ],
                 'diff_details': {
                     name: result.baseline_diffs
                     for name, result in task_results.items()
@@ -420,9 +425,10 @@ def _log_and_run_task(
         task_logger.info(f'Running steps: {task_list}')
         # Default in case execution fails before setting this
         baselines_passed = None
+        properties_passed = None
         diff_summary: Dict = {}
         try:
-            baselines_passed, diff_summary = _run_task(
+            baselines_passed, properties_passed, diff_summary = _run_task(
                 task, available_resources
             )
             run_status = success_str
@@ -446,6 +452,14 @@ def _log_and_run_task(
                     f'POLARIS BASELINE: '
                     f'{"PASS" if baselines_passed else "FAIL"}'
                 )
+            if properties_passed is not None:
+                property_str = pass_str if properties_passed else fail_str
+                status = f'  property checks:  {property_str}'
+                stdout_logger.info(status)
+                task_logger.info(
+                    f'POLARIS PROPERTY: '
+                    f'{"PASS" if properties_passed else "FAIL"}'
+                )
 
         else:
             stdout_logger.error(status)
@@ -461,6 +475,7 @@ def _log_and_run_task(
 
     result.execution_passed = task_pass
     result.baseline_passed = baselines_passed
+    result.property_passed = properties_passed
     result.elapsed_seconds = task_time
     result.baseline_diffs = diff_summary
 
@@ -622,7 +637,7 @@ def _run_task(task, available_resources):
     logger = task.logger
     cwd = os.getcwd()
     baselines_passed = None
-    property_passed = None
+    properties_passed = None
     diff_summary: Dict = {}
     for step_name in task.steps_to_run:
         step = task.steps[step_name]
@@ -648,15 +663,14 @@ def _run_task(task, available_resources):
                     diff_summary,
                     _read_baseline_diff_summary_from_logs(step.work_dir),
                 )
-            property_status = None
             property_status = _read_property_status_from_logs(step.work_dir)
             if property_status is not None:
                 property_str = pass_str if property_status else fail_str
                 _print_to_stdout(
-                    task, f'          property comp.:   {property_str}'
+                    task, f'          property checks:  {property_str}'
                 )
-                property_passed = _accumulate_baselines(
-                    property_passed, property_status
+                properties_passed = _accumulate_baselines(
+                    properties_passed, property_status
                 )
             continue
         if step.cached:
@@ -696,7 +710,7 @@ def _run_task(task, available_resources):
         step_time_str = str(timedelta(seconds=round(step_time)))
 
         if step.properties_to_check:
-            checked, properties_passed = step.check_properties()
+            checked, step_properties_passed = step.check_properties()
             if checked:
                 passed_log = os.path.join(
                     step.work_dir, 'property_check_passed.log'
@@ -705,7 +719,7 @@ def _run_task(task, available_resources):
                     step.work_dir, 'property_check_failed.log'
                 )
                 results = getattr(step, 'property_check_results', [])
-                if properties_passed:
+                if step_properties_passed:
                     property_str = pass_str
                     write_log = passed_log
                     remove_log = failed_log
@@ -726,8 +740,8 @@ def _run_task(task, available_resources):
                 _print_to_stdout(
                     task, f'          property checks:  {property_str}'
                 )
-                property_passed = _accumulate_baselines(
-                    property_passed, properties_passed
+                properties_passed = _accumulate_baselines(
+                    properties_passed, step_properties_passed
                 )
 
         compared, status = step.validate_baselines()
@@ -750,7 +764,7 @@ def _run_task(task, available_resources):
             f'{start_time_color}{step_time_str}{end_color}',
         )
 
-    return baselines_passed, diff_summary
+    return baselines_passed, properties_passed, diff_summary
 
 
 def _run_step(
@@ -977,52 +991,71 @@ def _write_output_for_pull_request(
 
     # If we have results, summarize them
     if results is not None and isinstance(results, dict):
-        total = int(results.get('total', 0) or 0)
-        failures: List[str] = list(results.get('failures', []) or [])
-        diffs: List[str] = list(results.get('diffs', []) or [])
-
-        if total > 0 and not failures and not diffs:
-            lines.append('- Result: All tests passed')
-        else:
-            lines.append('- Result:')
-            if failures:
-                lines.append(f'  - Failures ({len(failures)} of {total}):')
-                for name in failures:
-                    lines.append(f'    - `{name}`')
-            if diffs:
-                lines.append(f'  - Diffs ({len(diffs)} of {total}):')
-                diff_details: Dict[str, Dict] = dict(
-                    results.get('diff_details', {}) or {}
-                )
-                nonzero_by_task = {
-                    name: _nonzero_norms(diff_details.get(name))
-                    for name in diffs
-                }
-                name_width = max(
-                    (
-                        len(var)
-                        for norms in nonzero_by_task.values()
-                        for var in norms
-                    ),
-                    default=0,
-                )
-                # a code block keeps the norm columns aligned and is
-                # easier to read than nested bullets
-                lines.append('```')
-                for name in diffs:
-                    lines.append(f'    - {name}')
-                    lines.extend(
-                        _format_diff_summary_lines(
-                            nonzero_by_task[name], name_width
-                        )
-                    )
-                lines.append('```')
+        lines.extend(_format_results_lines(results))
 
     out_path = os.path.join(work_dir, f'{suite_name}_output_for_pr.md')
     print(f'Writing output useful for copy/paste into PRs to:\n  {out_path}')
     with open(out_path, 'w') as out:
         out.write('\n'.join(lines) + '\n')
     print('Done.')
+
+
+def _format_results_lines(results: dict) -> List[str]:
+    """
+    Summarize the outcomes of the tasks in a suite for
+    ``<suite>_output_for_pr.md``
+    """
+    lines: List[str] = []
+    total = int(results.get('total', 0) or 0)
+    failures: List[str] = list(results.get('failures', []) or [])
+    diffs: List[str] = list(results.get('diffs', []) or [])
+    property_failures: List[str] = list(
+        results.get('property_failures', []) or []
+    )
+
+    if total > 0 and not failures and not diffs and not property_failures:
+        lines.append('- Result: All tests passed')
+    else:
+        lines.append('- Result:')
+        if failures:
+            lines.append(f'  - Failures ({len(failures)} of {total}):')
+            for name in failures:
+                lines.append(f'    - `{name}`')
+        if property_failures:
+            lines.append(
+                f'  - Property check failures '
+                f'({len(property_failures)} of {total}):'
+            )
+            for name in property_failures:
+                lines.append(f'    - `{name}`')
+        if diffs:
+            lines.append(f'  - Diffs ({len(diffs)} of {total}):')
+            diff_details: Dict[str, Dict] = dict(
+                results.get('diff_details', {}) or {}
+            )
+            nonzero_by_task = {
+                name: _nonzero_norms(diff_details.get(name)) for name in diffs
+            }
+            name_width = max(
+                (
+                    len(var)
+                    for norms in nonzero_by_task.values()
+                    for var in norms
+                ),
+                default=0,
+            )
+            # a code block keeps the norm columns aligned and is
+            # easier to read than nested bullets
+            lines.append('```')
+            for name in diffs:
+                lines.append(f'    - {name}')
+                lines.extend(
+                    _format_diff_summary_lines(
+                        nonzero_by_task[name], name_width
+                    )
+                )
+            lines.append('```')
+    return lines
 
 
 def _read_results_provenance(base_work_dir: str) -> Dict[str, Optional[str]]:
