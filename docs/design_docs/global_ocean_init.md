@@ -446,7 +446,7 @@ with a 16-level `tanh_dz` grid over a 3000 m bottom depth, because they exist
 for fast smoke-testing rather than for realistic simulation. The same mechanism
 carries the ocean-culled cell count used to size MPI tasks, and later the
 per-mesh forward-run options described in
-`global_ocean_forward.md`. Anything that describes
+[global_ocean_forward.md](global_ocean_forward.md). Anything that describes
 what the *ocean* does on a mesh belongs there rather than in the mesh
 component's own per-mesh config, which describes the mesh itself.
 
@@ -715,7 +715,7 @@ adds the `cached_files.json` entry.
 
 The read side -- staging `forcing.nc` as a model *input*, and the associated
 namelist and config settings -- belonged to the forward-model work and landed
-there; see `global_ocean_forward.md`.
+there; see [global_ocean_forward.md](global_ocean_forward.md).
 
 ### Implementation: The workflow is practical for very large global meshes
 
