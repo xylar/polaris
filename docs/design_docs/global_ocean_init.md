@@ -769,7 +769,7 @@ which is why they override the vertical grid down to 16 levels. Initial
 conditions built this way have been carried through dynamic adjustment on
 `u-oi30-lr10` and `u-oi6to18-lr6to10`, which is where the WOA23 source
 artifacts documented in
-`global_ocean_dynamic_adjustment.md` were
+[global_ocean_dynamic_adjustment.md](global_ocean_dynamic_adjustment.md) were
 found.
 
 ### Testing and Validation: A reusable global hydrography product is available from WOA
