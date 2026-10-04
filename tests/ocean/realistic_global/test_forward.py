@@ -419,7 +419,7 @@ def test_omega_physics_replacements_state_an_undamped_stage():
         omega_pressure_gradient_type='FiniteVolume'
     ).omega_physics_replacements()
     assert replacements['rayleigh_enable'] == 'false'
-    assert float(replacements['rayleigh_coeff']) == 0.0
+    assert replacements['rayleigh_coeff'] == '0.0'
     # Omega's KPP is on by default, so off has to be stated
     assert replacements['use_kpp'] == 'false'
     assert replacements['pressure_grad_type'] == 'FiniteVolume'

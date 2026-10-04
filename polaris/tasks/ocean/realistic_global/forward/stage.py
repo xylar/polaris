@@ -531,10 +531,15 @@ class ForwardStage:
         dict of str
             The template replacements for ``omega_physics.yaml``.
         """
-        damping = 0.0 if self.damping is None else self.damping
+        # a zero in exponent notation comes back from ruamel's round trip
+        # with a garbage exponent (0.000000e+07), so it is written plainly
+        if self.damping is None:
+            coeff = '0.0'
+        else:
+            coeff = f'{self.damping:.6e}'
         return dict(
             rayleigh_enable='true' if self.damping is not None else 'false',
-            rayleigh_coeff=f'{damping:.6e}',
+            rayleigh_coeff=coeff,
             use_kpp='true' if self.use_KPP else 'false',
             pressure_grad_type=self.omega_pressure_gradient_type or '',
         )
