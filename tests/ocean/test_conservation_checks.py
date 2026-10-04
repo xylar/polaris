@@ -14,6 +14,7 @@ import numpy as np
 import pytest
 import xarray as xr
 
+from polaris.config import PolarisConfigParser
 from polaris.ocean.conservation import (
     TRACERS_TO_CHECK,
     compute_total_mass,
@@ -22,6 +23,7 @@ from polaris.ocean.conservation import (
 from polaris.ocean.model.ocean_model_step import (
     _elapsed_seconds,
     _expand_properties,
+    _get_conservation_tolerance,
 )
 
 
@@ -139,3 +141,22 @@ def test_elapsed_seconds_from_days_since_start():
     assert _elapsed_seconds(
         ds, time_index_start=0, time_index_end=-1
     ) == pytest.approx(9.0 * 86400.0)
+
+
+def _tolerance_config(model):
+    config = PolarisConfigParser()
+    config.add_section('ocean')
+    config.set('ocean', 'model', model)
+    config.set('ocean', 'salt_conservation_tolerance', '1e-14')
+    config.set('ocean', 'mpas_ocean_salt_conservation_tolerance', '2e-13')
+    return config
+
+
+def test_model_specific_tolerance_takes_precedence():
+    config = _tolerance_config('mpas-ocean')
+    assert _get_conservation_tolerance(config, 'salt') == 2e-13
+
+
+def test_shared_tolerance_is_used_without_a_model_specific_one():
+    config = _tolerance_config('omega')
+    assert _get_conservation_tolerance(config, 'salt') == 1e-14

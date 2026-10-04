@@ -661,9 +661,7 @@ class OceanModelStep(OceanModelFilesMixin, ModelStep):
                     raise ValueError(
                         f'Unknown property to check: {output_property}'
                     )
-                tol = config.getfloat(
-                    'ocean', f'{output_property}_conservation_tolerance'
-                )
+                tol = _get_conservation_tolerance(config, output_property)
 
                 expected_change = 0.0
                 if output_property in ['mass', 'energy', 'salt']:
@@ -1059,3 +1057,19 @@ def _expand_properties(
         else:
             expanded.append((output_property, None))
     return expanded
+
+
+def _get_conservation_tolerance(config: Any, output_property: str) -> float:
+    """
+    Get the relative tolerance for a conservation budget
+
+    A model-specific option, e.g. ``omega_salt_conservation_tolerance`` or
+    ``mpas_ocean_salt_conservation_tolerance``, takes precedence over the
+    shared ``salt_conservation_tolerance`` in the ``[ocean]`` section.
+    """
+    option = f'{output_property}_conservation_tolerance'
+    model = config.get('ocean', 'model').replace('-', '_')
+    model_option = f'{model}_{option}'
+    if config.has_option('ocean', model_option):
+        option = model_option
+    return config.getfloat('ocean', option)

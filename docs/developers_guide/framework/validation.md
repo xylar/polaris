@@ -269,6 +269,23 @@ A failed check fails its task, though the step itself still completes, so
 later steps run and the failure is reported alongside any baseline
 comparison.
 
+A task whose budgets do not close to within these defaults can raise them in
+its own config file.  A model-specific option, prefixed with `omega_` or
+`mpas_ocean_`, takes precedence over the shared one, so a tolerance can be
+raised for one model without loosening it for the other:
+
+```cfg
+[ocean]
+
+# Omega conserves salt to round-off here, MPAS-Ocean to a few times 1e-13
+salt_conservation_tolerance = 2e-14
+mpas_ocean_salt_conservation_tolerance = 1.5e-13
+```
+
+Tolerances should only be raised to just above the largest error seen
+across the supported machines and compilers (about 5% above it), with a
+comment saying why, so that a check still catches the error growing.
+
 As shown in the previous example, we have added a mesh file with the name
 'mesh.nc' because conservation checks require the area of cells.
 
