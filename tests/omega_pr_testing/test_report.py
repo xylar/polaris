@@ -72,6 +72,28 @@ def test_report(finished):
     assert Path(path) == Path(state.pr_work_dir).parent / 'report.md'
 
 
+def test_report_without_baseline(tmp_path, monkeypatch):
+    fixture, manifest, _ = make_tester(tmp_path, monkeypatch)
+    state = pr_test_setup.run_setup(
+        config=fixture.config,
+        fork=fixture.fork,
+        branch=manifest.branch,
+        no_baseline='develop cannot run',
+        polaris_dir=fixture.polaris_dir,
+    )
+    _finish(state)
+
+    text, _, _ = pr_test_results.run_report(
+        fixture.config, fixture.fork, manifest.branch
+    )
+
+    assert (
+        'This row ran without the baseline, because develop cannot run, so '
+        'it has no baseline comparison or warnings comparison.'
+    ) in text
+    assert 'CTests: 50 of 50 passed.' in text
+
+
 def test_report_baseline_polaris(finished):
     _, manifest, _ = finished
     assert 'The baseline ran' not in pr_test_results.describe_commits(manifest)

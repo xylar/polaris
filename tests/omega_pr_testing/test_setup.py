@@ -102,6 +102,26 @@ def test_setup_submit(tester):
     assert (Path(state.pr_work_dir) / 'job_id').read_text() == '1002\n'
 
 
+def test_setup_without_baseline(tester):
+    fixture, manifest, calls = tester
+
+    state = _setup(
+        fixture, manifest, submit=True, no_baseline='develop cannot run'
+    )
+
+    (pr_call,) = calls['suite']
+    assert pr_call['baseline_work_dir'] is None
+    assert state.baseline_work_dir is None
+    assert state.baseline_build_log is None
+    assert state.no_baseline_reason == 'develop cannot run'
+    assert [job['name'] for job in state.jobs] == ['PR suite', 'CTests']
+    pr_submit, _ = calls['submit']
+    assert pr_submit[2] is None
+    row_dir = Path(state.pr_work_dir).parent
+    text = pr_test_setup.format_state(state, str(row_dir), 'chrysalis')
+    assert 'Baseline:   none, because develop cannot run' in text
+
+
 def test_setup_reuses_matching_baseline(tester, tmp_path):
     fixture, manifest, calls = tester
     polaris_hash = git(fixture.polaris_dir, 'rev-parse', 'HEAD')
@@ -252,6 +272,17 @@ def test_setup_baseline_load_script_wrong_row(separate, tmp_path):
     )
     with pytest.raises(pr_test_setup.SetupError, match='POLARIS_COMPILER'):
         _setup(fixture, manifest, baseline_load_script=load_script)
+
+
+def test_setup_no_baseline_with_baseline_load_script(separate):
+    fixture, manifest, _, _, load_script = separate
+    with pytest.raises(pr_test_setup.SetupError, match='--no-baseline'):
+        _setup(
+            fixture,
+            manifest,
+            baseline_load_script=load_script,
+            no_baseline='develop cannot run',
+        )
 
 
 def test_setup_baseline_with_former_compiler(separate, tmp_path):

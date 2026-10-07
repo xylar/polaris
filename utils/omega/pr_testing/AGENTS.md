@@ -265,6 +265,10 @@ apply, with these differences:
   merged into `develop` since the Polaris pin can cause differences too.
   Say which tasks differ and what you think caused it.
 - **CTests fail.**  `ctests.log` is in the PR build directory.
+- **The baseline cannot run on a row**, such as an older Kokkos on a
+  new GPU.  Only if the requester asks, run `setup` with
+  `--no-baseline "<why>"`.  The PR suite then runs without a baseline,
+  and the report says why.
 - **The scheduler refuses a job**, for a per-user limit, say.  `setup`
   stops with the scheduler's message.  Tell the requester rather than
   resubmitting or choosing another queue.  The utility already submits

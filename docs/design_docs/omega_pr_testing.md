@@ -413,6 +413,7 @@ and `post` posts them (see below, under results).
 omega_pr_test.py setup --fork <fork> --branch <branch> [--submit]
                        [--baseline-dir <dir>]
                        [--baseline-load-script <script>]
+                       [--no-baseline <reason>]
 ```
 
 `setup` fetches both branches and reads the manifest. It stops with a

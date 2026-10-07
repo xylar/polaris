@@ -145,8 +145,8 @@ class SetupState:
     polaris_hash : str
         The Polaris commit this machine used
 
-    baseline_work_dir : str
-        The baseline suite's work directory
+    baseline_work_dir : str, optional
+        The baseline suite's work directory, or ``None`` without a baseline
 
     baseline_reused : bool
         Whether the baseline was an existing run
@@ -173,13 +173,16 @@ class SetupState:
     baseline_polaris_hash : str, optional
         The Polaris commit the baseline was found or set up with, if it is
         not ``polaris_hash``
+
+    no_baseline_reason : str, optional
+        Why the PR suite ran without a baseline, if it did
     """
 
     fork: str
     branch: str
     row: str
     polaris_hash: str
-    baseline_work_dir: str
+    baseline_work_dir: Optional[str]
     baseline_reused: bool
     baseline_job: Optional[str]
     baseline_build_log: Optional[str]
@@ -188,6 +191,7 @@ class SetupState:
     ctest_dir: str
     jobs: List[Dict] = field(default_factory=list)
     baseline_polaris_hash: Optional[str] = None
+    no_baseline_reason: Optional[str] = None
 
 
 def run_setup(
@@ -197,6 +201,7 @@ def run_setup(
     submit: bool = False,
     baseline_dir: Optional[str] = None,
     baseline_load_script: Optional[str] = None,
+    no_baseline: Optional[str] = None,
     polaris_dir: str = POLARIS_DIR,
 ) -> SetupState:
     """
@@ -224,6 +229,10 @@ def run_setup(
         baseline with, needed when the manifest's baseline Polaris commit
         is not its Polaris commit
 
+    no_baseline : str, optional
+        Why the PR suite runs without a baseline, for a row where the
+        baseline commit cannot run
+
     polaris_dir : str, optional
         The Polaris checkout the loaded environment runs
 
@@ -232,14 +241,23 @@ def run_setup(
     state : pr_test_setup.SetupState
         What setup did
     """
+    if no_baseline is not None and (
+        baseline_dir is not None or baseline_load_script is not None
+    ):
+        raise SetupError(
+            '--no-baseline cannot be used with --baseline-dir or '
+            '--baseline-load-script.'
+        )
     manifest = fetch_manifest(config.omega_repo, fork, branch)
     row = _get_env_row(manifest, polaris_dir)
     polaris_hash = _check_checkout(
         polaris_dir, manifest.polaris_commit, 'Polaris commit'
     )
-    baseline_polaris = _get_baseline_polaris(
-        manifest, row, polaris_dir, baseline_load_script
-    )
+    baseline_polaris = None
+    if no_baseline is None:
+        baseline_polaris = _get_baseline_polaris(
+            manifest, row, polaris_dir, baseline_load_script
+        )
 
     run_dir = get_row_dir(config, manifest, row)
     pr_work_dir = os.path.join(run_dir, SUITE)
@@ -253,24 +271,29 @@ def run_setup(
     test_tree = os.path.join(omega_dir, manifest.test_commit[:12])
     prepare_tree(config.omega_repo, manifest.test_commit, test_tree)
 
-    criteria = BaselineCriteria(
-        machine=row.machine,
-        compiler=baseline_polaris.compiler,
-        build_type=BUILD_TYPE,
-        component_hash=manifest.baseline_commit,
-        polaris_hash=baseline_polaris.hash,
-        suite=SUITE,
-    )
-    roots = [
-        os.path.join(config.work_base, 'baselines')
-    ] + config.baseline_search_roots
-
     jobs = []
-    baseline = _get_baseline(
-        config, manifest, criteria, roots, baseline_dir, baseline_polaris
-    )
-    if baseline.job is not None:
-        jobs.append(baseline.job)
+    baseline = _Baseline(work_dir=None, reused=False)
+    baseline_build_log = None
+    if baseline_polaris is not None:
+        criteria = BaselineCriteria(
+            machine=row.machine,
+            compiler=baseline_polaris.compiler,
+            build_type=BUILD_TYPE,
+            component_hash=manifest.baseline_commit,
+            polaris_hash=baseline_polaris.hash,
+            suite=SUITE,
+        )
+        roots = [
+            os.path.join(config.work_base, 'baselines')
+        ] + config.baseline_search_roots
+        baseline = _get_baseline(
+            config, manifest, criteria, roots, baseline_dir, baseline_polaris
+        )
+        if baseline.job is not None:
+            jobs.append(baseline.job)
+        baseline_build_log = _get_baseline_build_log(
+            criteria, roots, baseline.work_dir
+        )
     baseline_work_dir = baseline.work_dir
 
     pr_build_dir = os.path.join(run_dir, 'build')
@@ -301,14 +324,13 @@ def run_setup(
         baseline_work_dir=baseline_work_dir,
         baseline_reused=baseline.reused,
         baseline_job=baseline.active_job,
-        baseline_build_log=_get_baseline_build_log(
-            criteria, roots, baseline_work_dir
-        ),
+        baseline_build_log=baseline_build_log,
         pr_build_dir=pr_build_dir,
         pr_work_dir=pr_work_dir,
         ctest_dir=ctest_dir,
+        no_baseline_reason=no_baseline,
     )
-    if baseline_polaris.hash != polaris_hash:
+    if baseline_polaris is not None and baseline_polaris.hash != polaris_hash:
         state.baseline_polaris_hash = baseline_polaris.hash
 
     if submit:
@@ -326,9 +348,15 @@ def format_state(state: SetupState, row_dir: str, machine: str) -> str:
     ]
     if state.baseline_polaris_hash is not None:
         lines.append(f'            {state.baseline_polaris_hash} (baseline)')
+    if state.no_baseline_reason is not None:
+        baseline = f'none, because {state.no_baseline_reason}'
+    else:
+        baseline = (
+            f'{state.baseline_work_dir}'
+            f'{" (reused)" if state.baseline_reused else ""}'
+        )
     lines += [
-        f'Baseline:   {state.baseline_work_dir}'
-        f'{" (reused)" if state.baseline_reused else ""}',
+        f'Baseline:   {baseline}',
         f'PR build:   {state.pr_build_dir}',
         f'PR suite:   {state.pr_work_dir}',
         f'CTests:     {state.ctest_dir}',
@@ -627,7 +655,7 @@ def _read_load_script(load_script, row):
 class _Baseline:
     """The baseline setup found or made"""
 
-    work_dir: str
+    work_dir: Optional[str]
     reused: bool
     job: Optional[Job] = None
     active_job: Optional[str] = None

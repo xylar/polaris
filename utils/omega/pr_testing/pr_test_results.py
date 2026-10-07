@@ -185,6 +185,14 @@ def _results_report(config, manifest, row, row_dir, notes, agent):
         baseline_build, state.pr_build_dir, changed
     )
 
+    commits = describe_commits(manifest)
+    if state.no_baseline_reason is not None:
+        commits = (
+            f'{commits} This row ran without the baseline, because '
+            f'{state.no_baseline_reason}, so it has no baseline comparison or '
+            f'warnings comparison.'
+        )
+
     result = 'pass' if passed == total and ctest_passed else 'fail'
     return report.assemble(
         heading=f'Testing: {row.label}',
@@ -197,7 +205,7 @@ def _results_report(config, manifest, row, row_dir, notes, agent):
         ),
         sections=[
             f'{ctest_line} {suite_line}',
-            describe_commits(manifest),
+            commits,
             pr_md,
             ctest_md,
             warnings_text,

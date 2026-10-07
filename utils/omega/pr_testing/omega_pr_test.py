@@ -100,6 +100,7 @@ def _setup(args):
         submit=args.submit,
         baseline_dir=args.baseline_dir,
         baseline_load_script=args.baseline_load_script,
+        no_baseline=args.no_baseline,
     )
     machine = state.row.split('/')[0]
     row_dir = os.path.dirname(state.pr_work_dir)
@@ -274,6 +275,12 @@ def _parse_args():
         "the manifest's baseline Polaris commit, to find or set up the "
         'baseline with.  Needed when that commit is not the Polaris commit '
         'the PR is tested with.',
+    )
+    setup.add_argument(
+        '--no-baseline',
+        metavar='REASON',
+        help='Run the PR suite without a baseline, and why, for a row where '
+        'the baseline commit cannot run.  The report gives the reason.',
     )
     setup.add_argument(
         '--submit',
