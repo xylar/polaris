@@ -162,7 +162,7 @@ def test_setup_frontier_avoids_debug_qos(tester, monkeypatch):
 def test_setup_aurora_chains_jobs(tester, monkeypatch):
     fixture, manifest, calls = tester
     monkeypatch.setenv('POLARIS_MACHINE', 'aurora')
-    monkeypatch.setenv('POLARIS_COMPILER', 'oneapi-ifx')
+    monkeypatch.setenv('POLARIS_COMPILER', 'intel')
     monkeypatch.setenv('POLARIS_MPI', 'mpich')
     monkeypatch.setattr(pr_test_setup, '_get_system', lambda machine: 'pbs')
 

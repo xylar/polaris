@@ -123,19 +123,21 @@ def test_report_not_run(finished):
         fixture.config,
         fixture.fork,
         manifest.branch,
-        row_name='aurora/oneapi-ifx',
+        row_name='aurora/intel',
         not_run='Aurora is down for maintenance.',
     )
 
-    assert text.startswith('## Testing: aurora, oneapi-ifx, mpich\n')
+    assert text.startswith(
+        '## Testing: aurora, oneapi-ifx, mpich (Polaris `intel`)\n'
+    )
     assert 'Not run: Aurora is down for maintenance.' in text
     marker = pr_test_report.parse_marker(text)
     assert marker is not None
     assert (marker['row'], marker['status']) == (
-        'aurora/oneapi-ifx',
+        'aurora/intel',
         'not-run',
     )
-    assert Path(path).parent.name == 'aurora_oneapi-ifx'
+    assert Path(path).parent.name == 'aurora_intel'
 
 
 def test_post_file(finished, tmp_path, monkeypatch):
