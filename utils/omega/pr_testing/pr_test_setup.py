@@ -20,6 +20,7 @@ from pr_test_config import PrTestConfig
 from pr_test_git import REF_PREFIX
 from pr_test_init import OMEGA_SUBMODULE, POLARIS_DIR, POLARIS_URL
 from pr_test_manifest import (
+    FORMER_COMPILERS,
     POLARIS_SUBMODULE,
     Manifest,
     Row,
@@ -254,7 +255,7 @@ def run_setup(
 
     criteria = BaselineCriteria(
         machine=row.machine,
-        compiler=row.compiler,
+        compiler=baseline_polaris.compiler,
         build_type=BUILD_TYPE,
         component_hash=manifest.baseline_commit,
         polaris_hash=baseline_polaris.hash,
@@ -495,6 +496,8 @@ class _PolarisCheckout:
 
     directory: str
     hash: str
+    # the row's compiler, or its name before Polaris renamed it
+    compiler: str
     # None for the checkout of the loaded environment
     load_script: Optional[str] = None
 
@@ -544,10 +547,10 @@ def _get_baseline_polaris(manifest, row, polaris_dir, load_script):
                 f'{row.name} of a Polaris checkout at that commit.'
             )
         checkout = _PolarisCheckout(
-            polaris_dir, git_tools.rev_parse(polaris_dir, 'HEAD')
+            polaris_dir, git_tools.rev_parse(polaris_dir, 'HEAD'), row.compiler
         )
     else:
-        directory = _read_load_script(load_script, row)
+        directory, compiler = _read_load_script(load_script, row)
         polaris_hash = _check_checkout(
             directory,
             manifest.baseline_polaris_commit,
@@ -563,7 +566,7 @@ def _get_baseline_polaris(manifest, row, polaris_dir, load_script):
                 f'checkout at {manifest.baseline_polaris_commit[:12]}.'
             )
         checkout = _PolarisCheckout(
-            directory, polaris_hash, os.path.abspath(load_script)
+            directory, polaris_hash, compiler, os.path.abspath(load_script)
         )
 
     if manifest.baseline_source == POLARIS_SUBMODULE:
@@ -583,8 +586,9 @@ def _get_baseline_polaris(manifest, row, polaris_dir, load_script):
 
 def _read_load_script(load_script, row):
     """
-    The Polaris checkout a load script belongs to, after checking that it
-    is for the row
+    The Polaris checkout a load script belongs to and its compiler, after
+    checking that it is for the row.  The compiler may be the row's name
+    from before Polaris renamed it.
     """
     try:
         with open(load_script, 'r', encoding='utf-8') as f:
@@ -594,9 +598,14 @@ def _read_load_script(load_script, row):
             f'The load script {load_script} cannot be read: {exc}'
         ) from exc
     values = dict(_LOAD_SCRIPT_EXPORT.findall(text))
+    former = FORMER_COMPILERS.get((row.machine, row.compiler))
+    if former is not None and values.get('POLARIS_COMPILER') == former:
+        compiler = former
+    else:
+        compiler = row.compiler
     expected = {
         'POLARIS_MACHINE': row.machine,
-        'POLARIS_COMPILER': row.compiler,
+        'POLARIS_COMPILER': compiler,
         'POLARIS_MPI': row.mpi,
     }
     for name, value in expected.items():
@@ -611,7 +620,7 @@ def _read_load_script(load_script, row):
             f'The load script {load_script} does not name a Polaris '
             f'checkout in POLARIS_BRANCH.'
         )
-    return directory
+    return directory, compiler
 
 
 @dataclass

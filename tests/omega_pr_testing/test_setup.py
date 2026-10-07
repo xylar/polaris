@@ -254,6 +254,21 @@ def test_setup_baseline_load_script_wrong_row(separate, tmp_path):
         _setup(fixture, manifest, baseline_load_script=load_script)
 
 
+def test_setup_baseline_with_former_compiler(separate, tmp_path):
+    fixture, manifest, calls, baseline_polaris, _ = separate
+    load_script = _write_load_script(
+        tmp_path / 'load_old.sh', baseline_polaris, compiler='oneapi-ifx'
+    )
+    renames = {('chrysalis', 'intel'): 'oneapi-ifx'}
+    with pytest.MonkeyPatch.context() as patch:
+        patch.setattr(pr_test_setup, 'FORMER_COMPILERS', renames)
+        state = _setup(fixture, manifest, baseline_load_script=load_script)
+
+    baseline_call, _ = calls['suite']
+    assert baseline_call['load_script'] == load_script
+    assert '/chrysalis_oneapi-ifx_polaris-' in state.baseline_work_dir
+
+
 def test_polaris_suite_in_clean_login_shell(tmp_path, monkeypatch):
     calls = []
 

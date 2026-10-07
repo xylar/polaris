@@ -87,6 +87,14 @@ TEMPLATE_ROWS = [
 ]
 
 
+#: compilers Polaris has renamed, by machine and current name, so that a
+#: baseline can run from a Polaris checkout from before the rename
+FORMER_COMPILERS = {
+    ('aurora', 'intel'): 'oneapi-ifx',
+    ('aurora', 'intelgpu'): 'oneapi-ifxgpu',
+}
+
+
 #: machines whose rows are tested from the same login nodes
 SHARED_LOGIN_NODES = [{'pm-cpu', 'pm-gpu'}]
 
