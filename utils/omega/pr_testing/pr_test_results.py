@@ -100,8 +100,13 @@ def run_report(
     return text, url, path
 
 
-def describe_commits(manifest: Manifest) -> str:
-    """What was tested against what, in a sentence or two"""
+def describe_commits(
+    manifest: Manifest, no_baseline_reason: Optional[str] = None
+) -> str:
+    """
+    What was tested against what, in a sentence or two, or why there was
+    no baseline
+    """
     merged = (
         f'the merge of {UPSTREAM}#{manifest.pull_request} '
         f'(`{manifest.pr_head[:10]}`) into `{manifest.base_branch}` '
@@ -114,6 +119,11 @@ def describe_commits(manifest: Manifest) -> str:
     ]
     if extras:
         merged = f'{merged}, with {", ".join(extras)} merged in,'
+    if no_baseline_reason is not None:
+        return (
+            f'Tested {merged} as `{manifest.test_commit[:10]}`, without a '
+            f'baseline, because {no_baseline_reason}.'
+        )
     if manifest.baseline_source == POLARIS_SUBMODULE:
         baseline = (
             f"Polaris' Omega submodule (`{manifest.baseline_commit[:10]}`)"
@@ -181,17 +191,17 @@ def _results_report(config, manifest, row, row_dir, notes, agent):
     baseline_build = None
     if state.baseline_build_log is not None:
         baseline_build = os.path.dirname(state.baseline_build_log)
-    warnings_text, new_warnings = format_warnings_section(
-        baseline_build, state.pr_build_dir, changed
-    )
-
-    commits = describe_commits(manifest)
-    if state.no_baseline_reason is not None:
-        commits = (
-            f'{commits} This row ran without the baseline, because '
-            f'{state.no_baseline_reason}, so it has no baseline comparison or '
-            f'warnings comparison.'
+    if state.no_baseline_reason is None:
+        warnings_text, new_warnings = format_warnings_section(
+            baseline_build, state.pr_build_dir, changed
         )
+    else:
+        warnings_text = (
+            '### Build warnings\n\nNot compared: this row ran without a '
+            'baseline.'
+        )
+        new_warnings = None
+    commits = describe_commits(manifest, state.no_baseline_reason)
 
     result = 'pass' if passed == total and ctest_passed else 'fail'
     return report.assemble(

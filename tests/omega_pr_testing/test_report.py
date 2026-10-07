@@ -88,9 +88,11 @@ def test_report_without_baseline(tmp_path, monkeypatch):
     )
 
     assert (
-        'This row ran without the baseline, because develop cannot run, so '
-        'it has no baseline comparison or warnings comparison.'
+        f'as `{manifest.test_commit[:10]}`, without a baseline, because '
+        f'develop cannot run.'
     ) in text
+    assert 'against' not in text
+    assert 'Not compared: this row ran without a baseline.' in text
     assert 'CTests: 50 of 50 passed.' in text
 
 
