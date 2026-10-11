@@ -172,8 +172,8 @@ polaris_commit: <sha>
 extra_merges:
   - {pull_request: 574, commit: <sha>, sides: [test]}
 rows:
-  - {machine: chrysalis, compiler: intel, mpi: openmpi,
-     template: "chrysalis, oneapi-ifx, openmpi"}
+  - {machine: aurora, compiler: intel, mpi: mpich,
+     template: "aurora, intel, mpich"}
 notes: <free text for the requester>
 ```
 
@@ -472,8 +472,8 @@ copy of that code, because its driver runs outside any Polaris
 environment.
 
 A small table in the utility maps each template label to a Polaris machine,
-compiler and MPI library. For now, it maps the Chrysalis `oneapi-ifx` row
-to `intel` (see [Decisions](#decisions)).
+compiler and MPI library. Its names now match Polaris' (see
+[Decisions](#decisions)).
 
 ### Implementation: Each report carries its own provenance.
 
@@ -502,7 +502,7 @@ omega_pr_test.py report --row <machine>/<compiler> [--notes <file>]
 ```
 
 ```markdown
-## Testing: chrysalis, oneapi-ifx, openmpi (Polaris `intel`)
+## Testing: aurora, intel, mpich
 <!-- omega-pr-test {...} -->
 
 CTests: 50 of 50 passed. `omega_pr`: 25 of 25 tasks passed against the
@@ -729,6 +729,7 @@ a changed file is marked. The #553 trial checks the section on every row.
   every task writes, so its Polaris changes (polaris#731) cannot run the
   baseline Omega. Testing the pull request with Polaris `main` is not
   possible either.
-- **The template's compiler names are mapped, not fixed.** E3SM has renamed
-  its compilers to `intel`, and Omega has not caught up yet. The template
-  should be fixed once, after the names settle.
+- **The template's compiler names are mapped where Polaris differs.**
+  Omega has called Aurora's and Chrysalis's compilers `intel` and
+  `intelgpu` since E3SM-Project/Omega#566, and the template follows. Polaris
+  now uses the same names, so no row is mapped.
