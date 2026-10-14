@@ -1,0 +1,85 @@
+schema_version: 1
+requester: xylar
+pull_request: 835
+pr_head: dc945fd86a7cc13e2e807d086be9793ef6f6f4f2
+polaris_version: 1.2.0-alpha.1
+omega_commit: b90c3dae8d00e658764ca2a0a01625530723047f
+e3sm_commit: b7759691a502c166b0c7b2c863119648b45410b6
+omega_merge:
+  commit: 109e3a6d0a8753fcd1bd7c397728604d99faf68e
+  pull_requests:
+  - pull_request: 600
+    commit: e40578ac7b399b64a7bbaea4172ddc9b3607bc2e
+  fork: git@github.com:xylar/E3SM.git
+  branch: polaris-update-test/835-dc945fd-omega
+baseline:
+  polaris_commit: 8c80befd4755824056dc7496dff8009c534840d8
+  polaris_version: 1.1.0-alpha.7
+  omega_commit: b42d50838270e278587d00491cdfbf7c2e4ae4a6
+  e3sm_commit: b7759691a502c166b0c7b2c863119648b45410b6
+rows:
+- machine: aurora
+  compiler: intel
+  mpi: mpich
+  model: omega
+- machine: aurora
+  compiler: intelgpu
+  mpi: mpich
+  model: omega
+- machine: chrysalis
+  compiler: gnu
+  mpi: openmpi
+  model: mpas-ocean
+- machine: chrysalis
+  compiler: intel
+  mpi: openmpi
+  model: omega
+- machine: chrysalis
+  compiler: gnu
+  mpi: openmpi
+  model: omega
+- machine: frontier
+  compiler: craygnu
+  mpi: mpich
+  model: mpas-ocean
+- machine: frontier
+  compiler: craycray
+  mpi: mpich
+  model: mpas-ocean
+- machine: frontier
+  compiler: craygnu
+  mpi: mpich
+  model: omega
+- machine: frontier
+  compiler: craygnu-mphipcc
+  mpi: mpich
+  model: omega
+- machine: frontier
+  compiler: craycray
+  mpi: mpich
+  model: omega
+- machine: frontier
+  compiler: craycray-mphipcc
+  mpi: mpich
+  model: omega
+- machine: pm-cpu
+  compiler: gnu
+  mpi: mpich
+  model: mpas-ocean
+- machine: pm-cpu
+  compiler: intel
+  mpi: mpich
+  model: mpas-ocean
+- machine: pm-cpu
+  compiler: gnu
+  mpi: mpich
+  model: omega
+- machine: pm-cpu
+  compiler: intel
+  mpi: mpich
+  model: omega
+- machine: pm-gpu
+  compiler: gnugpu
+  mpi: mpich
+  model: omega
+notes:
