@@ -74,6 +74,8 @@ mpas-ocean:
       - layerThickness
       - kineticEnergyCell
       - relativeVorticityCell
+      - meshScalingDel2
+      - meshScalingDel4
     globalStatsOutput:
       type: output
       filename_template: global_stats.nc
@@ -132,6 +134,7 @@ Omega:
         - SshCell
         - KineticEnergyCell
         - Eos
+        - MeshScaling
     Forcing:
       UsePointerFile: false
       Filename: init.nc

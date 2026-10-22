@@ -155,6 +155,17 @@ class Forward(RealisticGlobalForward):
             'config_mom_del4': section.getfloat('mom_del4'),
         }
         self.add_model_config_options(options=options, config_model='ocean')
+        # TESTING ONLY: scale MPAS-Ocean's mixing from Omega's median width
+        self.add_model_config_options(
+            options={
+                'config_hmix_scaleWithMesh': True,
+                'config_hmix_use_ref_cell_width': True,
+                'config_hmix_ref_cell_width': section.getfloat(
+                    'hmix_ref_cell_width'
+                ),
+            },
+            config_model='mpas-ocean',
+        )
 
 
 def _monthly_filenames(template):
