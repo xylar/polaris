@@ -6,6 +6,7 @@
 :titlesonly: true
 
 global_ocean_init
+horiz_press_grad_hydrostatic_consistency
 horiz_press_grad_reference
 land_locked_cells
 ocean_analysis
