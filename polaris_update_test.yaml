@@ -1,0 +1,79 @@
+schema_version: 1
+requester: xylar
+pull_request: 897
+pr_head: c3d68436edd1daec62d46cd399e6992619b836f5
+polaris_version: 1.3.0-alpha.1
+omega_commit: 23b13afac5f4fbf9ba18d6cec416d347e4a615f7
+e3sm_commit: b7759691a502c166b0c7b2c863119648b45410b6
+omega_merge:
+baseline:
+  polaris_commit: 680e3a2c79619483aa620052b4233ce8931b7f5c
+  polaris_version: 1.2.0-alpha.3
+  omega_commit: 23b13afac5f4fbf9ba18d6cec416d347e4a615f7
+  e3sm_commit: b7759691a502c166b0c7b2c863119648b45410b6
+rows:
+- machine: aurora
+  compiler: intel
+  mpi: mpich
+  model: omega
+- machine: aurora
+  compiler: intelgpu
+  mpi: mpich
+  model: omega
+- machine: chrysalis
+  compiler: gnu
+  mpi: openmpi
+  model: mpas-ocean
+- machine: chrysalis
+  compiler: intel
+  mpi: openmpi
+  model: omega
+- machine: chrysalis
+  compiler: gnu
+  mpi: openmpi
+  model: omega
+- machine: frontier
+  compiler: craygnu
+  mpi: mpich
+  model: mpas-ocean
+- machine: frontier
+  compiler: craycray
+  mpi: mpich
+  model: mpas-ocean
+- machine: frontier
+  compiler: craygnu
+  mpi: mpich
+  model: omega
+- machine: frontier
+  compiler: craygnu-mphipcc
+  mpi: mpich
+  model: omega
+- machine: frontier
+  compiler: craycray
+  mpi: mpich
+  model: omega
+- machine: frontier
+  compiler: craycray-mphipcc
+  mpi: mpich
+  model: omega
+- machine: pm-cpu
+  compiler: gnu
+  mpi: mpich
+  model: mpas-ocean
+- machine: pm-cpu
+  compiler: intel
+  mpi: mpich
+  model: mpas-ocean
+- machine: pm-cpu
+  compiler: gnu
+  mpi: mpich
+  model: omega
+- machine: pm-cpu
+  compiler: intel
+  mpi: mpich
+  model: omega
+- machine: pm-gpu
+  compiler: gnugpu
+  mpi: mpich
+  model: omega
+notes:
