@@ -174,6 +174,31 @@ def test_model_replacements_omega_maps_split_explicit():
     assert rep['btr_dt'] == '0000_00:00:45.000'  # 1.5 s/km * 30 km
 
 
+def test_omega_writes_the_final_state_of_a_run_shorter_than_its_output():
+    # Omega cannot write on startup as MPAS-Ocean does, so a 6-hour run with a
+    # 10-day output interval would otherwise write no output at all
+    stage = dataclasses.replace(
+        ForwardStage.from_config(_forward_config()),
+        run_duration='0000_06:00:00',
+        output_interval='0010_00:00:00',
+    )
+    omega = stage.model_replacements('omega', min_res=30.0)
+    assert omega['output_freq'] == str(6 * 3600)
+    # MPAS-Ocean keeps the interval it was given
+    mpaso = stage.model_replacements('mpas-ocean', min_res=30.0)
+    assert mpaso['output_interval'] == '0010_00:00:00'
+
+
+def test_omega_keeps_an_output_interval_within_the_run():
+    stage = dataclasses.replace(
+        ForwardStage.from_config(_forward_config()),
+        run_duration='0010_00:00:00',
+        output_interval='0001_00:00:00',
+    )
+    rep = stage.model_replacements('omega', min_res=30.0)
+    assert rep['output_freq'] == str(86400)
+
+
 def test_the_two_models_get_their_own_split_integrator():
     # both default to split time stepping, but each with its own integrator:
     # split_explicit_ab2 for MPAS-Ocean, which Omega does not support, and
