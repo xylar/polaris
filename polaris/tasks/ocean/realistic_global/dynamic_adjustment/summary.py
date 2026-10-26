@@ -40,10 +40,10 @@ class Summary(Step):
     which validates the ``'state'`` class of variables.
 
     One caveat the thresholds cannot express: Omega's temperature is
-    conservative temperature where MPAS-Ocean's is potential temperature, so
-    ``temperature_max`` and ``temperature_min`` are not literally the same
-    quantity in the two models.  Against these thresholds the difference is
-    immaterial.
+    conservative temperature where MPAS-Ocean's is potential temperature, and
+    its salinity is absolute salinity where MPAS-Ocean's is practical
+    salinity, so the bounds are not literally on the same quantities in the
+    two models.  Against these thresholds the difference is immaterial.
 
     Attributes
     ----------
