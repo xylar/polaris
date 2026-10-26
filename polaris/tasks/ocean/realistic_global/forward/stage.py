@@ -410,6 +410,12 @@ class ForwardStage:
                     f'{supported}.'
                 )
         output_freq = int(round(duration_to_seconds(self.output_interval)))
+        if model == 'omega':
+            # Omega has no counterpart to MPAS-Ocean's write on startup, so a
+            # run shorter than its output interval would write no output at
+            # all; it writes its final state instead
+            run_seconds = int(round(duration_to_seconds(self.run_duration)))
+            output_freq = min(output_freq, run_seconds)
         stats_freq = int(round(duration_to_seconds(self.stats_interval)))
         restart_freq = int(round(duration_to_seconds(self.restart_interval)))
         return dict(
