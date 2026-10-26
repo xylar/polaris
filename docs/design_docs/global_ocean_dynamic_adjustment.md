@@ -364,7 +364,9 @@ Four rules keep a schedule honest, all enforced at setup:
   hold only the record written at startup — and both fail only after the model
   has run. `output_interval` is deliberately not checked: an interval longer
   than the stage is a legitimate way to say "no 3-D output during the damped
-  stages", which is what the ported Compass schedules do.
+  stages", which is what the ported Compass schedules do. Such a stage still
+  writes one record, its initial state for MPAS-Ocean and its final state for
+  Omega, which cannot write on startup.
 
 ### Implementation: The same conceptual workflow supports either MPAS-Ocean or Omega
 

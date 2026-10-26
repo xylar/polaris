@@ -970,7 +970,9 @@ omega_time_integrator = split_explicit
 # Run duration as an MPAS-style duration string (DDDD_HH:MM:SS)
 run_duration = 0001_00:00:00
 
-# Interval between writes to the output stream (DDDD_HH:MM:SS)
+# Interval between writes to the output stream (DDDD_HH:MM:SS).  MPAS-Ocean
+# also writes on startup; Omega cannot, so an Omega run shorter than this
+# interval writes its final state instead.
 output_interval = 0001_00:00:00
 
 # Interval between writes to the restart stream (DDDD_HH:MM:SS); leave blank to
@@ -1372,7 +1374,9 @@ restart the next stage reads is never written.  And a `stats_interval` must be
 no longer than the stage, or the statistics hold only the record written at
 startup.  `output_interval` is not checked: an interval longer than the stage is
 a legitimate way to say "no 3-D output during the damped stages", which is what
-the ported Compass schedules do.
+the ported Compass schedules do.  Such a stage still writes one record: its
+initial state for MPAS-Ocean, and its final state for Omega, which cannot write
+on startup.
 
 `start_time` belongs in the `shared` block: it is where the chain begins, and
 each stage's own start time follows from the durations before it.  The remaining
