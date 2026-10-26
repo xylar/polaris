@@ -1549,9 +1549,10 @@ Each check is skipped, with a log line, when the configured model does not
 report the quantity: Omega's `GlobalStats` has no CFL number.
 
 One caveat the thresholds cannot express: Omega's temperature is conservative
-temperature where MPAS-Ocean's is potential temperature, so `temperature_max`
-and `temperature_min` are not literally the same quantity in the two models.
-Against these thresholds the difference is immaterial.
+temperature where MPAS-Ocean's is potential temperature, and its salinity is
+absolute salinity where MPAS-Ocean's is practical salinity, so the bounds are
+not literally on the same quantities in the two models.  Against these
+thresholds the difference is immaterial.
 
 The `viz` step writes `dynamic_adjustment_stats.png` from the same statistics,
 plotting kinetic energy (maximum, mean and domain-integrated), maximum normal
@@ -1601,14 +1602,16 @@ temperature_max = 35.0
 # cavities, where water below this bound is real; revisit it if one gains them.
 temperature_min = -2.5
 
-# Maximum allowed salinity (PSU) reached during any stage, on the same terms.
-# A blow-up detector rather than a plausibility bound: the WOA23 source data
-# carries a Red Sea artifact that reaches 44.1 to 44.5 in the u-oi6to18 initial
-# conditions and then settles near 42.1 for the rest of the adjustment, since it
-# is a ~25-cell blob at 1150 m where there is almost no flow to erode it.
-# Nothing else in those initial conditions is above 42, and a real blow-up
-# produces far more than 44.
-salinity_max = 44.0
+# Maximum allowed salinity reached during any stage, on the same terms: practical
+# salinity (PSU) for MPAS-Ocean and absolute salinity (g/kg) for Omega, about
+# 0.5% higher.  A blow-up detector rather than a plausibility bound: the WOA23
+# source data carries a Red Sea artifact that reaches 44.1 to 44.5 PSU (44.7
+# g/kg) in the u-oi6to18 initial conditions.  In MPAS-Ocean it settles near 42.1
+# within a few hours, but Omega erodes it far more slowly, since it is a
+# ~25-cell blob at 1150 m where there is almost no flow to erode it.  Nothing
+# else in those initial conditions is above 42, and a real blow-up produces far
+# more than 45.
+salinity_max = 45.0
 
 # A window at the start of the adjustment, in addition to each stage's first
 # sample, over which the tracer extremes are not checked, as an MPAS duration
