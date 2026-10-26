@@ -160,9 +160,14 @@ rewrites the config.  Do not map `config_hmix_scaleWithMesh` to
 `MeshScalingEnable` in `mpaso_to_omega.yaml`: a stated reference would then
 reach Omega unconverted.
 
-An unsupported `omega_time_integrator`, and a `damping` Omega cannot honor, are
-errors at run time rather than at setup, so that a task can be set up and the
-config changed before it is run.
+An unsupported `omega_time_integrator` is an error at run time rather than at
+setup, so that a task can be set up and the config changed before it is run.
+
+Damping reaches Omega as its `RayleighDamping` group, which is not mapped in
+`mpaso_to_omega.yaml` because MPAS-Ocean turns damping on through
+`config_implicit_bottom_drag_type` rather than a switch of its own.  The forward
+step adds `omega_damping.yaml` to a damped stage only, so that an undamped run
+does not need an Omega build that has the group.
 
 ### InitialCondition
 

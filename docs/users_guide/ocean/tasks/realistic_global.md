@@ -1005,8 +1005,9 @@ btr_dt =
 rk4_dt =
 
 # Rayleigh damping coefficient (1/s); leave blank for no Rayleigh damping.
-# MPAS-Ocean only: Omega has no Rayleigh damping, so a non-blank value is an
-# error there (https://github.com/E3SM-Project/Omega/issues/495)
+# Applied in every layer by both models: through MPAS-Ocean's
+# constant_and_rayleigh bottom drag and Omega's RayleighDamping.  For Omega, a
+# non-blank value needs a build with RayleighDamping.
 damping =
 
 # Horizontal mixing coefficients.  A blank value turns the corresponding term
@@ -1400,12 +1401,11 @@ MPAS-Ocean run.  It does not raise for Omega; it is simply not translated, and
 an Omega run proceeds without it.
 :::
 
-:::{warning}
-Rayleigh damping is MPAS-Ocean only.  Omega has no equivalent
-([Omega#495](https://github.com/E3SM-Project/Omega/issues/495)), so a stage that
-sets `damping` raises when the configured model is Omega rather than running
-undamped and reporting success.  An Omega dynamic adjustment therefore needs a
-schedule with no damping at all, which is not what these shipped schedules are.
+:::{note}
+`damping` applies to both models: MPAS-Ocean's `constant_and_rayleigh` bottom
+drag and Omega's `RayleighDamping` both damp the velocity in every layer.  An
+Omega dynamic adjustment needs an Omega build that has `RayleighDamping`; the
+undamped `simulation` stage, and any other forward run, does not.
 :::
 
 ### restart chaining

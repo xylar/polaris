@@ -619,8 +619,8 @@
    stage.ForwardStage.model_replacements
    stage.ForwardStage.stats_period
    stage.ForwardStage.stats_filename
-   stage.ForwardStage.check_damping_supported
    stage.ForwardStage.bottom_drag_options
+   stage.ForwardStage.omega_damping_replacements
    stage.ForwardStage.restart_stream_replacements
    stage.ForwardStage.horiz_mixing_options
    stage.ForwardStage.omega_hmix_ratio

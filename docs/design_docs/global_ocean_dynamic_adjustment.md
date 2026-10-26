@@ -162,7 +162,7 @@ simply by omitting it.
 
 ### Algorithm Design: The same conceptual workflow supports either MPAS-Ocean or Omega
 
-Date last modified: 2026/08/11
+Date last modified: 2026/10/26
 
 Contributors: Xylar Asay-Davis, Codex, Claude
 
@@ -184,13 +184,12 @@ and that model-specific differences are isolated in one place.
 That isolation landed in the forward workflow rather than here: the mapping is
 `ForwardStage.model_replacements` and the `mpaso_to_omega.yaml` translation the
 model-neutral template already goes through, so this workflow contributes no
-model-specific code of its own. One expectation did not survive, though. Damping
-has no closest available control in Omega — Omega has no Rayleigh damping at all
-([Omega#495](https://github.com/E3SM-Project/Omega/issues/495)) — so a stage
-that sets `damping` raises for Omega rather than being approximated or dropped.
-An Omega dynamic adjustment therefore needs an undamped schedule, which none of
-the shipped ones is. Reporting success on a run that silently omitted the
-damping the schedule asked for would make the whole exercise meaningless.
+model-specific code of its own. Damping is the one control that is not a
+translation: Omega's `RayleighDamping` applies the same drag in every layer, in
+the implicit vertical-mixing solve, but MPAS-Ocean turns its damping on through
+the bottom-drag type rather than a switch of its own. The forward step adds the
+group to a damped stage's Omega config directly, and leaves it out of an
+undamped one, so that only damped stages need an Omega build that has it.
 
 ### Algorithm Design: Dynamic adjustment is decomposed into inspectable restart stages
 
@@ -382,7 +381,8 @@ The dynamic-adjustment code separates:
 1. Schedule parsing and restart sequencing.
 2. Common stage metadata such as duration and cadence (`ForwardStage`).
 3. Model-specific translation of time-step and damping options
-   (`ForwardStage.model_replacements` / `bottom_drag_options`).
+   (`ForwardStage.model_replacements` / `bottom_drag_options` /
+   `omega_damping_replacements`).
 
 This separation keeps the workflow portable even though Omega needs different
 config names and a different subset of controls. Since each task targets a
@@ -400,8 +400,7 @@ as described in the forward framework's design; the chain has been run on
 u-oi240-lr240 and u-oi30-lr10 with an Omega test merge that adds Rayleigh
 damping. Omega runs the adjustment with its split-explicit integrator,
 `SplitExplicitRK2`, on the schedules' split time steps; RK4 would have to
-advance on the barotropic step. The damping error described above reflects a
-current Omega limitation rather than a gap in this workflow.
+advance on the barotropic step.
 
 ### Implementation: Dynamic adjustment is decomposed into inspectable restart stages
 
@@ -572,7 +571,7 @@ are for. It is not something a suite can run.
 
 ### Testing and Validation: The same conceptual workflow supports either MPAS-Ocean or Omega
 
-Date last modified: 2026/10/20
+Date last modified: 2026/10/26
 
 Contributors: Xylar Asay-Davis, Codex, Claude
 
@@ -580,8 +579,9 @@ Model-specific tests confirm that the same staged schedule renders for either
 configured model, even though the resulting low-level options are not
 identical: the diagnostics summary is built for both, a blow-up is caught for
 both, and each model's stages declare the restart files that model writes. The
-differences that must *not* pass silently get tests of their own — a `damping`
-an Omega run cannot honor raises, and the statistics filename each model
+differences that must *not* pass silently get tests of their own — a damped
+stage gives Omega its `RayleighDamping` and an undamped one leaves the group
+out, and the statistics filename each model
 actually writes is pinned, since Omega's moves with the statistics interval and
 a name that is not found reads as a stage that wrote nothing.
 
