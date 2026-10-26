@@ -448,20 +448,29 @@ def test_bottom_drag_options():
     }
 
 
-def test_damping_is_an_error_for_omega():
-    # Omega has no Rayleigh damping, so a damped stage cannot run there
-    stage = ForwardStage(name='damped_adjustment_1', damping=1.0e-4)
-    with pytest.raises(ValueError, match='Omega/issues/495'):
-        stage.check_damping_supported('omega')
-    # ... but it is fine for MPAS-Ocean
-    stage.check_damping_supported('mpas-ocean')
+def test_omega_damping_replacements_carry_the_coefficient():
+    replacements = ForwardStage(damping=1.0e-5).omega_damping_replacements()
+    assert replacements == {'damping_coeff': '1.000000e-05'}
 
 
-def test_no_damping_is_fine_for_either_model():
-    # an undamped stage -- the final `simulation` stage, and every stage of a
-    # simple forward run -- is unaffected
-    for model in ('mpas-ocean', 'omega'):
-        ForwardStage(name='simulation').check_damping_supported(model)
+def test_omega_damping_is_left_out_of_an_undamped_stage():
+    # leaving the group out, rather than stating it off, is what lets every
+    # undamped stage run on an Omega build without Rayleigh damping
+    assert ForwardStage().omega_damping_replacements() is None
+
+
+def test_omega_damping_yaml_turns_damping_on_with_its_coefficient():
+    replacements = ForwardStage(damping=1.0e-4).omega_damping_replacements()
+    assert replacements is not None
+    yaml = PolarisYaml.read(
+        filename='omega_damping.yaml',
+        package='polaris.tasks.ocean.realistic_global.forward',
+        replacements=replacements,
+        model='Omega',
+    )
+    damping = yaml.configs['RayleighDamping']
+    assert damping['Enable'] is True
+    assert damping['DampingCoeff'] == 1.0e-4
 
 
 # --- physics options ---
