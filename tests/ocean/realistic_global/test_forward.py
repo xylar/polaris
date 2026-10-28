@@ -460,6 +460,29 @@ def test_omega_global_stats_are_snapshots_not_reductions():
     assert names[('temperature', 'max')] == 'Temperature_SpatialMax'
 
 
+def test_omega_global_stats_include_kinetic_energy():
+    """
+    MPAS-Ocean's global statistics cover kinetic energy, which is what an
+    adjustment is judged on, so Omega's are asked for it too, alongside its
+    default fields.
+    """
+    stage = ForwardStage.from_config(_forward_config())
+    yaml = PolarisYaml.read(
+        filename='forward.yaml',
+        package='polaris.tasks.ocean.realistic_global.forward',
+        replacements=stage.model_replacements('omega', min_res=30.0),
+        model='Omega',
+    )
+    fields = yaml.configs['Analysis']['GlobalStats']['Fields']
+    assert list(fields) == [
+        'NormalVelocity',
+        'PseudoThickness',
+        'Temperature',
+        'Salinity',
+        'KineticEnergyCell',
+    ]
+
+
 def test_bottom_drag_options():
     # an undamped stage states a zero coefficient rather than leaving the
     # Registry default of 1.0e-4, which reads as though the run were damped

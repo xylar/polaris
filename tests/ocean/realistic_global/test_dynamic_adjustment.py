@@ -1319,6 +1319,28 @@ def test_open_stage_stats_gives_omegas_statistics_mpas_ocean_names():
     ]
 
 
+def test_open_stage_stats_renames_omegas_kinetic_energy():
+    """
+    Omega's kinetic-energy statistics feed the same metrics and panels as
+    MPAS-Ocean's.  Omega has no sum, so the domain-integrated kinetic energy
+    stays missing rather than being made up from the mean.
+    """
+    series = ('Time', [1.0, 2.0])
+    ds = xr.Dataset(
+        {
+            'KineticEnergyCell_SpatialMax': series,
+            'KineticEnergyCell_SpatialMean': series,
+        }
+    )
+    ds_stats = open_stage_stats(
+        _StatsComponent(ds), 'global_stats', _model_config('omega')
+    )
+    assert sorted(map(str, ds_stats.data_vars)) == [
+        'kineticEnergyCellAvg',
+        'kineticEnergyCellMax',
+    ]
+
+
 def test_open_stage_stats_drops_omegas_scalar_dimension():
     """
     Omega writes each statistic as (time, Scalar) with Scalar of length one,
