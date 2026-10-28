@@ -513,9 +513,9 @@ rather than a settling one — these runs are forced by wind alone with no surfa
 fluxes, so both should be zero to within machine noise, and `u-oi30-lr10`
 reaches -4e-17 °C/day.
 
-Omega's `GlobalStats` covers temperature, salinity, layer thickness and normal
-velocity but has no kinetic energy, CFL number or volume-weighted sums, so those
-columns are blank for an Omega run and the CFL check is skipped. A blank means
+Omega's `GlobalStats` covers temperature, salinity, layer thickness, normal
+velocity and kinetic energy but has no CFL number or volume-weighted sums, so
+those columns are blank for an Omega run and the CFL check is skipped. A blank means
 "this model does not report it", and the log says which source each metric came
 from.
 

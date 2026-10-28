@@ -1463,11 +1463,11 @@ which mean the same thing however they are obtained.  A volume-weighted mean doe
 not, so `kinetic_energy_mean` and `kinetic_energy_total` are left blank rather
 than quietly replaced with an unweighted mean.
 
-Omega's `GlobalStats` covers temperature, salinity, layer thickness and normal
-velocity but has no kinetic energy, CFL number or volume-weighted sums, so those
-columns are blank for an Omega run.  A blank means "this model does not report
-it", not that something went wrong; the log says which source each metric came
-from.
+Omega's `GlobalStats` covers temperature, salinity, layer thickness, normal
+velocity and kinetic energy but has no CFL number or volume-weighted sums, so
+`kinetic_energy_total`, `ocean_volume` and `cfl_max_in_stage` are blank for an
+Omega run.  A blank means "this model does not report it", not that something
+went wrong; the log says which source each metric came from.
 
 There are four checks, all per stage, run in a `<stage>_check` step
 immediately after that stage, so a stage that is already out of bounds stops the

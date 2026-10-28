@@ -270,8 +270,8 @@ is a forward-package `Forward` whose `dynamic_model_config()` adds
 `monthly_output.yaml` after the forward step's own yaml files, so that it
 overrides them.  The fragment replaces the `History` stream with monthly
 snapshots in `output/`, turns on the `MonthlyAverages` and `MOC` analysis
-groups with `moc_num_bins` latitude bins, adds kinetic energy and
-sea surface height to `GlobalStats`, and makes restarts monthly.  A stream's
+groups with `moc_num_bins` latitude bins, adds sea surface height to
+`GlobalStats`, and makes restarts monthly.  A stream's
 options merge across yaml files, so the fragment has to set the `History`
 stream's `FileFreq` explicitly: the forward step's value of 9999 years would
 put every snapshot into one file.  The step appends `output` to `stream_dirs`
