@@ -28,8 +28,8 @@ time step that is too long shows itself.  The viz step plots the full series,
 so the skipped values are still visible where they matter.
 
 MPAS-Ocean and Omega do not report the same statistics.  Omega's
-``GlobalStats`` covers temperature, salinity, layer thickness and normal
-velocity; it has no kinetic energy, no CFL number and no volume-weighted sums.
+``GlobalStats`` covers temperature, salinity, layer thickness, normal velocity
+and kinetic energy; it has no CFL number and no volume-weighted sums.
 A blank column therefore means "this model does not report it", not "something
 went wrong".
 """
@@ -189,6 +189,7 @@ _OMEGA_STATS_FIELDS = {
     'salinity': 'Salinity',
     'layerThickness': 'PseudoThickness',
     'normalVelocity': 'NormalVelocity',
+    'kineticEnergyCell': 'KineticEnergyCell',
 }
 
 # The statistics renamed for Omega.  MPAS-Ocean's root-mean-square and

@@ -68,8 +68,8 @@ class Panel:
 
 # The panels, in the order they are drawn.  Kinetic energy comes first: it is
 # what the adjustment is judged on.  A panel whose series are all missing --
-# Omega reports no kinetic energy, CFL number or volume-weighted sums -- is
-# dropped, and the grid closes up around it.
+# Omega reports no CFL number or volume-weighted sums -- is dropped, and the
+# grid closes up around it.
 PANELS: Tuple[Panel, ...] = (
     Panel(
         'cell kinetic energy',
