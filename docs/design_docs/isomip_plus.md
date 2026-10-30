@@ -1056,15 +1056,15 @@ the pressure cannot be adjusted.
 - Compass adjusts the pressure, so the two differ in how the pressure
   and SSH are balanced, not only in the initial pressure.
 
-### D14: The wetting and drying loads follow Compass#896
+### D14: The wetting and drying loads follow Compass's thin-film runs
 
 Date last modified: 2026/10/07
 
 Contributors: Xylar Asay-Davis, Claude
 
 `drying` thickens the Ocean1 ice by 5 % and then 10 %, and `wetting`
-thins it by the same amounts, as in
-[MPAS-Dev/compass#896](https://github.com/MPAS-Dev/compass/pull/896).
+thins it by the same amounts, as Compass's thin-film runs do
+([MPAS-Dev/compass#896](https://github.com/MPAS-Dev/compass/pull/896)).
 The first version of this design doubled or removed the ice.
 `inception` still grows the ice from nothing.
 
@@ -1114,11 +1114,12 @@ Contributors: Xylar Asay-Davis, Claude
 
 The thin film is $10^{-3}$ m thick per active layer, so its thickness
 depends on the bed depth. The layers share it in proportion to their
-resting thickness, as in the rest of the z-star column. With
-[E3SM-Ocean-Discussion#119](https://github.com/E3SM-Ocean-Discussion/E3SM/pull/119),
-MPAS-Ocean caps the land-ice pressure in grounded cells at the
-floatation pressure of that column. The film therefore starts in
-balance with the pressure the model applies.
+resting thickness, as in the rest of the z-star column. MPAS-Ocean caps
+the land-ice pressure in grounded cells at the floatation pressure of
+that column
+([E3SM-Ocean-Discussion#119](https://github.com/E3SM-Ocean-Discussion/E3SM/pull/119)).
+The film therefore starts in balance with the pressure the model
+applies.
 
 Compass, and the first version of this design, used a 1 mm film across
 all active layers. In the 4 km `drying` task, grounded cells have 6–33
@@ -1134,8 +1135,7 @@ Contributors: Xylar Asay-Davis, Claude
 
 The thin film starts with zero salinity, at the freezing point for
 that salinity and the land-ice pressure, as in MPAS-Ocean's init mode
-with
-[E3SM-Ocean-Discussion#138](https://github.com/E3SM-Ocean-Discussion/E3SM/pull/138).
+([E3SM-Ocean-Discussion#138](https://github.com/E3SM-Ocean-Discussion/E3SM/pull/138)).
 The first version of this design used the initial profile's salinity.
 
 ### D19: SSH is held at zero in the restoring region
