@@ -34,7 +34,9 @@ ocean–ice-sheet coupling:
   now changes with time;
 - MPAS-Ocean exchanges no melt or frazil with MALI where MALI has too
   little floating ice to receive it, and treats slivers of ice at the
-  calving front as open ocean.
+  calving front as open ocean;
+- MPAS-Ocean computes melt under MALI's floating ice where it holds a thin
+  film, but the film does not freeze.
 
 Polaris's inputs treat the same slivers as open ocean
 ([MISOMIP inputs design](misomip_e3sm_init.md)).
@@ -136,7 +138,7 @@ for the rest of the month.
 
 ### Algorithm Design: The ocean's ice mask follows the ice
 
-Date last modified: 2026/11/01
+Date last modified: 2026/11/02
 
 Contributors: Xylar Asay-Davis, Claude
 
@@ -147,8 +149,10 @@ applies to the geometry imported from MALI and to standalone time-varying
 land-ice forcing ([D3](#d3-standalone-land-ice-forcing-updates-the-mask-too)).
 Wetting and drying then decides where masked cells float, as now: grounded
 cells get a floating fraction of 0, and floating cells keep their input's
-fraction. The first update reproduces the initial condition's mask, and
-the mask is in the restart stream.
+fraction, except under MALI's floating ice
+([D7](#d7-thin-film-cells-melt-under-malis-floating-ice)). The first
+update reproduces the initial condition's mask, and the mask is in the
+restart stream.
 
 ```{admonition} Rationale
 The mask comes from the initial condition and never changes. Only masked
@@ -162,7 +166,7 @@ floating fraction, but are otherwise treated as ice-covered.
 
 ### Algorithm Design: Ice-shelf water reaches the ice sheet
 
-Date last modified: 2026/11/01
+Date last modified: 2026/11/02
 
 Contributors: Xylar Asay-Davis, Claude
 
@@ -179,6 +183,20 @@ In 4 km Ocean4, frazil formed in two calving-front cells holding slivers of
 ice (fractions 1.8e-4 and 6.3e-5). The ocean booked it as leaving to MALI,
 but sent none, so the exchange's daily budget missed 3–6 %. Grounding-line
 cells with a sliver of floating ice can leak the same way.
+```
+
+Where the ice draft lies below the sea floor, so that wetting and drying
+holds the column as a thin film, a cell coupled to MALI keeps its imported
+floating fraction rather than grounding. Where MALI's floating fraction is
+above the threshold, it computes melt in proportion to that fraction. Where
+it would freeze, it exchanges nothing with the ice, and it forms no frazil
+([D7](#d7-thin-film-cells-melt-under-malis-floating-ice)).
+
+```{admonition} Rationale
+These cells got a floating fraction of 0, so MALI's floating ice next to
+the grounding line received no melt. In 4 km Ocean4, they hold 0.5 % of
+MALI's floating area. The film is fresh and at the freezing point, so its
+melt is about zero, but it is not set to zero.
 ```
 
 ### Algorithm Design: One ocean density relates pressure and depth
@@ -220,7 +238,7 @@ undefined behavior and the work is repeated once per thread.
 
 ### Implementation: Branches and pull requests
 
-Date last modified: 2026/11/01
+Date last modified: 2026/11/02
 
 Contributors: Xylar Asay-Davis, Claude
 
@@ -236,6 +254,7 @@ only code:
 | `ocn/land-ice-geometry-in-monthly-means` | the monthly means include the land-ice geometry |
 | `ocn/skip-frazil-without-glc-floating-ice` | no frazil or melt where MALI's floating fraction is at most the sending threshold |
 | `ocn/ignore-tiny-glc-ice-fractions` | imported slivers of ice are open ocean; stacked on the previous branch |
+| `ocn/thin-film-melt-under-glc-floating-ice` | thin-film cells under MALI's floating ice melt but do not freeze |
 
 The cap came from
 [E3SM-Ocean-Discussion#119](https://github.com/E3SM-Ocean-Discussion/E3SM/pull/119),
@@ -312,11 +331,26 @@ own remapped floating fraction, to compare with the ocean's. The monthly
 means cannot include `landIceMask`, since only real fields are averaged. A
 cell with a positive mean ice fraction had ice during the month.
 
+### Implementation: Melt in thin-film cells
+
+Date last modified: 2026/11/02
+
+Contributors: Xylar Asay-Davis, Claude
+
+When coupled to MALI, `ocn_wetting_drying_update_land_ice` keeps the
+floating mask and fraction of a cell whose draft lies below the sea floor
+if its imported floating fraction is positive. A function in the land-ice
+flux module tests whether a cell is such a film cell: coupled to MALI,
+with wetting and drying, and with the draft below the sea floor. The flux
+code sets all three land-ice fluxes to 0 in a film cell whose freshwater
+flux is negative, and the frazil code skips film cells. Standalone runs,
+and coupled runs without wetting and drying, do not change.
+
 ## Testing
 
 ### Testing and Validation: Ocean3 and Ocean4 in E3SM
 
-Date last modified: 2026/11/01
+Date last modified: 2026/11/02
 
 Contributors: Xylar Asay-Davis, Claude
 
@@ -338,6 +372,9 @@ commit:
   cell.
 - The threading change runs 4 km Ocean3 in E3SM for 5 days with 2 threads
   per ocean task and without threads, and the two agree bit for bit.
+- After the thin-film change, `fanssie_pr` is bit for bit. In 4 km Ocean4
+  in E3SM, film cells under MALI's floating ice have melt, never freeze or
+  form frazil, and stay at or above the film's minimum thickness.
 
 With all of these changes, 4 km Ocean3 and Ocean4 run in E3SM with RK4 for a
 length agreed beforehand that spans several record changes. They are
@@ -461,3 +498,35 @@ Rejected:
   exchange with MALI wherever MALI can receive it;
 - reporting the unsent flux to the coupler in a new budget row. The row
   would change the size of the budget sums in the coupler's restart files.
+
+### D7: Thin-film cells melt under MALI's floating ice
+
+Date last modified: 2026/11/02
+
+Contributors: Xylar Asay-Davis, Claude
+
+When coupled to MALI with wetting and drying, a cell held as a thin film
+keeps its imported floating fraction. Where MALI's floating fraction is
+above the sending threshold, it computes melt in proportion to that
+fraction, as every floating cell does. It does not freeze or form frazil.
+The pressure and its cap do not change. For coupled runs, this replaces
+the rule that thin-film cells have a floating fraction of 0. Melt computed
+from neighboring cells is left to subgrid wetting and drying.
+
+```{admonition} Rationale
+The coupling design applies melt over MALI's floating fraction in every
+cell with ice. Freezing or frazil would take water from a column already
+at the film's minimum. The wetting-and-drying limiter does not stop that,
+since it limits only transport out of the cell.
+```
+
+Rejected:
+
+- limiting freezing to the water above the film's minimum. The film sits
+  at its minimum, so this is the same as no freezing, with more code;
+- a separate exchange mask in place of the floating mask. The
+  boundary-layer, flux, frazil and export code all follow the floating
+  mask, so each would need the new one;
+- testing MALI's floating fraction when deciding whether a film cell
+  floats. That fraction is not in the restart stream, so a restart would
+  ground film cells until the first import.
