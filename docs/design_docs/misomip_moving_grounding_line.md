@@ -271,7 +271,14 @@ a copy of the floating mask mapped with that map
 - With the geometry imported, the ocean spreads the conductive heat over
   its own floating fraction. It now uses the larger of its own and MALI's,
   which conserves heat only where its own is the larger; smoothing makes
-  it the smaller near the ice front.
+  it the smaller near the ice front. Without the import, it still uses the
+  larger.
+- In a cell where MALI's floating fraction is above the sending threshold
+  but the ocean's is not, the conductive heat MALI sends is not applied.
+  Smoothing spreads each cell's ice over a wider area, so the ocean's
+  fraction is positive wherever MALI's is, but it can fall to the
+  threshold or below, where the ocean treats the cell as open ocean. The
+  smoothed Ocean3 test measures that heat.
 
 Polaris builds the ocean's initial land-ice fields from the same map,
 applied as the coupler applies it, so the first import still reproduces the
@@ -447,7 +454,9 @@ commit:
   in E3SM with `GLC2OCN_SMAPNAME` equal to `GLC2OCN_FMAPNAME`. With the
   smoothing map and inputs built from it, the first import and every later
   update match Polaris's smoothed initial condition and forcing, and the
-  coupler's budgets for the ice-shelf water exchange still close.
+  coupler's budgets for the ice-shelf water exchange still close. The test
+  reports the conductive heat that MALI sends to cells where the ocean has
+  no floating ice.
 
 With all of these changes, 4 km Ocean3 and Ocean4 run in E3SM with RK4 for a
 length agreed beforehand that spans several record changes. They are
