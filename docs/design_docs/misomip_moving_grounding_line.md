@@ -36,7 +36,9 @@ ocean–ice-sheet coupling:
   little floating ice to receive it, and treats slivers of ice at the
   calving front as open ocean;
 - MPAS-Ocean computes melt under MALI's floating ice where it holds a thin
-  film, but the film does not freeze.
+  film, but the film does not freeze;
+- the coupler can map MALI's geometry to the ocean with a smoothing map,
+  while fluxes keep the conservative map.
 
 Polaris's inputs treat the same slivers as open ocean
 ([MISOMIP inputs design](misomip_e3sm_init.md)).
@@ -102,6 +104,16 @@ Contributors: Xylar Asay-Davis, Claude
 Melt and frazil that leave the ocean under the ice shelf are the ice-shelf
 exchange that MALI receives, so the coupler's budget for that exchange
 closes.
+
+### Requirement: Smoothed geometry keeps fluxes conserved
+
+Date last modified: 2026/11/04
+
+Contributors: Xylar Asay-Davis, Claude
+
+The ocean can import MALI's geometry smoothed, as its initial condition is,
+without changing how much melt, frazil or conductive heat crosses between
+MPAS-Ocean and MALI.
 
 ## Algorithm Design
 
@@ -234,6 +246,46 @@ read it. The values agree, so answers have not differed, but the race is
 undefined behavior and the work is repeated once per thread.
 ```
 
+### Algorithm Design: Smoothed geometry keeps fluxes conserved
+
+Date last modified: 2026/11/04
+
+Contributors: Xylar Asay-Davis, Claude
+
+The coupler maps MALI's four geometry fields (land-ice pressure, grounded
+and floating masks, and the mask of bed below sea level) to the ocean with
+the glc-to-ocean state map, which can smooth them. It maps the conductive
+heat flux with the conservative flux map, as now, and also sends the ocean
+a copy of the floating mask mapped with that map
+([D8](#d8-geometry-and-fluxes-use-separate-maps)).
+
+- The ocean's geometry comes from the smoothed fields, as now from the
+  conservative ones: the ratio of pressure and of each mask to the
+  below-sea-level mask.
+- The conservative copy is MALI's floating fraction in the ocean, which
+  sets where the ocean exchanges melt and frazil with MALI
+  ([D6](#d6-no-ice-shelf-exchange-where-mali-cannot-receive-it)) and
+  normalizes the melt it sends. That is what makes the exchange
+  conservative, so it is unchanged. Where smoothing spreads ice into cells
+  that MALI's floating ice does not reach, the ocean computes no melt.
+- With the geometry imported, the ocean spreads the conductive heat over
+  its own floating fraction. It now uses the larger of its own and MALI's,
+  which conserves heat only where its own is the larger; smoothing makes
+  it the smaller near the ice front.
+
+Polaris builds the ocean's initial land-ice fields from the same map,
+applied as the coupler applies it, so the first import still reproduces the
+initial condition. Without a smoothing map, the state map is the flux map
+and nothing changes.
+
+```{admonition} Rationale
+The geometry is smoothed to soften the steps in the draft and bed at the
+grounding line, which drive pressure-gradient error. The coupler now maps
+every ice-shelf field conservatively, so the ocean's geometry cannot be
+smoothed without also smoothing the fluxes and the floating fraction that
+conserves them.
+```
+
 ## Implementation
 
 ### Implementation: Branches and pull requests
@@ -346,6 +398,22 @@ code sets all three land-ice fluxes to 0 in a film cell whose freshwater
 flux is negative, and the frazil code skips film cells. Standalone runs,
 and coupled runs without wetting and drying, do not change.
 
+### Implementation: Separate maps for geometry and fluxes
+
+Date last modified: 2026/11/04
+
+Contributors: Xylar Asay-Davis, Claude
+
+`prep_ocn_shelf_calc_g2x_ox` maps the conductive heat flux and the floating
+mask with `mapper_Fg2o` (`GLC2OCN_FMAPNAME`) and copies the mapped mask to a
+new field, `Sg_icemask_floating_fluxes`. It then maps the four geometry
+fields with `mapper_Sg2o` (`GLC2OCN_SMAPNAME`), which is already read but
+unused. MPAS-Ocean fills `landIceGlcFloatingFraction` from the new field.
+`config_grids.xml` gives `GLC2OCN_SMAPNAME` bilinear maps for several
+glc–ocean grids; those entries take their `GLC2OCN_FMAPNAME` files, so
+existing cases are bit for bit. The MISOMIP case configurations set
+`GLC2OCN_SMAPNAME` to the smoothing map that Polaris builds.
+
 ## Testing
 
 ### Testing and Validation: Ocean3 and Ocean4 in E3SM
@@ -375,6 +443,11 @@ commit:
 - After the thin-film change, `fanssie_pr` is bit for bit. In 4 km Ocean4
   in E3SM, film cells under MALI's floating ice have melt, never freeze or
   form frazil, and stay at or above the film's minimum thickness.
+- After the map change, `fanssie_pr` is bit for bit, and so is 4 km Ocean3
+  in E3SM with `GLC2OCN_SMAPNAME` equal to `GLC2OCN_FMAPNAME`. With the
+  smoothing map and inputs built from it, the first import and every later
+  update match Polaris's smoothed initial condition and forcing, and the
+  coupler's budgets for the ice-shelf water exchange still close.
 
 With all of these changes, 4 km Ocean3 and Ocean4 run in E3SM with RK4 for a
 length agreed beforehand that spans several record changes. They are
@@ -530,3 +603,25 @@ Rejected:
 - testing MALI's floating fraction when deciding whether a film cell
   floats. That fraction is not in the restart stream, so a restart would
   ground film cells until the first import.
+
+### D8: Geometry and fluxes use separate maps
+
+Date last modified: 2026/11/04
+
+Contributors: Xylar Asay-Davis, Claude
+
+The geometry uses the existing glc-to-ocean state map, and the fluxes and
+MALI's floating fraction in the ocean use the flux map. With the geometry
+imported, the conductive heat is spread over the ocean's own floating
+fraction.
+
+Rejected:
+
+- smoothing the fluxes too, with MALI's floating fraction from the same
+  map. The ocean-to-glc map would no longer undo the glc-to-ocean one, so
+  the exchange would not be conservative;
+- a new map variable for the ice-shelf geometry. The state map is already
+  read for ice-shelf coupling and used for nothing else;
+- keeping the larger of the two floating fractions for the conductive
+  heat. Near the ice front, heat would be lost where smoothing leaves the
+  ocean less floating ice than MALI has.
