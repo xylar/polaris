@@ -1,0 +1,91 @@
+schema_version: 1
+requester: xylar
+pull_request: 897
+pr_head: 0531e0db4e2d5ed99a9f445acc0df9fb2da9bd1f
+polaris_version: 1.3.0-alpha.1
+omega_commit: 7857193227396ad7fb23e4c85dd918aa649059e7
+e3sm_commit: e15d4e6995043eeec6cdb90ff431cc9c7d4d9097
+omega_merge:
+  commit: 1e08c46925cbdf4ef37015e80abea0a2b715689b
+  pull_requests:
+  - pull_request: 639
+    commit: 2c6af3e367f82271b1f83d29814503bc228e9977
+  - pull_request: 643
+    commit: 956ae68e041adc5ffd568c75a1a45444df0acdec
+  e3sm_pull_requests:
+  - pull_request: 9071
+    commit: e15d4e6995043eeec6cdb90ff431cc9c7d4d9097
+  fork: git@github.com:xylar/E3SM.git
+  branch: polaris-update-test/897-0531e0d-omega
+baseline:
+  polaris_commit: c20ab40e989f4146735425d84fb1860680db1c71
+  polaris_version: 1.2.0-alpha.5
+  omega_commit: 11e7cbc8176ba35bb2c660df931955e504124d17
+  e3sm_commit: 69ca4f899478b21b03b7c4b58f18e22375eac20f
+baseline_is_main: true
+rows:
+- machine: aurora
+  compiler: intel
+  mpi: mpich
+  model: omega
+- machine: aurora
+  compiler: intelgpu
+  mpi: mpich
+  model: omega
+- machine: chrysalis
+  compiler: gnu
+  mpi: openmpi
+  model: mpas-ocean
+- machine: chrysalis
+  compiler: intel
+  mpi: openmpi
+  model: omega
+- machine: chrysalis
+  compiler: gnu
+  mpi: openmpi
+  model: omega
+- machine: frontier
+  compiler: craygnu
+  mpi: mpich
+  model: mpas-ocean
+- machine: frontier
+  compiler: craycray
+  mpi: mpich
+  model: mpas-ocean
+- machine: frontier
+  compiler: craygnu
+  mpi: mpich
+  model: omega
+- machine: frontier
+  compiler: craygnu-mphipcc
+  mpi: mpich
+  model: omega
+- machine: frontier
+  compiler: craycray
+  mpi: mpich
+  model: omega
+- machine: frontier
+  compiler: craycray-mphipcc
+  mpi: mpich
+  model: omega
+- machine: pm-cpu
+  compiler: gnu
+  mpi: mpich
+  model: mpas-ocean
+- machine: pm-cpu
+  compiler: intel
+  mpi: mpich
+  model: mpas-ocean
+- machine: pm-cpu
+  compiler: gnu
+  mpi: mpich
+  model: omega
+- machine: pm-cpu
+  compiler: intel
+  mpi: mpich
+  model: omega
+- machine: pm-gpu
+  compiler: gnugpu
+  mpi: mpich
+  model: omega
+notes:
