@@ -4,7 +4,13 @@ cwd=${PWD}
 
 {{ nersc_host }}
 module load cmake
-module load python
+
+# CIME, which Omega's CMake configuration runs, imports packages such as
+# psutil that a machine's python module may lack, so use Polaris' python
+mkdir -p {{ python_dir }}
+ln -sfn {{ python }} {{ python_dir }}/python3
+ln -sfn {{ python }} {{ python_dir }}/python
+export PATH="{{ python_dir }}:${PATH}"
 
 # quit on errors
 set -e

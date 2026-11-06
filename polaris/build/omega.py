@@ -2,6 +2,7 @@ import importlib.resources
 import os
 import shutil
 import subprocess
+import sys
 from typing import Optional, Tuple
 
 from jinja2 import Template
@@ -173,6 +174,9 @@ def make_build_script(
     else:
         nersc_host = ''
 
+    # a directory with links to the python running Polaris, for CIME
+    python_dir = os.path.join(os.path.abspath(build_dir), 'polaris_python')
+
     script = template.render(
         update_omega_submodule=update_omega_submodule,
         polaris_source_dir=polaris_source_dir,
@@ -186,6 +190,8 @@ def make_build_script(
         cmake_flags=cmake_flags,
         nersc_host=nersc_host,
         build_command=build_command,
+        python=sys.executable,
+        python_dir=python_dir,
     )
     script_filename = f'build_omega_{machine}_{compiler}.sh'
     script_filename = os.path.join(build_dir, script_filename)
